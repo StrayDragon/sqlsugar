@@ -1,0 +1,7 @@
+# sqls configuration for local MySQL in docker-compose
+# See https://github.com/sqls-server/sqls for details
+lowercaseKeywords: false
+connections:
+  - alias: local_mysql
+    driver: mysql
+    dataSourceName: testuser:testpass@tcp(127.0.0.1:3306)/testdb

@@ -1,0 +1,73 @@
+name: Release Extension
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build extension
+        run: pnpm run package
+
+      - name: Package VSIX
+        run: pnpm run vsix
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "tag=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Rename VSIX with version
+        run: |
+          mv sqlsugar.vsix sqlsugar-${{ steps.version.outputs.version }}.vsix
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            ## SQLSugar Extension ${{ steps.version.outputs.version }}
+
+            ### Installation
+            Download the `sqlsugar-${{ steps.version.outputs.version }}.vsix` file and install it in VS Code:
+            1. Open VS Code
+            2. Press `Ctrl+Shift+P` (or `Cmd+Shift+P` on Mac)
+            3. Type "Extensions: Install from VSIX..."
+            4. Select the downloaded VSIX file
+
+            ### Changes
+            See [CHANGELOG.md](CHANGELOG.md) for detailed changes.
+          files: |
+            sqlsugar-${{ steps.version.outputs.version }}.vsix
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

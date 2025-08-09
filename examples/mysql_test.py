@@ -1,5 +1,4 @@
 import os
-import sys
 import pymysql
 
 # Optional: SQLAlchemy for text() with named placeholders like :id
@@ -44,23 +43,30 @@ def run_with_pymysql():
             # 2) Triple-quoted multi-line SQL literal
             multi_sql = (
                 """
-SELECT p.id, p.title, u.username
-                FROM posts p
-                JOIN users u ON u.id = p.user_id
-                WHERE p.published_at IS NOT NULL
-                AND p.content == ""
-                AND p.published_at < NOW()
-                AND p.id NOT IN (
-                    SELECT post_id
-                    FROM post_tags
-                    WHERE tag_id IN (
-                        SELECT id
-                        FROM tags
-                        WHERE name IN ('tag1', 'tag2')
-                    )
-                )
-                ORDER BY p.id DESC
-                LIMIT 5
+SELECT
+    p.id,
+    p.title,
+    u.username
+FROM posts AS p
+INNER JOIN users AS u ON p.user_id = u.id
+WHERE
+    p.published_at IS NOT NULL
+    AND p.content = ""
+    AND p.published_at < NOW()
+    AND p.id NOT IN (
+        SELECT post_id
+        FROM post_tags
+        WHERE tag_id IN (
+            SELECT id
+            FROM tags
+            WHERE name IN ("tag1", "tag2")
+        )
+    )
+ORDER BY p.id DESC
+LIMIT 5
+)
+ORDER BY p.id DESC
+LIMIT 5
                 """
             )
             cur.execute(multi_sql)
@@ -94,10 +100,14 @@ def run_with_sqlalchemy():
         # 2) Triple-quoted multi-line + named placeholder :id
         sql = text(
             """
-            SELECT p.id, p.title, u.username
-            FROM posts p
-            JOIN users u ON u.id = p.user_id
-            WHERE p.id = :id
+SELECT
+    p.id,
+    p.title,
+    u.username
+FROM posts AS p
+INNER JOIN users AS u ON p.user_id = u.id
+WHERE p.id = :id
+AND p.published_at IS NOT NULL
             """
         )
         res = conn.execute(sql, {"id": 1})

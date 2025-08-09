@@ -15,5 +15,16 @@
     // SQLSugar test settings
     "sqlsugar.sqlsConfigPath": "${workspaceFolder}/docker/sqls-config.yml",
     "sqlsugar.autoFormat": true,
-    "sqlsugar.tempFileCleanup": true
+    "sqlsugar.tempFileCleanup": true,
+
+    // SQLFluff configuration
+    "sqlfluff.dialect": "mysql",
+    "sqlfluff.format.enabled": true,
+    "sqlfluff.linter.run": "onSave",
+    "sqlfluff.linter.diagnosticSeverity": "warning",
+    "sqlfluff.format.arguments": ["--FIX-EVEN-UNPARSABLE"],
+    "sqlfluff.excludeRules": ["L009", "L016", "L006", "L039", "L057", "RF02", "LT12"],
+    "sqlfluff.workingDirectory": "${workspaceFolder}",
+    "sqlfluff.config": "${workspaceFolder}/.sqlfluff",
+    "editor.formatOnSave": false
 }

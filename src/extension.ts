@@ -71,9 +71,6 @@ export function activate(context: vscode.ExtensionContext) {
 			const newSQL = doc.getText();
 			await replaceSelection(editor, selection, wrapLike(raw, newSQL));
 
-			if (getConfig('sqlsugar.autoFormat', true)) {
-				await formatDocumentIfPossible(editor.document);
-			}
 			vscode.window.showInformationMessage('Inline SQL updated.');
 
 			// cleanup behavior: delete on save only when cleanupOnClose is false
@@ -173,35 +170,6 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 			{ scheme: 'file', pattern: '**/*.sql' },
 		],
 		outputChannelName: 'sqls',
-		middleware: {
-			provideDocumentFormattingEdits: async (document, options, token, next) => {
-				const disableInTemp = getConfig('sqlsugar.disableFormatInTemp', true);
-				const p = path.normalize(document.uri.fsPath);
-				const isTemp = p.includes(`${path.sep}.vscode${path.sep}sqlsugar${path.sep}temp${path.sep}`);
-				if (disableInTemp && isTemp) {
-					return [];
-				}
-				return next(document, options, token);
-			},
-			provideDocumentRangeFormattingEdits: async (document, range, options, token, next) => {
-				const disableInTemp = getConfig('sqlsugar.disableFormatInTemp', true);
-				const p = path.normalize(document.uri.fsPath);
-				const isTemp = p.includes(`${path.sep}.vscode${path.sep}sqlsugar${path.sep}temp${path.sep}`);
-				if (disableInTemp && isTemp) {
-					return [];
-				}
-				return next(document, range, options, token);
-			},
-			provideOnTypeFormattingEdits: async (document, position, ch, options, token, next) => {
-				const disableInTemp = getConfig('sqlsugar.disableFormatInTemp', true);
-				const p = path.normalize(document.uri.fsPath);
-				const isTemp = p.includes(`${path.sep}.vscode${path.sep}sqlsugar${path.sep}temp${path.sep}`);
-				if (disableInTemp && isTemp) {
-					return [];
-				}
-				return next(document, position, ch, options, token);
-			},
-		},
 	};
 
 	// If a previous client is running, stop it first
@@ -304,10 +272,4 @@ function simpleHash(str: string): number {
 
 function getConfig<T>(key: string, defaultValue: T): T {
 	return vscode.workspace.getConfiguration().get<T>(key, defaultValue);
-}
-
-async function formatDocumentIfPossible(doc: vscode.TextDocument) {
-	try {
-		await vscode.commands.executeCommand('editor.action.formatDocument');
-	} catch {}
 }

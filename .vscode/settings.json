@@ -14,7 +14,7 @@
 
     // SQLSugar test settings
     "sqlsugar.sqlsConfigPath": "${workspaceFolder}/docker/sqls-config.yml",
-    "sqlsugar.autoFormat": true,
+
     "sqlsugar.tempFileCleanup": true,
 
     // SQLFluff configuration

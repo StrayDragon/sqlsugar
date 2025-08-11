@@ -41,35 +41,48 @@ export function activate(context: vscode.ExtensionContext) {
 			if (confirm !== 'Continue') { return; }
 		}
 
+		// Check for ORM placeholders and convert them for sqls compatibility
+		const { hasPlaceholders, convertedSQL } = convertPlaceholdersToTemp(unquoted);
+		if (hasPlaceholders) {
+			vscode.window.showInformationMessage('Detected ORM placeholders - converted for editing compatibility.');
+		}
+
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		const baseDir = workspaceFolder?.uri.fsPath ?? context.globalStorageUri.fsPath;
 		const tempRoot = path.join(baseDir, '.vscode', 'sqlsugar', 'temp');
 		await fs.promises.mkdir(tempRoot, { recursive: true });
 
 		const timestamp = Date.now();
-		const hash = simpleHash(unquoted).toString(16);
+		const hash = simpleHash(convertedSQL).toString(16);
 		const tempFileName = `temp_sql_${timestamp}_${hash}.sql`;
 		const tempFilePath = path.join(tempRoot, tempFileName);
 
-		await fs.promises.writeFile(tempFilePath, unquoted, 'utf8');
+		await fs.promises.writeFile(tempFilePath, convertedSQL, 'utf8');
 
 		const tempDocPath = tempFilePath;
 		let tempDoc = await vscode.workspace.openTextDocument(tempDocPath);
 		if (tempDoc.languageId !== 'sql') {
 			try {
 				tempDoc = await vscode.languages.setTextDocumentLanguage(tempDoc, 'sql');
-			} catch {}
+			} catch { }
 		}
 		await vscode.window.showTextDocument(tempDoc, {
 			preview: false,
 			viewColumn: vscode.ViewColumn.Beside
 		});
 
+		// Create disposable listeners for this specific temp file
+		const tempDisposables: vscode.Disposable[] = [];
+
 		// On save of temp file, write back to original
 		const saveDisposable = vscode.workspace.onDidSaveTextDocument(async (doc) => {
 			if (doc.uri.fsPath !== tempFilePath) { return; }
+			
 			const newSQL = doc.getText();
-			await replaceSelection(editor, selection, wrapLike(raw, newSQL));
+
+			// Convert temp placeholders back to original format before writing back
+			const restoredSQL = convertPlaceholdersFromTemp(newSQL);
+			await replaceSelection(editor, selection, wrapLike(raw, restoredSQL));
 
 			vscode.window.showInformationMessage('Inline SQL updated.');
 
@@ -77,7 +90,9 @@ export function activate(context: vscode.ExtensionContext) {
 			const shouldCleanup = getConfig('sqlsugar.tempFileCleanup', true);
 			const cleanupOnClose = getConfig('sqlsugar.cleanupOnClose', true);
 			if (shouldCleanup && !cleanupOnClose) {
-				try { await fs.promises.unlink(tempFilePath); } catch {}
+				try { await fs.promises.unlink(tempFilePath); } catch { }
+				// Only clean up listeners when file is actually deleted
+				cleanupTempListeners(tempDisposables);
 			}
 		});
 
@@ -87,12 +102,14 @@ export function activate(context: vscode.ExtensionContext) {
 			const shouldCleanup = getConfig('sqlsugar.tempFileCleanup', true);
 			const cleanupOnClose = getConfig('sqlsugar.cleanupOnClose', true);
 			if (shouldCleanup && cleanupOnClose) {
-				try { await fs.promises.unlink(tempFilePath); } catch {}
+				try { await fs.promises.unlink(tempFilePath); } catch { }
 			}
+			// Always clean up listeners when document is closed
+			cleanupTempListeners(tempDisposables);
 		});
 
-		disposables.push(saveDisposable);
-		disposables.push(closeDisposable);
+		tempDisposables.push(saveDisposable);
+		tempDisposables.push(closeDisposable);
 	});
 
 	// Helper command: Configure sqls executable path
@@ -125,8 +142,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 function deactivateTempListeners(disposables: vscode.Disposable[]) {
 	while (disposables.length) {
-		try { disposables.pop()?.dispose(); } catch {}
+		try { disposables.pop()?.dispose(); } catch { }
 	}
+}
+
+function cleanupTempListeners(disposables: vscode.Disposable[]) {
+	// Alias to make intent clear for per-temp-file listeners
+	deactivateTempListeners(disposables);
 }
 
 export async function deactivate() {
@@ -174,7 +196,7 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 
 	// If a previous client is running, stop it first
 	if (client) {
-		try { client.stop(); } catch {}
+		try { client.stop(); } catch { }
 		client = undefined;
 	}
 
@@ -259,8 +281,10 @@ function looksLikeSQL(text: string): boolean {
 }
 
 async function replaceSelection(editor: vscode.TextEditor, sel: vscode.Selection, newText: string) {
+	// Ensure we operate on a fresh selection from the same range to avoid stale references
+	const range = new vscode.Range(sel.start, sel.end);
 	await editor.edit(editBuilder => {
-		editBuilder.replace(sel, newText);
+		editBuilder.replace(range, newText);
 	});
 }
 
@@ -272,4 +296,29 @@ function simpleHash(str: string): number {
 
 function getConfig<T>(key: string, defaultValue: T): T {
 	return vscode.workspace.getConfiguration().get<T>(key, defaultValue);
+}
+
+/**
+ * Convert ORM placeholders (:placeholder) to temp string format ("__:placeholder") for sqls compatibility
+ * - Converts :placeholder to "__:placeholder" (quoted string literal)
+ * - Avoids matching times like 12:34
+ * - Avoids matching Postgres casts ::type
+ */
+function convertPlaceholdersToTemp(sql: string): { hasPlaceholders: boolean; convertedSQL: string } {
+	// Match `:name` where the preceding char is start or not a colon/word/$
+	// Capture the preceding char to preserve it in replacement
+	const regex = /(^|[^:\w$]):([A-Za-z_][\w]*)/g;
+	let has = false;
+	const convertedSQL = sql.replace(regex, (_m, pre: string, name: string) => {
+		has = true;
+		return `${pre}"__:${name}"`;
+	});
+	return { hasPlaceholders: has, convertedSQL };
+}
+
+/**
+ * Convert temp placeholders ("__:placeholder") back to original format (:placeholder)
+ */
+function convertPlaceholdersFromTemp(sql: string): string {
+	return sql.replace(/"__:([A-Za-z_][\w]*)"/g, ':$1');
 }

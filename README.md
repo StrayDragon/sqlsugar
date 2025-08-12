@@ -1,11 +1,23 @@
-# SQLSugar
+<div align="center">
+  <img src="./icon.png" alt="SQLSugar Icon" width="128" height="128" />
 
-[![Test](https://github.com/straydragon/sqlsugar/actions/workflows/test.yml/badge.svg)](https://github.com/straydragon/sqlsugar/actions/workflows/test.yml)
-[![Release](https://github.com/straydragon/sqlsugar/actions/workflows/release.yml/badge.svg)](https://github.com/straydragon/sqlsugar/actions/workflows/release.yml)
-<!-- [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![VS Code Marketplace](https://img.shields.io/visual-studio-marketplace/v/localsqlsugar.sqlsugar?label=VS%20Code%20Marketplace)](https://marketplace.visualstudio.com/items?itemName=localsqlsugar.sqlsugar)
-[![VS Code Marketplace Downloads](https://img.shields.io/visual-studio-marketplace/d/localsqlsugar.sqlsugar)](https://marketplace.visualstudio.com/items?itemName=localsqlsugar.sqlsugar)
-[![VS Code Marketplace Installs](https://img.shields.io/visual-studio-marketplace/i/localsqlsugar.sqlsugar)](https://marketplace.visualstudio.com/items?itemName=localsqlsugar.sqlsugar) -->
+  <h1>SQLSugar</h1>
+
+  <p>
+    <a href="https://github.com/straydragon/sqlsugar/actions/workflows/test.yml">
+      <img src="https://github.com/straydragon/sqlsugar/actions/workflows/test.yml/badge.svg" alt="Test" />
+    </a>
+    <a href="https://github.com/straydragon/sqlsugar/actions/workflows/release.yml">
+      <img src="https://github.com/straydragon/sqlsugar/actions/workflows/release.yml/badge.svg" alt="Release" />
+    </a>
+    <a href="https://open-vsx.org/extension/l8ng/sqlsugar"><img src="https://img.shields.io/open-vsx/v/l8ng/sqlsugar?label=Open%20VSX" alt="Open VSX" /></a>
+    <!-- <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=localsqlsugar.sqlsugar"><img src="https://img.shields.io/visual-studio-marketplace/v/localsqlsugar.sqlsugar?label=VS%20Code%20Marketplace" alt="VS Code Marketplace" /></a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=localsqlsugar.sqlsugar"><img src="https://img.shields.io/visual-studio-marketplace/d/localsqlsugar.sqlsugar" alt="VS Code Marketplace Downloads" /></a>
+    <a href="https://marketplace.visualstudio.com/items?itemName=localsqlsugar.sqlsugar"><img src="https://img.shields.io/visual-studio-marketplace/i/localsqlsugar.sqlsugar" alt="VS Code Marketplace Installs" /></a> -->
+  </p>
+</div>
+
 
 在多语言代码中编辑内联 SQL 字符串，并通过 sqls 语言服务器获得补全与悬停信息。专注于"选中即编辑、保存即回写"，不内置格式化。
 

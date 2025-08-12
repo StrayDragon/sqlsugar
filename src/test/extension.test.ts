@@ -137,7 +137,7 @@ const query = "SELECT * FROM users WHERE id = :id AND name = :name";
 		// Check if temp file was created with converted placeholders
 		const tempFilePath = await getLatestTempFilePath(testWorkspace);
 		const tempContent = await fs.promises.readFile(tempFilePath, 'utf8');
-		
+
 		// Check placeholder conversion
 		assert.ok(tempContent.includes('"__:id"'), 'Placeholder :id should be converted to "__:id"');
 		assert.ok(tempContent.includes('"__:name"'), 'Placeholder :name should be converted to "__:name"');
@@ -222,9 +222,9 @@ const query = "SELECT * FROM users WHERE id = :id";
 		// Create test document with SQL on different lines
 		const testContent = `function test() {
 	const sql1 = "SELECT * FROM table1 WHERE id = :id";
-	
+
 	const sql2 = "SELECT * FROM table2 WHERE name = :name";
-	
+
 	return sql1 + sql2;
 }`;
 		const testFilePath = path.join(testWorkspace, 'line-change-test.js');
@@ -267,7 +267,7 @@ AND status = 'active'`;
 		assert.ok(updatedContent.includes("AND status = 'active'"), 'Added content should be synced');
 		assert.ok(updatedContent.includes('-- This is a comment line'), 'Comment lines should be synced');
 		assert.ok(updatedContent.includes(':id'), 'Original placeholder should be restored');
-		
+
 		// Verify the second SQL string is unchanged
 		assert.ok(updatedContent.includes('FROM table2 WHERE name = :name'), 'Other SQL should remain unchanged');
 	});
@@ -352,10 +352,10 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 	test('Error handling: No active editor', async () => {
 		// Close all editors first
 		await vscode.commands.executeCommand('workbench.action.closeAllEditors');
-		
+
 		// Try to execute command without active editor
 		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
-		
+
 		// The command should handle this gracefully (no crash)
 		// We can't easily assert the error message, but if we reach here, it didn't crash
 		assert.ok(true, 'Command should handle missing editor gracefully');
@@ -374,7 +374,7 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 
 		// Execute command with empty selection
 		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
-		
+
 		// Should handle empty selection gracefully
 		assert.ok(true, 'Command should handle empty selection gracefully');
 	});
@@ -490,8 +490,8 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 			}
 
 			// Check temp file content if available
-			if (tempContent != null) {
-				assert.strictEqual(tempContent.trim(), testCase.expected, 
+			if (tempContent !== null) {
+				assert.strictEqual(tempContent.trim(), testCase.expected,
 					`Placeholder conversion failed for: ${testCase.input}`);
 			} else {
 				console.warn(`Could not verify placeholder conversion for: ${testCase.input}`);
@@ -508,12 +508,12 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 		this.timeout(10000);
 
 		// Generate a moderately sized SQL query (reduced complexity for stability)
-		const mediumSQL = `SELECT 
+		const mediumSQL = `SELECT
 			u.id, u.name, u.email,
 			p.title, p.content, p.published_at
 		FROM users u
 		JOIN posts p ON u.id = p.author_id
-		WHERE u.status = :status 
+		WHERE u.status = :status
 			AND p.published_at > :start_date
 			AND (p.title LIKE :search_term OR p.content LIKE :search_term)
 		ORDER BY p.published_at DESC
@@ -534,7 +534,7 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 		editor.selection = new vscode.Selection(startPos, endPos);
 
 		const startTime = Date.now();
-		
+
 		// Execute command
 		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
 		await new Promise(resolve => setTimeout(resolve, 500));
@@ -548,7 +548,7 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 		// Verify temp file was created with correct content
 		const tempFilePath = await getLatestTempFilePath(testWorkspace);
 		const tempContent = await fs.promises.readFile(tempFilePath, 'utf8');
-		
+
 		// Check that placeholders were converted to temp format
 		assert.ok(tempContent.includes('"__:status"'), 'Status placeholder should be converted to temp format');
 		assert.ok(tempContent.includes('"__:limit"'), 'Limit placeholder should be converted to temp format');
@@ -558,7 +558,7 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
 		await new Promise(resolve => setTimeout(resolve, 200));
 		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
-		
+
 		// Clean up test files
 		try { await fs.promises.unlink(testFilePath); } catch {}
 	});
@@ -573,7 +573,7 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 		await fs.promises.mkdir(tempDir, { recursive: true });
 		const beforeFiles = await fs.promises.readdir(tempDir);
 		const beforeCount = beforeFiles.filter(f => f.startsWith('temp_sql_')).length;
-		
+
 		// Create multiple SQL editing operations concurrently (reduced concurrency)
 		for (let i = 0; i < concurrency; i++) {
 			const promise = (async () => {
@@ -599,16 +599,16 @@ const sql = "SELECT * FROM table WHERE time > '12:34:56' AND data::jsonb ? :para
 
 				return i;
 			})();
-			
+
 			promises.push(promise);
 		}
 
 		// Wait for all operations to complete
 		const results = await Promise.all(promises);
-		
+
 		// Verify all operations completed successfully
 		assert.strictEqual(results.length, concurrency, 'All concurrent operations should complete');
-		
+
 		// Check that multiple temp files were created
 		const afterFiles = await fs.promises.readdir(tempDir);
 		const afterCount = afterFiles.filter(f => f.startsWith('temp_sql_')).length;
@@ -754,8 +754,8 @@ function getUserData() {
 
 		// Create test document with a more complex SQL query
 		const testContent = `
-const advancedQuery = \`SELECT 
-	u.id, 
+const advancedQuery = \`SELECT
+	u.id,
 	u.name,
 	u.email,
 	-- User profile data
@@ -874,7 +874,7 @@ const dynamicQuery = "SELECT * FROM orders WHERE customer_id = :customer_id AND 
 		// Mixed operations: format query, add/remove lines, modify placeholders
 		await tempEditor.edit(editBuilder => {
 			const fullText = tempDoc.getText();
-			const mixedSQL = `SELECT 
+			const mixedSQL = `SELECT
 	o.id,
 	o.customer_id,
 	o.total,
@@ -899,22 +899,22 @@ ORDER BY o.created_at DESC`;
 
 		// Verify all changes synced correctly with proper placeholder restoration
 		const syncedContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
-		
+
 		// Check structure changes
 		assert.ok(syncedContent.includes('SELECT \n\to.id'), 'Multi-line SELECT should be synced');
 		assert.ok(syncedContent.includes('-- Order details'), 'Comments should be synced');
 		assert.ok(syncedContent.includes('FROM orders o'), 'Table alias should be synced');
 		assert.ok(syncedContent.includes('ORDER BY o.created_at DESC'), 'ORDER BY should be synced');
-		
+
 		// Check original placeholders are preserved
 		assert.ok(syncedContent.includes(':customer_id'), 'Original customer_id placeholder should be restored');
 		assert.ok(syncedContent.includes(':status_list'), 'Original status_list placeholder should be restored');
 		assert.ok(syncedContent.includes(':min_amount'), 'Original min_amount placeholder should be restored');
-		
+
 		// Check new placeholders are correctly restored
 		assert.ok(syncedContent.includes(':max_amount'), 'New max_amount placeholder should be restored');
 		assert.ok(syncedContent.includes(':start_date'), 'New start_date placeholder should be restored');
-		
+
 		// Ensure no temp placeholders remain
 		assert.ok(!syncedContent.includes('__:'), 'No temp placeholders should remain in final content');
 

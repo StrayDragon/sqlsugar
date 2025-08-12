@@ -12,9 +12,30 @@ jobs:
   release:
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:5.7
+        env:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: testdb
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=3
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18.x
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -22,14 +43,32 @@ jobs:
           version: 10
           run_install: false
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "20"
-          cache: "pnpm"
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Setup test database
+        run: |
+          # Wait for MySQL to be ready
+          until mysql -h 127.0.0.1 -u testuser -ptestpass -e "SELECT 1"; do
+            echo "Waiting for MySQL..."
+            sleep 2
+          done
+          # Initialize test data
+          mysql -h 127.0.0.1 -u testuser -ptestpass testdb < docker/init.sql
+
+      - name: Setup sqls
+        run: |
+          # Download sqls zip for Linux
+          curl -L -o sqls.zip https://github.com/sqls-server/sqls/releases/download/v0.2.27/sqls-linux-0.2.27.zip
+          unzip sqls.zip
+          chmod +x sqls
+          sudo mv sqls /usr/local/bin/sqls
+          sqls --version
+
+      - name: Run tests
+        run: xvfb-run -a pnpm run test
+        env:
+          DISPLAY: ':99.0'
 
       - name: Build extension
         run: pnpm run package

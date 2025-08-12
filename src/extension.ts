@@ -7,6 +7,21 @@ import { LanguageClient, LanguageClientOptions, Executable, ServerOptions } from
 
 let client: LanguageClient | undefined;
 
+// Metrics for test environment resource tracking
+interface DevMetrics {
+	activeDisposables: number;
+	activeTempFiles: number;
+	totalCommandInvocations: number;
+}
+
+let devMetrics: DevMetrics = {
+	activeDisposables: 0,
+	activeTempFiles: 0,
+	totalCommandInvocations: 0
+};
+
+const isTestEnvironment = process.env.VSCODE_TEST === 'true';
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('sqlsugar activated');
 
@@ -14,6 +29,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Core command: Edit Inline SQL
 	const editInlineSQL = vscode.commands.registerCommand('sqlsugar.editInlineSQL', async () => {
+		if (isTestEnvironment) { devMetrics.totalCommandInvocations++; }
 		const editor = vscode.window.activeTextEditor;
 		if (!editor) {
 			vscode.window.showErrorMessage('No active editor');
@@ -58,6 +74,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const tempFilePath = path.join(tempRoot, tempFileName);
 
 		await fs.promises.writeFile(tempFilePath, convertedSQL, 'utf8');
+		if (isTestEnvironment) { devMetrics.activeTempFiles++; }
 
 		const tempDocPath = tempFilePath;
 		let tempDoc = await vscode.workspace.openTextDocument(tempDocPath);
@@ -74,6 +91,10 @@ export function activate(context: vscode.ExtensionContext) {
 		// Create disposable listeners for this specific temp file
 		const tempDisposables: vscode.Disposable[] = [];
 
+		// State for tracking the current SQL position across multiple syncs
+		let currentRaw = raw;
+		let currentSelection = selection;
+
 		// On save of temp file, write back to original
 		const saveDisposable = vscode.workspace.onDidSaveTextDocument(async (doc) => {
 			if (doc.uri.fsPath !== tempFilePath) { return; }
@@ -82,7 +103,26 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Convert temp placeholders back to original format before writing back
 			const restoredSQL = convertPlaceholdersFromTemp(newSQL);
-			await replaceSelection(editor, selection, wrapLike(raw, restoredSQL));
+			const wrappedSQL = wrapLike(currentRaw, restoredSQL);
+			console.log('Sync debug:');
+			console.log('Current raw:', JSON.stringify(currentRaw));
+			console.log('New SQL from temp:', JSON.stringify(newSQL));
+			console.log('Restored SQL:', JSON.stringify(restoredSQL));
+			console.log('Wrapped SQL:', JSON.stringify(wrappedSQL));
+			
+			// Replace using current selection
+			await replaceSelection(editor, currentSelection, wrappedSQL);
+			
+			// Update state for next sync: the new wrapped SQL becomes the new "raw" and
+			// we need to calculate the new selection range
+			currentRaw = wrappedSQL;
+			const endPos = new vscode.Position(
+				currentSelection.start.line + wrappedSQL.split('\n').length - 1,
+				wrappedSQL.split('\n').length === 1 
+					? currentSelection.start.character + wrappedSQL.length
+					: wrappedSQL.split('\n')[wrappedSQL.split('\n').length - 1].length
+			);
+			currentSelection = new vscode.Selection(currentSelection.start, endPos);
 
 			vscode.window.showInformationMessage('Inline SQL updated.');
 
@@ -91,6 +131,7 @@ export function activate(context: vscode.ExtensionContext) {
 			const cleanupOnClose = getConfig('sqlsugar.cleanupOnClose', true);
 			if (shouldCleanup && !cleanupOnClose) {
 				try { await fs.promises.unlink(tempFilePath); } catch { }
+				if (isTestEnvironment) { devMetrics.activeTempFiles = Math.max(0, devMetrics.activeTempFiles - 1); }
 				// Only clean up listeners when file is actually deleted
 				cleanupTempListeners(tempDisposables);
 			}
@@ -103,13 +144,16 @@ export function activate(context: vscode.ExtensionContext) {
 			const cleanupOnClose = getConfig('sqlsugar.cleanupOnClose', true);
 			if (shouldCleanup && cleanupOnClose) {
 				try { await fs.promises.unlink(tempFilePath); } catch { }
+				if (isTestEnvironment) { devMetrics.activeTempFiles = Math.max(0, devMetrics.activeTempFiles - 1); }
 			}
 			// Always clean up listeners when document is closed
 			cleanupTempListeners(tempDisposables);
 		});
 
 		tempDisposables.push(saveDisposable);
+		if (isTestEnvironment) { devMetrics.activeDisposables++; }
 		tempDisposables.push(closeDisposable);
+		if (isTestEnvironment) { devMetrics.activeDisposables++; }
 	});
 
 	// Helper command: Configure sqls executable path
@@ -128,6 +172,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 	disposables.push(editInlineSQL);
 	// disposables.push(configureSqlsPath);
+
+	// Dev metrics command for tests/tools
+	const metricsCmd = vscode.commands.registerCommand('sqlsugar._devGetMetrics', async () => {
+		return { ...devMetrics };
+	});
+	disposables.push(metricsCmd);
+
 	context.subscriptions.push(...disposables);
 
 	startSqlsClient(context);
@@ -148,7 +199,9 @@ function deactivateTempListeners(disposables: vscode.Disposable[]) {
 
 function cleanupTempListeners(disposables: vscode.Disposable[]) {
 	// Alias to make intent clear for per-temp-file listeners
+	const count = disposables.length;
 	deactivateTempListeners(disposables);
+	if (isTestEnvironment) { devMetrics.activeDisposables = Math.max(0, devMetrics.activeDisposables - count); }
 }
 
 export async function deactivate() {
@@ -281,7 +334,6 @@ function looksLikeSQL(text: string): boolean {
 }
 
 async function replaceSelection(editor: vscode.TextEditor, sel: vscode.Selection, newText: string) {
-	// Ensure we operate on a fresh selection from the same range to avoid stale references
 	const range = new vscode.Range(sel.start, sel.end);
 	await editor.edit(editBuilder => {
 		editBuilder.replace(range, newText);
@@ -320,5 +372,40 @@ function convertPlaceholdersToTemp(sql: string): { hasPlaceholders: boolean; con
  * Convert temp placeholders ("__:placeholder") back to original format (:placeholder)
  */
 function convertPlaceholdersFromTemp(sql: string): string {
-	return sql.replace(/"__:([A-Za-z_][\w]*)"/g, ':$1');
+	return sql.replace(/"__:(\w+)"/g, ':$1');
+}
+
+function findSQLPosition(docText: string, startPos: vscode.Position, originalQuotedSQL: string): vscode.Selection | null {
+	// Try to find SQL string starting from the general area of the original position
+	const startOffset = Math.max(0, (startPos.line - 2) * 100); // rough estimation
+	const searchArea = docText.substring(startOffset);
+	
+	// Look for the quoted SQL pattern - try exact match first
+	let sqlIndex = searchArea.indexOf(originalQuotedSQL);
+	if (sqlIndex === -1) {
+		// If exact match fails, try to find by the opening quote and first few words
+		const quotedPattern = originalQuotedSQL.substring(0, Math.min(50, originalQuotedSQL.length));
+		sqlIndex = searchArea.indexOf(quotedPattern);
+	}
+	
+	if (sqlIndex !== -1) {
+		const actualStartOffset = startOffset + sqlIndex;
+		const actualEndOffset = actualStartOffset + originalQuotedSQL.length;
+		
+		// Convert back to positions
+		const startPosition = positionFromOffset(docText, actualStartOffset);
+		const endPosition = positionFromOffset(docText, actualEndOffset);
+		
+		return new vscode.Selection(startPosition, endPosition);
+	}
+	
+	return null;
+}
+
+function positionFromOffset(text: string, offset: number): vscode.Position {
+	const textBeforeOffset = text.substring(0, offset);
+	const lines = textBeforeOffset.split('\n');
+	const line = lines.length - 1;
+	const character = lines[line].length;
+	return new vscode.Position(line, character);
 }

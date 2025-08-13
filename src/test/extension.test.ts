@@ -901,7 +901,7 @@ ORDER BY o.created_at DESC`;
 		const syncedContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
 
 		// Check structure changes
-		assert.ok(syncedContent.includes('SELECT \n\to.id'), 'Multi-line SELECT should be synced');
+		assert.ok(syncedContent.includes('SELECT\n\to.id'), 'Multi-line SELECT should be synced');
 		assert.ok(syncedContent.includes('-- Order details'), 'Comments should be synced');
 		assert.ok(syncedContent.includes('FROM orders o'), 'Table alias should be synced');
 		assert.ok(syncedContent.includes('ORDER BY o.created_at DESC'), 'ORDER BY should be synced');

@@ -103,7 +103,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Convert temp placeholders back to original format before writing back
 			const restoredSQL = convertPlaceholdersFromTemp(newSQL);
-			const wrappedSQL = wrapLike(currentRaw, restoredSQL);
+			const wrappedSQL = wrapLikeIntelligent(currentRaw, restoredSQL, editor.document);
 			console.log('Sync debug:');
 			console.log('Current raw:', JSON.stringify(currentRaw));
 			console.log('New SQL from temp:', JSON.stringify(newSQL));
@@ -305,6 +305,17 @@ function resolveConfigPath(configPath: string): string {
 
 function stripQuotes(text: string): string {
 	const t = text.trim();
+	
+	// 处理带前缀的字符串（如 f"...", r"""..."""）
+	const prefixMatch = t.match(/^([fruFRU]*)(['"]{1,3})(.*?)(['"]{1,3})$/s);
+	if (prefixMatch) {
+		const [, , openQuote, content, closeQuote] = prefixMatch;
+		if (openQuote === closeQuote) {
+			return content;
+		}
+	}
+	
+	// 回退到原有逻辑
 	// Triple quotes ''' or """
 	if ((t.startsWith("'''") && t.endsWith("'''")) || (t.startsWith('"""') && t.endsWith('"""'))) {
 		return t.slice(3, -3);
@@ -408,4 +419,184 @@ function positionFromOffset(text: string, offset: number): vscode.Position {
 	const line = lines.length - 1;
 	const character = lines[line].length;
 	return new vscode.Position(line, character);
+}
+
+type LanguageType = 'python' | 'javascript' | 'typescript' | 'unknown';
+type QuoteType = 'single' | 'double' | 'triple-single' | 'triple-double' | 'backtick';
+
+/**
+ * 检测文档的编程语言
+ */
+function detectLanguage(document: vscode.TextDocument): LanguageType {
+	// 优先使用VSCode的语言ID
+	const vscodeLanguageId = document.languageId;
+	
+	// 语言映射表
+	const languageMap: Record<string, LanguageType> = {
+		'python': 'python',
+		'javascript': 'javascript', 
+		'typescript': 'typescript',
+		'javascriptreact': 'javascript',
+		'typescriptreact': 'typescript',
+	};
+	
+	if (languageMap[vscodeLanguageId]) {
+		return languageMap[vscodeLanguageId];
+	}
+	
+	// 回退到文件扩展名检测
+	const fileName = document.fileName;
+	if (fileName.endsWith('.py')) {
+		return 'python';
+	}
+	if (fileName.endsWith('.js') || fileName.endsWith('.jsx')) {
+		return 'javascript';
+	}
+	if (fileName.endsWith('.ts') || fileName.endsWith('.tsx')) {
+		return 'typescript';
+	}
+	
+	return 'unknown';
+}
+
+/**
+ * 检测原始字符串的引号类型
+ */
+function detectQuoteType(originalQuoted: string): QuoteType {
+	const t = originalQuoted.trim();
+	if ((t.startsWith("'''") && t.endsWith("'''")) || (t.startsWith('"""') && t.endsWith('"""'))) {
+		return t.startsWith("'''") ? 'triple-single' : 'triple-double';
+	}
+	if ((t.startsWith("'") && t.endsWith("'")) || (t.startsWith('"') && t.endsWith('"'))) {
+		return t.startsWith("'") ? 'single' : 'double';
+	}
+	return 'double'; // fallback
+}
+
+/**
+ * 根据语言和内容特征选择合适的引号类型
+ */
+function selectQuoteType(
+	originalQuoted: string,
+	newContent: string,
+	language: LanguageType
+): QuoteType {
+	const hasMultipleLines = newContent.includes('\n');
+	const originalQuoteType = detectQuoteType(originalQuoted);
+	
+	// 单行内容保持原有引号
+	if (!hasMultipleLines) {
+		return originalQuoteType;
+	}
+	
+	// 多行内容根据语言策略选择
+	switch (language) {
+		case 'python':
+			return selectPythonQuote(originalQuoteType, newContent);
+		
+		case 'javascript':
+		case 'typescript':
+			// Phase 2: 暂时保持原有行为，不升级为 backtick
+			return originalQuoteType === 'triple-single' || originalQuoteType === 'triple-double' 
+				? originalQuoteType 
+				: 'double';
+		
+		case 'unknown':
+		default:
+			return selectGenericQuote(originalQuoteType, newContent);
+	}
+}
+
+/**
+ * Python引号选择策略
+ */
+function selectPythonQuote(original: QuoteType, content: string): QuoteType {
+	// 如果原本就是三引号，保持不变
+	if (original === 'triple-single' || original === 'triple-double') {
+		return original;
+	}
+	
+	// 单行引号升级为对应的三引号
+	if (original === 'single') {
+		// 检查内容是否包含三单引号，如果是则改用三双引号
+		if (content.includes("'''")) {
+			return 'triple-double';
+		}
+		return 'triple-single';
+	}
+	
+	if (original === 'double') {
+		// 检查内容是否包含三双引号，如果是则改用三单引号
+		if (content.includes('"""')) {
+			return 'triple-single';
+		}
+		return 'triple-double';
+	}
+	
+	// 默认使用三双引号
+	return 'triple-double';
+}
+
+/**
+ * 通用引号选择策略
+ */
+function selectGenericQuote(original: QuoteType, content: string): QuoteType {
+	// 保守策略：尽量保持原有类型，实在不行用双引号
+	if (original === 'triple-single' || original === 'triple-double') {
+		return original;
+	}
+	
+	// 单行引号转多行时保持双引号（较通用）
+	return 'double';
+}
+
+/**
+ * 提取字符串前缀（如 f, r, u 等）
+ */
+function extractPrefix(original: string): string {
+	// 匹配 Python 字符串前缀：f, r, u, b 及其组合，不区分大小写
+	// 前缀在引号之前，例如 f"..." 或 fr"""..."""
+	const match = original.trim().match(/^([fruFRU]*)(['"`])/i);
+	return match ? match[1] : '';
+}
+
+/**
+ * 使用指定的引号类型包裹内容
+ */
+function wrapWithQuoteType(
+	content: string,
+	quoteType: QuoteType,
+	prefix: string = ''
+): string {
+	switch (quoteType) {
+		case 'single':
+			return `${prefix}'${content}'`;
+		case 'double':
+			return `${prefix}"${content}"`;
+		case 'triple-single':
+			return `${prefix}'''${content}'''`;
+		case 'triple-double':
+			return `${prefix}"""${content}"""`;
+		case 'backtick':
+			return `${prefix}\`${content}\``;
+		default:
+			return `${prefix}"${content}"`;
+	}
+}
+
+/**
+ * 智能包裹函数，支持语言感知的引号选择
+ */
+function wrapLikeIntelligent(
+	original: string,
+	content: string,
+	document: vscode.TextDocument
+): string {
+	const language = detectLanguage(document);
+	const selectedQuoteType = selectQuoteType(original, content, language);
+	
+	// 检测并保留前缀（如Python的f-string）
+	const prefix = extractPrefix(original);
+	
+	return wrapWithQuoteType(content, selectedQuoteType, prefix);
 }

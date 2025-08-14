@@ -947,4 +947,172 @@ ORDER BY o.created_at DESC`;
 		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
 	});
 
+	test('Python single-line to multi-line string upgrade', async function() {
+		this.timeout(8000);
+
+		// Create a Python test file with single-line SQL string
+		const testContent = `
+query = "SELECT * FROM users WHERE id = :id"
+result = execute_query(query)
+`;
+		const testFilePath = path.join(testWorkspace, 'test_python.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the SQL string
+		const sqlStart = testContent.indexOf('"SELECT');
+		const sqlEnd = testContent.indexOf('"', sqlStart + 1) + 1;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command to open temp editor
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file to make it multi-line
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add a new line to make it multi-line
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const multiLineSQL = fullText.replace(
+				'SELECT * FROM users WHERE id = "__:id"',
+				'SELECT *\nFROM users\nWHERE id = "__:id"'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), multiLineSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify the result was upgraded to triple quotes
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final Python content:', JSON.stringify(finalContent));
+		assert.ok(finalContent.includes('"""SELECT'), 'Single-line string should be upgraded to triple quotes');
+		assert.ok(finalContent.includes('FROM users'), 'Multi-line content should be preserved');
+		assert.ok(finalContent.includes('WHERE id = :id"""'), 'Placeholder should be restored and triple quotes closed');
+		assert.ok(!finalContent.includes('__:'), 'No temp placeholders should remain');
+
+		// Close editors to prevent resource leaks
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
+	test('Python f-string prefix preservation', async function() {
+		this.timeout(8000);
+
+		// Create a Python test file with f-string
+		const testContent = `
+user_id = 123
+query = f"SELECT * FROM users WHERE id = {user_id}"
+result = execute_query(query)
+`;
+		const testFilePath = path.join(testWorkspace, 'test_fstring.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the f-string SQL
+		const sqlStart = testContent.indexOf('f"SELECT');
+		const sqlEnd = testContent.indexOf('"', sqlStart + 2) + 1;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file to make it multi-line
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add a new line
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const multiLineSQL = fullText.replace(
+				'SELECT * FROM users',
+				'SELECT *\nFROM users'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), multiLineSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify f-string prefix is preserved with triple quotes
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final f-string content:', JSON.stringify(finalContent));
+		assert.ok(finalContent.includes('f"""SELECT'), 'f-string prefix should be preserved with triple quotes');
+		assert.ok(finalContent.includes('FROM users'), 'Multi-line content should be preserved');
+		assert.ok(finalContent.includes('{user_id}"""'), 'f-string variable and triple quotes should be preserved');
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
+	test('Python single quote to triple single quote upgrade', async function() {
+		this.timeout(8000);
+
+		// Create a Python test file with single quotes
+		const testContent = `
+query = 'SELECT * FROM users WHERE name = :name'
+result = execute_query(query)
+`;
+		const testFilePath = path.join(testWorkspace, 'test_single_quote.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the SQL string with single quotes
+		const sqlStart = testContent.indexOf("'SELECT");
+		const sqlEnd = testContent.indexOf("'", sqlStart + 1) + 1;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file to make it multi-line
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add a new line
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const multiLineSQL = fullText.replace(
+				'SELECT * FROM users WHERE name = "__:name"',
+				'SELECT *\nFROM users\nWHERE name = "__:name"'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), multiLineSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify single quote was upgraded to triple single quotes
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final single quote content:', JSON.stringify(finalContent));
+		assert.ok(finalContent.includes("'''SELECT"), 'Single quote should be upgraded to triple single quotes');
+		assert.ok(finalContent.includes('FROM users'), 'Multi-line content should be preserved');
+		assert.ok(finalContent.includes("WHERE name = :name'''"), 'Placeholder should be restored with triple single quotes');
+		assert.ok(!finalContent.includes('__:'), 'No temp placeholders should remain');
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
 });

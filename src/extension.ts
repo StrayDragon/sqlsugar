@@ -296,6 +296,13 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 			{ scheme: 'file', pattern: '**/*.sql' },
 		],
 		outputChannelName: 'sqls',
+		// Disable formatting capabilities to prevent sqls crashes with placeholders
+		initializationOptions: {
+			provideFormatter: false
+		},
+		synchronize: {
+			configurationSection: 'sqls'
+		}
 	};
 
 		stopExistingClient();
@@ -909,10 +916,15 @@ function restartSqlsClientWithConnection(connection: DatabaseConnection): void {
 			{ scheme: 'file', pattern: '**/*.sql' },
 		],
 		outputChannelName: 'sqls',
-				initializationOptions: {
+		initializationOptions: {
 			sqls: {
 				connections: [connection]
-			}
+			},
+			// Disable formatting capabilities to prevent sqls crashes with placeholders
+			provideFormatter: false
+		},
+		synchronize: {
+			configurationSection: 'sqls'
 		}
 	};
 

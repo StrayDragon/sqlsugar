@@ -3,9 +3,33 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as yaml from 'js-yaml';
 import { LanguageClient, LanguageClientOptions, Executable, ServerOptions } from 'vscode-languageclient/node';
 
 let client: LanguageClient | undefined;
+
+// Database connection management
+interface DatabaseConnection {
+	alias: string;
+	driver: string;
+	dataSourceName?: string;
+	proto?: string;
+	user?: string;
+	passwd?: string;
+	host?: string;
+	port?: string;
+	dbName?: string;
+	params?: Record<string, string>;
+	sshConfig?: any;
+}
+
+interface ConnectionConfig {
+	lowercaseKeywords?: boolean;
+	connections: DatabaseConnection[];
+}
+
+let currentConnection: DatabaseConnection | undefined;
+let statusBarItem: vscode.StatusBarItem | undefined;
 
 // Metrics for test environment resource tracking
 interface DevMetrics {
@@ -26,6 +50,11 @@ export function activate(context: vscode.ExtensionContext) {
 	console.log('sqlsugar activated');
 
 	const disposables: vscode.Disposable[] = [];
+
+	// Initialize status bar
+	statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
+	statusBarItem.command = 'sqlsugar.switchConnection';
+	disposables.push(statusBarItem);
 
 	// Core command: Edit Inline SQL
 	const editInlineSQL = vscode.commands.registerCommand('sqlsugar.editInlineSQL', async () => {
@@ -163,22 +192,33 @@ export function activate(context: vscode.ExtensionContext) {
 		if (isTestEnvironment) { devMetrics.activeDisposables++; }
 	});
 
-	// Helper command: Configure sqls executable path
-	// const configureSqlsPath = vscode.commands.registerCommand('sqlsugar.configureSqlsPath', async () => {
-	// 	const current = getConfig('sqlsugar.sqlsPath', 'sqls');
-	// 	const picked = await vscode.window.showInputBox({
-	// 		prompt: 'Enter path to sqls executable',
-	// 		value: current,
-	// 		ignoreFocusOut: true,
-	// 	});
-	// 	if (!picked) { return; }
-	// 	await vscode.workspace.getConfiguration().update('sqlsugar.sqlsPath', picked, vscode.ConfigurationTarget.Workspace);
-	// 	vscode.window.showInformationMessage(`sqls path set to: ${picked}`);
-	// 	restartSqlsClient(context);
-	// });
+	// Database connection switching command
+	const switchConnection = vscode.commands.registerCommand('sqlsugar.switchConnection', async () => {
+		const connections = await loadConnectionsFromConfig();
+		if (connections.length === 0) {
+			vscode.window.showErrorMessage('No database connections found in sqls configuration');
+			return;
+		}
+
+		const items = connections.map(conn => ({
+			label: conn.alias,
+			description: `${conn.driver} - ${conn.host || conn.dataSourceName || 'Unknown'}`,
+			detail: conn.dataSourceName || `${conn.user || ''}@${conn.host || ''}:${conn.port || ''}/${conn.dbName || ''}`,
+			connection: conn
+		}));
+
+		const selected = await vscode.window.showQuickPick(items, {
+			placeHolder: 'Select a database connection',
+			title: 'Switch Database Connection'
+		});
+
+		if (selected) {
+			await switchToConnection(selected.connection);
+		}
+	});
 
 	disposables.push(editInlineSQL);
-	// disposables.push(configureSqlsPath);
+	disposables.push(switchConnection);
 
 	// Dev metrics command for tests/tools
 	const metricsCmd = vscode.commands.registerCommand('sqlsugar._devGetMetrics', async () => {
@@ -192,10 +232,13 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const configChange = vscode.workspace.onDidChangeConfiguration((e) => {
 		if (e.affectsConfiguration('sqlsugar.sqlsPath') || e.affectsConfiguration('sqlsugar.sqlsConfigPath')) {
-			restartSqlsClient(context);
+			startSqlsClient(context);
 		}
 	});
 	context.subscriptions.push(configChange);
+
+	// Initialize connection status and auto-select first connection
+	initializeConnection();
 }
 
 function deactivateTempListeners(disposables: vscode.Disposable[]) {
@@ -244,6 +287,7 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 		debug: exec,
 	};
 
+	// Set up client options
 	const clientOptions: LanguageClientOptions = {
 		documentSelector: [
 			{ scheme: 'file', language: 'sql' },
@@ -254,11 +298,7 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 		outputChannelName: 'sqls',
 	};
 
-	// If a previous client is running, stop it first
-	if (client) {
-		try { client.stop(); } catch { }
-		client = undefined;
-	}
+		stopExistingClient();
 
 	client = new LanguageClient('sqls', 'SQL Language Server', serverOptions, clientOptions);
 	client.start().then(() => {
@@ -273,8 +313,12 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 	}
 }
 
-function restartSqlsClient(context: vscode.ExtensionContext) {
-	startSqlsClient(context);
+
+function stopExistingClient(): void {
+	if (client) {
+		try { client.stop(); } catch { }
+		client = undefined;
+	}
 }
 
 function expandVariables(input: string): string {
@@ -313,7 +357,7 @@ function resolveConfigPath(configPath: string): string {
 function stripQuotes(text: string): string {
 	const t = text.trim();
 	
-	// 处理带前缀的字符串（如 f"...", r"""..."""）
+	// Handle prefixed strings (f"...", r"""...""""")
 	const prefixMatch = t.match(/^([fruFRU]*)(['"]{1,3})(.*?)(['"]{1,3})$/s);
 	if (prefixMatch) {
 		const [, , openQuote, content, closeQuote] = prefixMatch;
@@ -322,8 +366,7 @@ function stripQuotes(text: string): string {
 		}
 	}
 	
-	// 回退到原有逻辑
-	// Triple quotes ''' or """
+		// Triple quotes ''' or """
 	if ((t.startsWith("'''") && t.endsWith("'''")) || (t.startsWith('"""') && t.endsWith('"""'))) {
 		return t.slice(3, -3);
 	}
@@ -435,11 +478,10 @@ type QuoteType = 'single' | 'double' | 'triple-single' | 'triple-double' | 'back
  * 检测文档的编程语言
  */
 function detectLanguage(document: vscode.TextDocument): LanguageType {
-	// 优先使用VSCode的语言ID
+	// Use VSCode language ID first
 	const vscodeLanguageId = document.languageId;
 	
-	// 语言映射表
-	const languageMap: Record<string, LanguageType> = {
+		const languageMap: Record<string, LanguageType> = {
 		'python': 'python',
 		'javascript': 'javascript', 
 		'typescript': 'typescript',
@@ -451,7 +493,7 @@ function detectLanguage(document: vscode.TextDocument): LanguageType {
 		return languageMap[vscodeLanguageId];
 	}
 	
-	// 回退到文件扩展名检测
+	// Fallback to file extension detection
 	const fileName = document.fileName;
 	if (fileName.endsWith('.py')) {
 		return 'python';
@@ -491,19 +533,19 @@ function selectQuoteType(
 	const hasMultipleLines = newContent.includes('\n');
 	const originalQuoteType = detectQuoteType(originalQuoted);
 	
-	// 单行内容保持原有引号
+	// Keep original quotes for single-line content
 	if (!hasMultipleLines) {
 		return originalQuoteType;
 	}
 	
-	// 多行内容根据语言策略选择
+	// Multi-line content strategy by language
 	switch (language) {
 		case 'python':
 			return selectPythonQuote(originalQuoteType, newContent);
 		
 		case 'javascript':
 		case 'typescript':
-			// Phase 2: 暂时保持原有行为，不升级为 backtick
+			// Conservative: keep original behavior
 			return originalQuoteType === 'triple-single' || originalQuoteType === 'triple-double' 
 				? originalQuoteType 
 				: 'double';
@@ -540,8 +582,7 @@ function selectPythonQuote(original: QuoteType, content: string): QuoteType {
 		return 'triple-double';
 	}
 	
-	// 默认使用三双引号
-	return 'triple-double';
+		return 'triple-double';
 }
 
 /**
@@ -748,4 +789,139 @@ function applyIndentation(sql: string, indentInfo: IndentInfo, document: vscode.
 	});
 	
 	return indentedLines.join('\n');
+}
+
+/**
+ * Initialize database connection by selecting the first available connection
+ */
+async function initializeConnection(): Promise<void> {
+	const connections = await loadConnectionsFromConfig();
+	if (connections.length > 0 && !currentConnection) {
+		// Auto-select the first connection (default in sqls)
+		currentConnection = connections[0];
+		updateConnectionStatus();
+		
+		await configureWorkspaceConnection(currentConnection);
+	}
+}
+
+/**
+ * Configure workspace settings for the selected connection
+ */
+async function configureWorkspaceConnection(connection: DatabaseConnection): Promise<void> {
+	try {
+		// Update VS Code workspace configuration for sqls
+		await vscode.workspace.getConfiguration().update('sqls.connections', [connection], vscode.ConfigurationTarget.Workspace);
+	} catch (error) {
+		console.warn('Failed to configure workspace connection:', error);
+	}
+}
+
+/**
+ * Load database connections from sqls configuration file
+ */
+async function loadConnectionsFromConfig(): Promise<DatabaseConnection[]> {
+	const configuredConfigPath = getConfig<string>('sqlsugar.sqlsConfigPath', '');
+	const resolvedConfigPath = resolveConfigPath(configuredConfigPath);
+	
+	if (!resolvedConfigPath) {
+		return [];
+	}
+
+	try {
+		const configContent = await fs.promises.readFile(resolvedConfigPath, 'utf8');
+		const config = yaml.load(configContent) as ConnectionConfig;
+		
+		if (config && config.connections) {
+			return config.connections;
+		}
+	} catch (error) {
+		console.error('Failed to load sqls configuration:', error);
+	}
+	
+	return [];
+}
+
+/**
+ * Switch to a specific database connection using sqls native connection switching
+ */
+async function switchToConnection(connection: DatabaseConnection): Promise<void> {
+	currentConnection = connection;
+	updateConnectionStatus();
+	
+	// Configure workspace settings for the selected connection
+	await configureWorkspaceConnection(connection);
+	
+	// Restart client with new connection configuration
+	restartSqlsClientWithConnection(connection);
+	
+	vscode.window.showInformationMessage(`Switched to database connection: ${connection.alias}`);
+}
+
+/**
+ * Update the status bar to show current connection
+ */
+function updateConnectionStatus(): void {
+	if (!statusBarItem) {
+		return;
+	}
+	
+	if (currentConnection) {
+		statusBarItem.text = `$(database) ${currentConnection.alias}`;
+		statusBarItem.tooltip = `${currentConnection.driver} - ${currentConnection.host || currentConnection.dataSourceName || 'Unknown'}`;
+		statusBarItem.show();
+	} else {
+		statusBarItem.text = '$(database) No Connection';
+		statusBarItem.tooltip = 'Click to select database connection';
+		statusBarItem.show();
+	}
+}
+
+/**
+ * Restart sqls client with a specific connection configuration
+ */
+function restartSqlsClientWithConnection(connection: DatabaseConnection): void {
+	const sqlsPath = getConfig('sqlsugar.sqlsPath', 'sqls');
+	const configuredConfigPath = getConfig<string>('sqlsugar.sqlsConfigPath', '');
+	
+	const args: string[] = [];
+	if (configuredConfigPath) {
+		args.push('-config', configuredConfigPath);
+	}
+
+	const exec: Executable = {
+		command: sqlsPath,
+		args,
+		options: {
+			env: process.env,
+		}
+	};
+	const serverOptions: ServerOptions = {
+		run: exec,
+		debug: exec,
+	};
+
+	// Set up workspace configuration with the selected connection
+	const clientOptions: LanguageClientOptions = {
+		documentSelector: [
+			{ scheme: 'file', language: 'sql' },
+			{ scheme: 'untitled', language: 'sql' },
+			{ scheme: 'file', pattern: '**/*.sql' },
+		],
+		outputChannelName: 'sqls',
+				initializationOptions: {
+			sqls: {
+				connections: [connection]
+			}
+		}
+	};
+
+		stopExistingClient();
+
+	client = new LanguageClient('sqls', 'SQL Language Server', serverOptions, clientOptions);
+	client.start().then(() => {
+		vscode.window.setStatusBarMessage('SQLS language server restarted with new connection', 3000);
+	}).catch((err) => {
+		vscode.window.showErrorMessage(`Failed to restart sqls: ${err?.message ?? err}`);
+	});
 }

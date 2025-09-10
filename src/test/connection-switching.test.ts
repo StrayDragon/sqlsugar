@@ -7,7 +7,7 @@ import * as yaml from 'js-yaml';
 // Test the database connection switching functionality
 suite('Database Connection Switching Test', () => {
     test('Should load connections from YAML config', async () => {
-        const configPath = path.join(__dirname, 'stubs', 'sqls-config-example.yml');
+        const configPath = path.join(__dirname, '..', '..', 'src', 'test', 'stubs', 'sqls-config-example.yml');
         const configContent = await fs.promises.readFile(configPath, 'utf8');
         const config = yaml.load(configContent) as any;
         

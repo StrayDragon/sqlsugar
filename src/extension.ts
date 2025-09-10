@@ -94,6 +94,9 @@ export function activate(context: vscode.ExtensionContext) {
 		// State for tracking the current SQL position across multiple syncs
 		let currentRaw = raw;
 		let currentSelection = selection;
+		
+		// Store original indentation pattern for Python multi-line strings
+		const indentInfo = extractIndentInfo(unquoted);
 
 		// On save of temp file, write back to original
 		const saveDisposable = vscode.workspace.onDidSaveTextDocument(async (doc) => {
@@ -103,7 +106,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 			// Convert temp placeholders back to original format before writing back
 			const restoredSQL = convertPlaceholdersFromTemp(newSQL);
-			const wrappedSQL = wrapLikeIntelligent(currentRaw, restoredSQL, editor.document);
+			
+			// Restore original indentation for Python multi-line strings
+			const finalSQL = applyIndentation(restoredSQL, indentInfo, editor.document);
+			
+			const wrappedSQL = wrapLikeIntelligent(currentRaw, finalSQL, editor.document);
 			console.log('Sync debug:');
 			console.log('Current raw:', JSON.stringify(currentRaw));
 			console.log('New SQL from temp:', JSON.stringify(newSQL));
@@ -599,4 +606,146 @@ function wrapLikeIntelligent(
 	const prefix = extractPrefix(original);
 	
 	return wrapWithQuoteType(content, selectedQuoteType, prefix);
+}
+
+/**
+ * 提取缩进信息 - 找出基础缩进和每行的相对缩进
+ */
+interface IndentInfo {
+	baseIndent: string;
+	relativeIndents: string[];
+}
+
+function extractIndentInfo(text: string): IndentInfo {
+	const lines = text.split('\n');
+	
+	if (lines.length === 0) {
+		return { baseIndent: '', relativeIndents: [] };
+	}
+	
+	// 找出所有非空行的缩进
+	const nonEmptyLines = lines.filter(line => line.trim().length > 0);
+	
+	if (nonEmptyLines.length === 0) {
+		return { 
+			baseIndent: '', 
+			relativeIndents: lines.map(() => '') 
+		};
+	}
+	
+	// 找出最小缩进作为基础缩进
+	let minIndentLength = Infinity;
+	const lineIndents = lines.map(line => {
+		const indent = line.match(/^(\s*)/)?.[1] || '';
+		const indentLength = indent.length;
+		if (line.trim().length > 0) {
+			minIndentLength = Math.min(minIndentLength, indentLength);
+		}
+		return indent;
+	});
+	
+	const baseIndent = ' '.repeat(minIndentLength === Infinity ? 0 : minIndentLength);
+	
+	// 计算每行的相对缩进
+	const relativeIndents = lineIndents.map(indent => {
+		if (indent.startsWith(baseIndent)) {
+			return indent.substring(baseIndent.length);
+		}
+		return indent;
+	});
+	
+	return { baseIndent, relativeIndents };
+}
+
+/**
+ * 应用缩进模式到SQL文本
+ */
+function applyIndentation(sql: string, indentInfo: IndentInfo, document: vscode.TextDocument): string {
+	const language = detectLanguage(document);
+	
+	// 只对Python多行字符串应用缩进
+	if (language !== 'python' || !indentInfo.baseIndent) {
+		return sql;
+	}
+	
+	const lines = sql.split('\n');
+	
+	// 检查是否已经是格式化的SQL（有明显的缩进结构）
+	const hasComplexIndentation = lines.some(line => {
+		const trimmed = line.trim();
+		return trimmed.length > 0 && line.length > trimmed.length + indentInfo.baseIndent.length;
+	});
+	
+	// 如果有复杂的缩进结构，保持用户编辑的格式，只添加基础缩进
+	if (hasComplexIndentation) {
+		const indentedLines = lines.map((line, index) => {
+			const trimmedLine = line.trim();
+			
+			if (trimmedLine.length === 0) {
+				// 空行保持为空，不添加缩进
+				return '';
+			}
+			
+			// 检查原始行是否有相对缩进
+			const originalRelativeIndent = indentInfo.relativeIndents[index] || '';
+			const currentIndent = line.match(/^(\s*)/)?.[1] || '';
+			
+			// 如果当前行有缩进，尝试保持相对结构
+			if (currentIndent.length > 0) {
+				// 计算当前缩进相对于基础缩进的偏移
+				const extraIndent = Math.max(0, currentIndent.length - indentInfo.baseIndent.length);
+				return indentInfo.baseIndent + ' '.repeat(extraIndent) + trimmedLine;
+			}
+			
+			// 对于新添加的行，尝试从上下文推断缩进
+			if (trimmedLine.startsWith('AND ') || trimmedLine.startsWith('OR ')) {
+				// 查找已有的AND/OR行的缩进模式
+				const andIndentPatterns = indentInfo.relativeIndents.filter(indent => 
+					indent && indent.length > 0
+				);
+				
+				// 优先查找与当前行最相似的AND/OR行的缩进模式
+				if (andIndentPatterns.length > 0) {
+					// 使用最长的AND/OR缩进模式（通常是正确的缩进）
+					const andIndentPattern = andIndentPatterns.reduce((longest, current) => 
+						current.length > longest.length ? current : longest
+					);
+					return indentInfo.baseIndent + andIndentPattern + trimmedLine;
+				}
+				
+				// 查找最长的相对缩进作为默认
+				const longestIndent = indentInfo.relativeIndents.reduce((longest, current) => {
+					return current.length > longest.length ? current : longest;
+				}, '');
+				
+				if (longestIndent.length > 0) {
+					return indentInfo.baseIndent + longestIndent + trimmedLine;
+				}
+				
+				// 默认2个空格的额外缩进
+				return indentInfo.baseIndent + '  ' + trimmedLine;
+			}
+			
+			// 否则只应用基础缩进
+			return indentInfo.baseIndent + trimmedLine;
+		});
+		
+		return indentedLines.join('\n');
+	}
+	
+	// 简单缩进情况：应用原始的相对缩进模式
+	const indentedLines = lines.map((line, index) => {
+		const relativeIndent = indentInfo.relativeIndents[index] || '';
+		const trimmedLine = line.trim();
+		
+		if (trimmedLine.length === 0) {
+			// 空行保持为空，不添加缩进
+			return '';
+		}
+		
+		// 组合：基础缩进 + 相对缩进 + 内容
+		return indentInfo.baseIndent + relativeIndent + trimmedLine;
+	});
+	
+	return indentedLines.join('\n');
 }

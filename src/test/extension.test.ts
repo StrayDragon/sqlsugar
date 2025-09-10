@@ -1115,4 +1115,384 @@ result = execute_query(query)
 		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
 	});
 
+	test('Python multi-line SQL indentation preservation - basic case', async function() {
+		this.timeout(10000);
+
+		// Create a Python test file with indented multi-line SQL
+		const testContent = `
+def f():
+    def g():
+        sql = """
+              select 1 \`a\`
+              union
+              select 2 \`a\`
+              """.strip()
+        
+        return sql
+
+result = f()
+`;
+		const testFilePath = path.join(testWorkspace, 'test_indentation_basic.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the SQL string (including triple quotes)
+		const sqlStart = testContent.indexOf('"""');
+		const sqlEnd = testContent.lastIndexOf('"""') + 3;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command to open temp editor
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add ORDER BY clause while maintaining indentation
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const modifiedSQL = fullText.replace(
+				'select 2 `a`',
+				'select 2 `a`\norder by a'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), modifiedSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify indentation is preserved
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final content (basic indentation):', JSON.stringify(finalContent, null, 2));
+		
+		// Check that the original indentation pattern is preserved
+		assert.ok(finalContent.includes('select 1 `a`'), 'First line should preserve indentation');
+		assert.ok(finalContent.includes('              union'), 'Union line should preserve indentation');
+		assert.ok(finalContent.includes('              select 2 `a`'), 'Second select should preserve indentation');
+		assert.ok(finalContent.includes('              order by a'), 'New ORDER BY should have same indentation');
+		assert.ok(finalContent.includes('"""'), 'Triple quotes should be preserved');
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
+	test('Python multi-line SQL indentation preservation - mixed indentation', async function() {
+		this.timeout(10000);
+
+		// Create a Python test file with mixed indentation (like comma-separated columns)
+		const testContent = `
+def get_user_query():
+    query = '''
+    SELECT id,
+           name,
+           created_at
+    FROM users
+    WHERE active = 1
+    '''
+    return query
+`;
+		const testFilePath = path.join(testWorkspace, 'test_indentation_mixed.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the SQL string (including triple quotes)
+		const sqlStart = testContent.indexOf("'''");
+		const sqlEnd = testContent.lastIndexOf("'''") + 3;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add ORDER BY clause and email field
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const modifiedSQL = fullText.replace(
+				'SELECT id,\n           name,\n           created_at',
+				'SELECT id,\n           name,\n           email,\n           created_at'
+			).replace(
+				'WHERE active = 1',
+				'WHERE active = 1\nORDER BY created_at DESC'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), modifiedSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify mixed indentation pattern is preserved
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final content (mixed indentation):', JSON.stringify(finalContent, null, 2));
+		
+		// Check that the mixed indentation pattern is preserved
+		assert.ok(finalContent.includes('    SELECT id,'), 'SELECT should preserve base indentation');
+		assert.ok(finalContent.includes('           name,'), 'Name field should preserve extra indentation');
+		assert.ok(finalContent.includes('           email,'), 'Email field should have same extra indentation');
+		assert.ok(finalContent.includes('           created_at'), 'Created_at should preserve extra indentation');
+		assert.ok(finalContent.includes('    FROM users'), 'FROM should preserve base indentation');
+		assert.ok(finalContent.includes('    WHERE active = 1'), 'WHERE should preserve base indentation');
+		assert.ok(finalContent.includes('    ORDER BY created_at DESC'), 'ORDER BY should preserve base indentation');
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
+	test('Python multi-line SQL indentation preservation - f-string with prefix', async function() {
+		this.timeout(10000);
+
+		// Create a Python test file with f-string and indentation
+		const testContent = `
+def format_query(table_name):
+    return f"""
+             SELECT *
+             FROM {table_name}
+             WHERE created_at > '2024-01-01'
+             """
+`;
+		const testFilePath = path.join(testWorkspace, 'test_indentation_fstring.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the f-string SQL (including triple quotes)
+		const sqlStart = testContent.indexOf('f"""');
+		const sqlEnd = testContent.lastIndexOf('"""') + 3;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add additional conditions
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const modifiedSQL = fullText.replace(
+				'WHERE created_at > \'2024-01-01\'',
+				'WHERE created_at > \'2024-01-01\'\n             AND status = \'active\'\n             ORDER BY created_at DESC'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), modifiedSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify f-string prefix and indentation are preserved
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final content (f-string indentation):', JSON.stringify(finalContent, null, 2));
+		
+		// Check that f-string prefix and indentation are preserved
+		assert.ok(finalContent.includes('f"""'), 'f-string prefix should be preserved');
+		assert.ok(finalContent.includes('             SELECT *'), 'SELECT should preserve indentation');
+		assert.ok(finalContent.includes('             FROM {table_name}'), 'FROM should preserve indentation');
+		assert.ok(finalContent.includes('             WHERE created_at > \'2024-01-01\''), 'WHERE should preserve indentation');
+		assert.ok(finalContent.includes('             AND status = \'active\''), 'AND should preserve indentation');
+		assert.ok(finalContent.includes('             ORDER BY created_at DESC'), 'ORDER BY should preserve indentation');
+		assert.ok(finalContent.includes('{table_name}'), 'Template variable should be preserved');
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
+	test('Python multi-line SQL indentation preservation - complex query with comments', async function() {
+		this.timeout(10000);
+
+		// Create a Python test file with complex SQL and comments
+		const testContent = `
+class UserRepository:
+    def get_active_users(self, min_age: int = 18):
+        query = r"""
+                -- Get active users older than min_age
+                SELECT u.id,
+                       u.name,
+                       u.email,
+                       u.age,
+                       -- Profile information
+                       p.bio,
+                       p.avatar_url
+                FROM users u
+                LEFT JOIN profiles p ON u.id = p.user_id
+                WHERE u.active = TRUE
+                  AND u.age >= :min_age
+                  AND u.created_at >= '2024-01-01'
+                ORDER BY u.created_at DESC
+                LIMIT 100
+                """.strip()
+        return query
+`;
+		const testFilePath = path.join(testWorkspace, 'test_indentation_complex.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the SQL string (including triple quotes)
+		const sqlStart = testContent.indexOf('r"""');
+		const sqlEnd = testContent.lastIndexOf('"""') + 3;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Modify the query while preserving indentation structure
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const modifiedSQL = fullText
+				.replace('-- Get active users older than min_age', '-- Get active users filtering by age and status')
+				.replace('u.age >= :min_age', 'u.age >= :min_age\n                  AND u.status = \'active\'')
+				.replace('LIMIT 100', 'LIMIT 100\nOFFSET 0');
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), modifiedSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify complex indentation pattern is preserved
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		
+		// Check that r-string prefix and complex indentation are preserved
+		assert.ok(finalContent.includes('r"""'), 'r-string prefix should be preserved');
+		assert.ok(finalContent.includes('-- Get active users filtering by age and status'), 'Updated comment should be preserved');
+		assert.ok(finalContent.includes('                SELECT u.id,'), 'SELECT should preserve base indentation');
+		assert.ok(finalContent.includes('                       u.name,'), 'Name field should preserve extra indentation');
+		assert.ok(finalContent.includes('                       p.bio,'), 'Profile fields should preserve extra indentation');
+		assert.ok(finalContent.includes('                FROM users u'), 'FROM should preserve base indentation');
+		assert.ok(finalContent.includes('                WHERE u.active = TRUE'), 'WHERE should preserve base indentation');
+		assert.ok(finalContent.includes('                  AND u.age >= :min_age'), 'AND condition should preserve extra indentation');
+		assert.ok(finalContent.includes('                  AND u.created_at >= \'2024-01-01\''), 'New AND should preserve extra indentation');
+		assert.ok(finalContent.includes('                ORDER BY u.created_at DESC'), 'ORDER BY should preserve base indentation');
+		assert.ok(finalContent.includes('                LIMIT 100'), 'LIMIT should preserve base indentation');
+		assert.ok(finalContent.includes('OFFSET 0'), 'OFFSET should preserve base indentation');
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
+	test('Python multi-line SQL indentation preservation - empty lines handling', async function() {
+		this.timeout(10000);
+
+		// Create a Python test file with SQL containing empty lines
+		const testContent = `
+def get_formatted_query():
+    sql = """
+            SELECT 
+                id,
+                name
+            FROM 
+                users
+            
+            WHERE 
+                active = 1
+            """
+    return sql
+`;
+		const testFilePath = path.join(testWorkspace, 'test_indentation_empty_lines.py');
+		await fs.promises.writeFile(testFilePath, testContent);
+
+		const document = await vscode.workspace.openTextDocument(testFilePath);
+		const editor = await vscode.window.showTextDocument(document);
+
+		// Select the SQL string (including triple quotes)
+		const sqlStart = testContent.indexOf('"""');
+		const sqlEnd = testContent.lastIndexOf('"""') + 3;
+		const startPos = document.positionAt(sqlStart);
+		const endPos = document.positionAt(sqlEnd);
+		editor.selection = new vscode.Selection(startPos, endPos);
+
+		// Execute the command
+		await vscode.commands.executeCommand('sqlsugar.editInlineSQL');
+		await new Promise(resolve => setTimeout(resolve, 1000));
+
+		// Find and edit temp file
+		const tempFilePath = await getLatestTempFilePath(testWorkspace);
+		const tempDoc = await vscode.workspace.openTextDocument(tempFilePath);
+		const tempEditor = await vscode.window.showTextDocument(tempDoc);
+
+		// Add content while preserving empty line structure
+		await tempEditor.edit(editBuilder => {
+			const fullText = tempDoc.getText();
+			const modifiedSQL = fullText.replace(
+				'SELECT \n                id,\n                name',
+				'SELECT \n                id,\n                name,\n                email'
+			).replace(
+				'WHERE \n                active = 1',
+				'WHERE \n                active = 1\n            ORDER BY name'
+			);
+			editBuilder.replace(new vscode.Range(tempDoc.positionAt(0), tempDoc.positionAt(fullText.length)), modifiedSQL);
+		});
+		await tempDoc.save();
+		await new Promise(resolve => setTimeout(resolve, 1200));
+
+		// Verify empty lines and indentation are preserved
+		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
+		console.log('Final content (empty lines):', JSON.stringify(finalContent, null, 2));
+		
+		// Check that empty lines and indentation are preserved
+		assert.ok(finalContent.includes('            SELECT'), 'SELECT should preserve indentation');
+		assert.ok(finalContent.includes('                id,'), 'ID field should preserve indentation');
+		assert.ok(finalContent.includes('                name,'), 'Name field should preserve indentation');
+		assert.ok(finalContent.includes('                email'), 'Email field should preserve indentation');
+		assert.ok(finalContent.includes('            FROM'), 'FROM should preserve indentation');
+		assert.ok(finalContent.includes('            WHERE'), 'WHERE should preserve indentation');
+		assert.ok(finalContent.includes('                active = 1'), 'Active condition should preserve indentation');
+		assert.ok(finalContent.includes('            ORDER BY name'), 'ORDER BY should preserve indentation');
+
+		// Verify empty lines are preserved (check that there are empty lines between sections)
+		const lines = finalContent.split('\n');
+		
+		// Find the SQL content between triple quotes
+		const sqlStartIndex = lines.findIndex(line => line.includes('"""'));
+		const sqlEndIndex = lines.findIndex((line, index) => index > sqlStartIndex && line.includes('"""') && line !== lines[sqlStartIndex]);
+		
+		if (sqlStartIndex >= 0 && sqlEndIndex > sqlStartIndex) {
+			const sqlLines = lines.slice(sqlStartIndex + 1, sqlEndIndex);
+			
+			// Should have empty lines between FROM and WHERE
+			const fromIndex = sqlLines.findIndex(line => line.includes('FROM'));
+			const whereIndex = sqlLines.findIndex(line => line.includes('WHERE'));
+			assert.ok(whereIndex > fromIndex + 1, 'Should have empty line between FROM and WHERE');
+		} else {
+			assert.ok(false, 'Could not find SQL content between triple quotes');
+		}
+
+		// Close editors
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+		await new Promise(resolve => setTimeout(resolve, 200));
+		try { await vscode.commands.executeCommand('workbench.action.closeActiveEditor'); } catch {}
+	});
+
 });

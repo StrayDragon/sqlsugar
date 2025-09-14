@@ -27,10 +27,15 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 ### Core Components
 
 **Extension Entry Point** (`src/extension.ts`):
-- Main extension logic with ~600 lines of code
+- Main extension logic with ~940 lines of code
 - Handles the `editInlineSQL` command
 - Manages sqls Language Server Protocol client
 - Contains intelligent quote handling for different programming languages
+- Includes database connection switching functionality
+
+**Additional Components**:
+- `src/indentationAnalyzer.ts` - Handles Python multi-line SQL indentation preservation
+- `src/test/extension.test.ts` - Comprehensive test suite with 1500+ lines
 
 **Key Features**:
 - **Multi-language SQL string detection**: Supports Python, JavaScript, TypeScript
@@ -38,6 +43,8 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - **ORM placeholder compatibility**: Converts `:placeholder` to `"__:placeholder"` for sqls compatibility and back
 - **Temporary file management**: Creates temp SQL files with cleanup options
 - **LSP integration**: Starts and manages sqls language server with configurable paths
+- **Database connection switching**: UI for switching between database connections
+- **Status bar integration**: Shows current database connection
 
 ### Language-Specific Behaviors
 
@@ -45,6 +52,8 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - Detects and preserves string prefixes (f, r, u, fr, etc.)
 - Automatically upgrades single quotes to triple quotes for multi-line content
 - Smart quote selection to avoid conflicts with content
+- Advanced indentation preservation for multi-line strings
+- Handles complex indentation patterns (mixed, empty lines, f-strings)
 
 **JavaScript/TypeScript**:
 - Currently maintains original quote style (conservative approach)
@@ -67,6 +76,7 @@ The extension supports several configuration options:
 ```
 src/
 ├── extension.ts          # Main extension logic
+├── indentationAnalyzer.ts # Python indentation handling
 └── test/
     └── extension.test.ts # Extension tests
 
@@ -76,6 +86,7 @@ docs/                    # Documentation and planning
 └── todo.md             # Task tracking
 
 docker/                  # Docker setup for testing (sqls config examples)
+examples/                # Example usage files
 ```
 
 ## Development Guidelines
@@ -85,6 +96,7 @@ docker/                  # Docker setup for testing (sqls config examples)
 - Test environment is detected via `process.env.VSCODE_TEST` for metrics tracking
 - Language detection uses VS Code's language ID first, then falls back to file extensions
 - Quote handling is complex and language-specific - test changes carefully
+- Database connections are loaded from sqls configuration files
 
 ### Key Functions to Understand
 - `stripQuotes()` - Removes quotes from SQL strings while preserving prefixes
@@ -92,17 +104,27 @@ docker/                  # Docker setup for testing (sqls config examples)
 - `convertPlaceholdersToTemp()` - Converts ORM placeholders for sqls compatibility
 - `detectLanguage()` - Determines programming language for quote handling
 - `selectQuoteType()` - Chooses appropriate quote type based on content
+- `applyIndentation()` - Preserves Python multi-line string indentation
+- `extractIndentInfo()` - Analyzes original indentation patterns
+
+### Database Connection Management
+- Connections are loaded from sqls YAML configuration files
+- Status bar shows current connection with switching capability
+- Connection changes restart the sqls LSP client with new configuration
 
 ### Testing
 - Use the provided `sqlsugar._devGetMetrics` command for test environment debugging
 - Test multi-line scenarios across different languages
 - Verify placeholder conversion works correctly
 - Test quote preservation and upgrading behavior
+- Test indentation preservation for Python multi-line strings
+- Test database connection switching functionality
 
 ### SQL Integration
 - Requires `sqls` language server to be installed and available in PATH
 - Supports custom sqls configuration files
 - Integration with SQLFluff for formatting (external dependency)
+- LSP formatting capabilities are disabled to prevent crashes with placeholders
 
 ## Important Notes
 
@@ -110,3 +132,6 @@ docker/                  # Docker setup for testing (sqls config examples)
 - Temporary files are created in `.vscode/sqlsugar/temp/` within the workspace
 - The extension includes comprehensive error handling for file operations and LSP communication
 - All disposable resources are properly managed to prevent memory leaks
+- The extension handles complex edge cases like time formats (`12:34:56`) and Postgres casts (`::type`)
+- Python indentation preservation is sophisticated, handling mixed indentation, empty lines, and f-strings
+- Database connection switching provides seamless workflow for multi-database development

@@ -5,8 +5,12 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { LanguageClient, LanguageClientOptions, Executable, ServerOptions } from 'vscode-languageclient/node';
+import { SQLLogParser, ParsedSQL } from './sql-log-parser';
+import { TerminalMonitor } from './terminal-monitor';
+import { ClipboardManager } from './clipboard-manager';
 
 let client: LanguageClient | undefined;
+let extensionContext: vscode.ExtensionContext;
 
 // Database connection management
 interface DatabaseConnection {
@@ -48,6 +52,9 @@ const isTestEnvironment = process.env.VSCODE_TEST === 'true';
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('sqlsugar activated');
+
+	// Store context for use in other functions
+	extensionContext = context;
 
 	const disposables: vscode.Disposable[] = [];
 
@@ -219,6 +226,18 @@ export function activate(context: vscode.ExtensionContext) {
 
 	disposables.push(editInlineSQL);
 	disposables.push(switchConnection);
+
+	// Terminal SQL copy command
+	const copyTerminalSQL = vscode.commands.registerCommand('sqlsugar.copyTerminalSQL', async () => {
+		await handleCopyTerminalSQL();
+	});
+	disposables.push(copyTerminalSQL);
+
+	// Test log generation command
+	const generateTestLogs = vscode.commands.registerCommand('sqlsugar.generateTestLogs', async () => {
+		await handleGenerateTestLogs();
+	});
+	disposables.push(generateTestLogs);
 
 	// Dev metrics command for tests/tools
 	const metricsCmd = vscode.commands.registerCommand('sqlsugar._devGetMetrics', async () => {
@@ -936,4 +955,197 @@ function restartSqlsClientWithConnection(connection: DatabaseConnection): void {
 	}).catch((err) => {
 		vscode.window.showErrorMessage(`Failed to restart sqls: ${err?.message ?? err}`);
 	});
+}
+
+/**
+ * 处理终端 SQL 复制命令
+ */
+async function handleCopyTerminalSQL(): Promise<void> {
+	try {
+		const clipboardManager = ClipboardManager.getInstance();
+		let selectedText: string | null = null;
+		let sourceType: 'editor' | 'terminal' | 'none' = 'none';
+
+		// 首先尝试从编辑器获取选中的文本
+		const editor = vscode.window.activeTextEditor;
+		if (editor && editor.selection && !editor.selection.isEmpty) {
+			selectedText = editor.document.getText(editor.selection);
+			sourceType = 'editor';
+		}
+
+		// 如果编辑器没有选中文本，尝试从终端获取
+		if (!selectedText) {
+			try {
+				const terminalMonitor = TerminalMonitor.getInstance();
+				selectedText = await terminalMonitor.getSelectedText();
+				if (selectedText) {
+					sourceType = 'terminal';
+				}
+			} catch (terminalError) {
+				console.warn('Terminal monitor error:', terminalError);
+				// 继续执行，不阻止功能使用
+			}
+		}
+
+		// 如果仍然没有选中文本，显示错误信息
+		if (!selectedText) {
+			vscode.window.showWarningMessage('No SQL log text selected or detected.', {
+				modal: false,
+				detail: 'Please select text containing "INFO sqlalchemy.engine.Engine:" followed by SQL statements in the terminal or editor.'
+			});
+			return;
+		}
+
+		// 解析 SQL 日志
+		const parsedSQL = SQLLogParser.processSelectedText(selectedText);
+		if (!parsedSQL) {
+			vscode.window.showWarningMessage('No valid SQL statement found in the selected text. Please select SQLAlchemy log output with SQL statements.', {
+				modal: false,
+				detail: 'Expected format: "INFO sqlalchemy.engine.Engine: SELECT * FROM users WHERE id = ?" followed by parameter values.'
+			});
+			return;
+		}
+
+		// 检查选择是否为空
+		if (!selectedText.trim()) {
+			vscode.window.showWarningMessage('Selected text is empty. Please select SQLAlchemy log output in the terminal or editor.');
+			return;
+		}
+
+		// 如果没有参数需要注入，直接复制原始 SQL
+		if (parsedSQL.placeholderType === 'none' || parsedSQL.parameters.length === 0) {
+			const success = await clipboardManager.copyText(parsedSQL.originalSQL);
+			if (success) {
+				const sourceMsg = sourceType === 'editor' ? ' (from editor)' : ' (from terminal)';
+				vscode.window.showInformationMessage(`SQL statement copied to clipboard${sourceMsg} (no parameters to inject).`, {
+					modal: false
+				});
+			} else {
+				vscode.window.showErrorMessage('Failed to copy SQL to clipboard. Please check your clipboard permissions.', {
+					modal: false
+				});
+			}
+			return;
+		}
+
+		// 复制注入参数后的 SQL
+		const success = await clipboardManager.copyText(parsedSQL.injectedSQL);
+		if (success) {
+			const sourceMsg = sourceType === 'editor' ? ' (from editor)' : ' (from terminal)';
+			const message = `SQL with ${parsedSQL.parameters.length} parameter(s) injected copied to clipboard${sourceMsg}.`;
+
+			// 添加查看详细信息的选项
+			if (getConfig('sqlsugar.showSQLPreview', false)) {
+				const preview = `Original: ${parsedSQL.originalSQL}\nInjected: ${parsedSQL.injectedSQL}`;
+				vscode.window.showInformationMessage(message, {
+					modal: false,
+					detail: preview
+				});
+			} else {
+				vscode.window.showInformationMessage(message, {
+					modal: false
+				});
+			}
+		} else {
+			// 提供剪贴板故障排除信息
+			const clipboardInfo = await clipboardManager.getClipboardInfo();
+			let detail = 'Failed to copy SQL to clipboard.';
+
+			if (!clipboardInfo.nativeAPI && clipboardInfo.availableCommands.length === 0) {
+				detail += ' No clipboard commands available. Please install clipboard tools (xclip, wl-copy, or xsel for Linux; pbcopy for macOS; clip for Windows).';
+			} else if (!clipboardInfo.nativeAPI) {
+				detail += ` Using fallback command: ${clipboardInfo.availableCommands[0] || 'unknown'}.`;
+			}
+
+			vscode.window.showErrorMessage(detail, {
+				modal: false
+			});
+		}
+	} catch (error) {
+		console.error('Error in handleCopyTerminalSQL:', error);
+
+		// 提供更详细的错误信息
+		let errorMessage = 'An error occurred while processing SQL.';
+		if (error instanceof Error) {
+			if (error.message.includes('ENOENT') || error.message.includes('command not found')) {
+				errorMessage += ' Required command not found. Please ensure clipboard tools are installed.';
+			} else if (error.message.includes('permission') || error.message.includes('denied')) {
+				errorMessage += ' Permission denied. Please check clipboard access permissions.';
+			} else {
+				errorMessage += ' ' + error.message;
+			}
+		} else {
+			errorMessage += ' Unknown error occurred.';
+		}
+
+		vscode.window.showErrorMessage(errorMessage, {
+			modal: false
+		});
+	}
+}
+
+/**
+ * 处理生成测试日志命令
+ */
+async function handleGenerateTestLogs(): Promise<void> {
+	try {
+		const debugScriptPath = path.join(extensionContext.extensionPath, 'debug', 'generate_sqlalchemy_logs.py');
+
+		// 检查脚本文件是否存在
+		if (!fs.existsSync(debugScriptPath)) {
+			vscode.window.showErrorMessage('Debug script not found. Please ensure the extension is properly installed.');
+			return;
+		}
+
+		// 检查 uv 是否可用
+		const { exec } = require('child_process');
+		const { promisify } = require('util');
+		const execAsync = promisify(exec);
+
+		try {
+			await execAsync('uv --version');
+		} catch (error) {
+			vscode.window.showErrorMessage(
+				'uv is not installed. Please install uv first:\n\n' +
+				'curl -LsSf https://astral.sh/uv/install.sh | sh',
+				{ modal: false }
+			);
+			return;
+		}
+
+		// 检查是否有正在运行的终端
+		let terminal = vscode.window.activeTerminal;
+		if (!terminal) {
+			terminal = vscode.window.createTerminal('SQLAlchemy Log Generator');
+		}
+
+		// 激活终端并运行脚本
+		terminal.show();
+		terminal.sendText(`cd "${extensionContext.extensionPath}"`);
+
+		const message = 'Generating SQLAlchemy test logs...\n\n' +
+			'This will run a comprehensive test script that demonstrates:\n' +
+			'• Basic CRUD operations with various parameter types\n' +
+			'• Complex JOIN queries with multiple tables\n' +
+			'• Aggregate functions and grouping\n' +
+			'• Window functions and CTEs\n' +
+			'• JSON operations and advanced features\n' +
+			'• Different parameter formats (question marks, named params)\n' +
+			'• Error scenarios and edge cases\n\n' +
+			'The generated logs will appear in this terminal and can be used\n' +
+			'to test the "Copy SQL (Injected)" feature.\n\n' +
+			'Press Enter to continue...';
+
+		vscode.window.showInformationMessage(message, { modal: true });
+
+		// 运行脚本
+		terminal.sendText(`uv run debug/generate_sqlalchemy_logs.py`);
+
+	} catch (error) {
+		console.error('Error in handleGenerateTestLogs:', error);
+		vscode.window.showErrorMessage(
+			'Failed to generate test logs: ' + (error instanceof Error ? error.message : String(error)),
+			{ modal: false }
+		);
+	}
 }

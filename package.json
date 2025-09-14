@@ -7,22 +7,34 @@
   "engines": {
     "vscode": "^1.98.0"
   },
+  "enabledApiProposals": [
+    "terminalDataWriteEvent"
+  ],
   "categories": [
     "Other"
   ],
   "activationEvents": [
-    "onCommand:sqlsugar.editInlineSQL"
+    "onCommand:sqlsugar.editInlineSQL",
+    "onCommand:sqlsugar.copyTerminalSQL"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
         "command": "sqlsugar.editInlineSQL",
-        "title": "Edit Inline SQL"
+        "title": "SQLSugar: Edit Inline SQL"
       },
       {
         "command": "sqlsugar.switchConnection",
-        "title": "Switch Database Connection"
+        "title": "SQLSugar: Switch Database Connection"
+      },
+      {
+        "command": "sqlsugar.copyTerminalSQL",
+        "title": "SQLSugar: Copy SQL (Injected)"
+      },
+      {
+        "command": "sqlsugar.generateTestLogs",
+        "title": "SQLSugar: Generate Test SQLAlchemy Logs"
       }
     ],
     "menus": {
@@ -31,11 +43,28 @@
           "command": "sqlsugar.editInlineSQL",
           "when": "editorHasSelection",
           "group": "1_modification"
+        },
+        {
+          "command": "sqlsugar.copyTerminalSQL",
+          "when": "editorHasSelection",
+          "group": "1_modification"
+        }
+      ],
+      "terminal/context": [
+        {
+          "command": "sqlsugar.copyTerminalSQL",
+          "group": "1_modification"
         }
       ],
       "commandPalette": [
         {
           "command": "sqlsugar.switchConnection"
+        },
+        {
+          "command": "sqlsugar.copyTerminalSQL"
+        },
+        {
+          "command": "sqlsugar.generateTestLogs"
         }
       ]
     },
@@ -63,6 +92,16 @@
           "type": "string",
           "default": "",
           "description": "Path to sqls configuration file (leave empty to use default)"
+        },
+        "sqlsugar.showSQLPreview": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show preview of original and injected SQL after copying"
+        },
+        "sqlsugar.enableWlCopyFallback": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable wl-copy fallback for clipboard operations on Wayland"
         }
       }
     }

@@ -22,34 +22,55 @@ export class SQLLogParser {
 
 	// 匹配 SQLAlchemy 日志格式的正则表达式
 	private static SQL_PATTERNS = [
+		// 带时间戳的特殊格式 - 需要在通用时间戳格式之前检查
+		// 带 [raw sql] 的格式
+		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+INFO\s+sqlalchemy\.engine\.Engine\s+\[raw\s+sql\]\s*(.*)$/i,
+		// 带 [no key] 的格式
+		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+INFO\s+sqlalchemy\.engine\.Engine\s+\[no\s+key\s+.*?\]\s*(.*)$/i,
+		// 带 [generated in] 的格式
+		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+INFO\s+sqlalchemy\.engine\.Engine\s+\[generated\s+in\s+.*?\]\s*(.*)$/i,
 		// 标准 SQLAlchemy 格式: INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)
 		/^INFO\s+sqlalchemy\.engine\.Engine:\s*(.+)$/i,
 		// DEBUG 格式
 		/^DEBUG\s+sqlalchemy\.engine\.Engine:\s*(.+)$/i,
-		// 带时间戳的格式: 2024-01-15 10:30:45,123 INFO sqlalchemy.engine.Engine: SELECT ...
-		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+INFO\s+sqlalchemy\.engine\.Engine:\s*(.+)$/i,
-		// 带时间戳的DEBUG格式: 2024-01-15 10:30:45,123 DEBUG sqlalchemy.engine.Engine: SELECT ...
-		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+DEBUG\s+sqlalchemy\.engine\.Engine:\s*(.+)$/i,
+		// 带时间戳的格式 (无冒号): 2025-09-15 22:37:56,917 INFO sqlalchemy.engine.Engine SELECT ...
+		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+INFO\s+sqlalchemy\.engine\.Engine\s*(.*)$/i,
+		// 带时间戳的DEBUG格式 (无冒号): 2025-09-15 22:37:56,917 DEBUG sqlalchemy.engine.Engine SELECT ...
+		/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2},\d+\s+DEBUG\s+sqlalchemy\.engine\.Engine\s*(.*)$/i,
+		// 不带时间戳的特殊格式
+		/^INFO\s+sqlalchemy\.engine\.Engine\s+\[generated\s+in\s+.*?\]\s*(.+)$/i,
+		/^INFO\s+sqlalchemy\.engine\.Engine\s+\[raw\s+sql\]\s*(.+)$/i,
+		/^INFO\s+sqlalchemy\.engine\.Engine\s+\[no\s+key\s+.*?\]\s*(.+)$/i,
 		// 其他可能的格式
 		/^.*?Engine:\s*(.+)$/i,
 		// 更宽松的格式 - 包含各种SQL关键词
-		/^(?:.*?\s)?(SELECT\s+.+|INSERT\s+.+|UPDATE\s+.+|DELETE\s+.+|CREATE\s+.+|ALTER\s+.+|DROP\s+.+|BEGIN|COMMIT|ROLLBACK)$/i,
+		/^(?:.*?\s)?(SELECT\s+.+|INSERT\s+.+|UPDATE\s+.+|DELETE\s+.+|CREATE\s+.+|ALTER\s+.+|DROP\s+.+|BEGIN|COMMIT|ROLLBACK|WITH\s+RECURSIVE)$/i,
 		// 包含参数的SQL行
 		/^(.*?\?.*|.*?:\w+.*)$/,
+		// 多行 SQL 续行模式
+		/^(?:FROM\s+|WHERE\s+|JOIN\s+|GROUP\s+BY\s+|ORDER\s+BY\s+|HAVING\s+|LIMIT\s+|AND\s+|OR\s+|SET\s+|VALUES\s+|ON\s+|USING\s+|EXISTS\s*\(.*?\)|IN\s*\(.*?\))\s*.+/i,
 	];
 
 	// 匹配参数行的正则表达式
 	private static PARAM_PATTERNS = [
-		// 标准格式: ('Alice',)
+		// 标准 SQLAlchemy 格式: (1, 2, 3)
 		/^\s*\(([^)]+)\)\s*$/,
 		// 字典格式: {'user_id': 123}
 		/^\s*\{([^}]+)\}\s*$/,
 		// 列表格式: [1, 'Alice']
 		/^\s*\[([^\]]+)\]\s*$/,
+		// 包含 SQLAlchemy 性能统计的参数行: INFO sqlalchemy.engine.Engine [generated in 0.00008s] (parameters)
+		/^.*?sqlalchemy\.engine\.Engine\s+\[generated\s+in\s+.*?\]\s*\(([^)]+)\)\s*$/,
+		// 包含 [raw sql] 的参数行
+		/^.*?sqlalchemy\.engine\.Engine\s+\[raw\s+sql\]\s*\(([^)]+)\)\s*$/,
+		// 包含 [no key] 的参数行
+		/^.*?sqlalchemy\.engine\.Engine\s+\[no\s+key\s+.*?\]\s*\(([^)]+)\)\s*$/,
 		// 包含 SQLAlchemy 日志头的参数行
 		/^.*?sqlalchemy\.engine\.Engine\s*\(([^)]+)\)\s*$/,
 		// 多行参数 - 继续上一行，但要确保不是SQL语句
-		/^\s*([^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|BEGIN|COMMIT|ROLLBACK)\s].+)$/,
+		/^\s*([^(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|BEGIN|COMMIT|ROLLBACK|WITH)\s].+)$/,
+		// 空参数格式
+		/^\s*\(\s*\)\s*$/,
 	];
 
 	/**
@@ -72,21 +93,127 @@ export class SQLLogParser {
 	 * 从终端文本中解析 SQL 日志
 	 */
 	public static parseTerminalText(text: string): SQLLogEntry[] {
+		// 输入验证
+		if (!text || typeof text !== 'string') {
+			this.debugLog('无效的输入文本');
+			return [];
+		}
+
+		// 安全限制 - 防止处理过大的文本
+		const MAX_TEXT_LENGTH = 50000; // 50KB
+		const MAX_LINES = 1000;
+
+		if (text.length > MAX_TEXT_LENGTH) {
+			this.debugLog('文本过大，截断处理');
+			text = text.substring(0, MAX_TEXT_LENGTH);
+		}
+
 		this.debugLog('开始解析终端文本，长度:', text.length);
-		
+
 		const lines = text.split('\n');
 		const entries: SQLLogEntry[] = [];
 
-		this.debugLog('文本行数:', lines.length);
+		// 限制行数处理
+		const linesToProcess = Math.min(lines.length, MAX_LINES);
 
-		for (let i = 0; i < lines.length; i++) {
+		this.debugLog('文本行数:', linesToProcess);
+
+		for (let i = 0; i < linesToProcess; i++) {
 			const line = lines[i].trim();
 			if (!line) {continue;}
 
+			// 安全检查 - 防止处理过长的行
+			if (line.length > 1000) {
+				this.debugLog('行过长，跳过处理');
+				continue;
+			}
+
+			// 检查是否是完整的单行日志格式（包含 [raw sql], [no key], [generated in]）
+			const isCompleteSingleLineLog = line.includes('sqlalchemy.engine.Engine') &&
+				(line.includes('[raw sql]') || line.includes('[no key') || line.includes('[generated in]'));
+
 			// 检查是否是 SQLAlchemy 日志头（SQL 可能在下一行）
 			const isSQLAlchemyHeader = line.includes('sqlalchemy.engine.Engine') && !line.includes('[generated in');
+
 			
-			if (isSQLAlchemyHeader) {
+			if (isCompleteSingleLineLog) {
+				this.debugLog('发现完整的单行日志:', line);
+
+				// 直接匹配该行的SQL内容
+				const sqlMatch = this.matchSQLLine(line);
+				if (sqlMatch !== null) {
+					// 对于 [raw sql] 和 [no key] 模式，SQL内容应该为空
+					let actualSQL = sqlMatch;
+					if (line.includes('[raw sql]') || line.includes('[no key')) {
+						actualSQL = '';
+					}
+
+					this.debugLog('单行日志SQL内容:', actualSQL);
+
+					const entry: SQLLogEntry = {
+						sql: actualSQL,
+						lineNumber: i
+					};
+
+					// 查找参数（在同一行或后续行）
+					let paramText = '';
+					let foundParams = false;
+
+					// 首先检查同一行是否有参数
+					const paramMatch = this.matchParameterLine(line);
+					if (paramMatch) {
+						paramText = paramMatch;
+						foundParams = true;
+						this.debugLog('在同一行找到参数:', paramMatch);
+					} else {
+						// 向后查找参数行
+						for (let j = i + 1; j < Math.min(i + 11, lines.length); j++) {
+							const nextLine = lines[j].trim();
+							if (!nextLine) { continue; }
+
+							this.debugLog('检查参数行:', nextLine);
+
+							const paramMatch = this.matchParameterLine(nextLine);
+							if (paramMatch && (nextLine.includes('(') || nextLine.includes('{') || nextLine.includes('['))) {
+								paramText = paramMatch;
+								foundParams = true;
+								this.debugLog('找到参数:', paramMatch);
+								break;
+							} else if (nextLine.includes('sqlalchemy.engine.Engine')) {
+								break;
+							}
+						}
+					}
+
+					if (paramText) {
+						entry.parameters = paramText;
+						this.debugLog('最终参数文本:', paramText);
+					}
+
+					entries.push(entry);
+
+					// 跳过已处理的行
+					let lastProcessedLine = i;
+					if (foundParams) {
+						for (let j = i + 1; j < Math.min(i + 11, lines.length); j++) {
+							const nextLine = lines[j].trim();
+							if (!nextLine) { continue; }
+
+							if (nextLine.includes('sqlalchemy.engine.Engine')) {
+								break;
+							}
+
+							const paramMatch = this.matchParameterLine(nextLine);
+							if (paramMatch && (nextLine.includes('(') || nextLine.includes('{') || nextLine.includes('['))) {
+								lastProcessedLine = j;
+							}
+						}
+					}
+
+					i = lastProcessedLine;
+					continue;
+				}
+			} else if (isSQLAlchemyHeader) {
 				this.debugLog('发现 SQLAlchemy 日志头:', line);
 				
 				let actualSQL = '';
@@ -250,13 +377,18 @@ export class SQLLogParser {
 			return null;
 		}
 
+		// 跳过 [raw sql] 行且没有参数
+		if (line.includes('[raw sql]') && !line.includes('(')) {
+			return null;
+		}
+
 		// 跳过空行或只有空格的行
 		if (!line.trim()) {
 			return null;
 		}
 
 		// 跳过明显不是参数的行（如SQL语句或其他日志）
-		if (line.match(/^(SELECT\s|INSERT\s|UPDATE\s|DELETE\s|CREATE\s|ALTER\s|DROP\s|BEGIN\s|COMMIT\s|ROLLBACK\s)/i)) {
+		if (line.match(/^(SELECT\s|INSERT\s|UPDATE\s|DELETE\s|CREATE\s|ALTER\s|DROP\s|BEGIN\s|COMMIT\s|ROLLBACK\s|WITH\s)/i)) {
 			return null;
 		}
 
@@ -266,6 +398,14 @@ export class SQLLogParser {
 			const paramMatch = line.match(/\(([^)]+)\)/);
 			if (paramMatch) {
 				// 返回完整的括号格式，以便正确识别为元组
+				return `(${paramMatch[1].trim()})`;
+			}
+		}
+
+		// 特别处理包含 [raw sql] 的参数行
+		if (line.includes('[raw sql]') && line.includes('(')) {
+			const paramMatch = line.match(/\(([^)]+)\)/);
+			if (paramMatch) {
 				return `(${paramMatch[1].trim()})`;
 			}
 		}
@@ -283,9 +423,21 @@ export class SQLLogParser {
 	 * 解析参数字符串为 JavaScript 对象
 	 */
 	public static parseParameters(paramString: string): any[] {
+		// 输入验证
+		if (!paramString || typeof paramString !== 'string') {
+			this.debugLog('无效的参数字符串');
+			return [];
+		}
+
+		// 安全限制 - 防止处理过长的参数字符串
+		if (paramString.length > 10000) {
+			this.debugLog('参数字符串过长，跳过处理');
+			return [];
+		}
+
 		this.debugLog('开始解析参数字符串:', `"${paramString}"`);
 		this.debugLog('参数字符串长度:', paramString.length);
-		
+
 		try {
 			// 处理元组格式: ('Alice', 25, True)
 			if (paramString.startsWith('(') && paramString.endsWith(')')) {
@@ -570,21 +722,22 @@ export class SQLLogParser {
 			return 'NULL';
 		}
 
+		// 输入验证 - 防止 SQL 注入
+		if (typeof value === 'string' && this.containsPotentialSQLInjection(value)) {
+			// 对于可疑的 SQL 注入尝试，进行更严格的转义
+			const escaped = this.escapeStringForSQL(value);
+			return `'${escaped}'`;
+		}
+
 		if (typeof value === 'string') {
-			// 转义字符串中的单引号
-			const escaped = value.replace(/'/g, "''");
+			// 转义字符串中的单引号和其他特殊字符
+			const escaped = this.escapeStringForSQL(value);
 			return `'${escaped}'`;
 		}
 
 		if (typeof value === 'number') {
 			// 处理特殊浮点数值
-			if (value === Infinity) {
-				return 'NULL';
-			}
-			if (value === -Infinity) {
-				return 'NULL';
-			}
-			if (isNaN(value)) {
+			if (value === Infinity || value === -Infinity || isNaN(value)) {
 				return 'NULL';
 			}
 			return value.toString();
@@ -601,15 +754,55 @@ export class SQLLogParser {
 
 		// 处理数组和对象（JSON字符串）
 		if (typeof value === 'object') {
-			const stringValue = JSON.stringify(value);
-			const escaped = stringValue.replace(/'/g, "''");
-			return `'${escaped}'`;
+			try {
+				const stringValue = JSON.stringify(value);
+				const escaped = this.escapeStringForSQL(stringValue);
+				return `'${escaped}'`;
+			} catch (error) {
+				// 如果序列化失败，返回 NULL
+				return 'NULL';
+			}
 		}
 
 		// 其他类型转换为字符串
 		const stringValue = String(value);
-		const escaped = stringValue.replace(/'/g, "''");
+		const escaped = this.escapeStringForSQL(stringValue);
 		return `'${escaped}'`;
+	}
+
+	/**
+	 * 检查字符串是否包含潜在的 SQL 注入攻击
+	 */
+	private static containsPotentialSQLInjection(value: string): boolean {
+		const sqlInjectionPatterns = [
+			/--/,           // SQL 注释
+			/;/,            // SQL 语句分隔符
+			/\b(SELECT|INSERT|UPDATE|DELETE|DROP|CREATE|ALTER|UNION|EXEC)\b/i, // SQL 关键字
+			/\b(OR\s+\d+\s*=\s*\d+)\b/i,  // OR 1=1 攻击
+			/\b(AND\s+\d+\s*=\s*\d+)\b/i, // AND 1=1 攻击
+			/\b(XOR\s+\d+\s*=\s*\d+)\b/i, // XOR 1=1 攻击
+			/\b(WAITFOR\s+DELAY)\b/i,     // SQL Server 延迟攻击
+			/\b(SLEEP\()\b/i,             // MySQL 函数攻击
+			/\b(BENCHMARK\()\b/i,         // MySQL 基准测试攻击
+			/\b(LOAD_FILE\()\b/i,         // 文件读取攻击
+			/\b(INTO\s+(OUTFILE|DUMPFILE))\b/i, // 文件写入攻击
+		];
+
+		return sqlInjectionPatterns.some(pattern => pattern.test(value));
+	}
+
+	/**
+	 * 转义字符串用于 SQL 字面量
+	 */
+	private static escapeStringForSQL(value: string): string {
+		return value
+			.replace(/'/g, "''")           // 转义单引号
+			.replace(/\\/g, "\\\\")        // 转义反斜杠
+			.replace(/"/g, '\\"')          // 转义双引号
+			.replace(/\n/g, '\\n')         // 转义换行符
+			.replace(/\r/g, '\\r')         // 转义回车符
+			.replace(/\t/g, '\\t')         // 转义制表符
+			.replace(/\x00/g, '\\0');      // 转义空字符
 	}
 
 	/**
@@ -617,7 +810,7 @@ export class SQLLogParser {
 	 */
 	private static looksLikeSQLStart(text: string): boolean {
 		const sqlStartPatterns = [
-			/^SELECT\s+/i,
+			/^SELECT(\s+|$)/i,  // SELECT 后面有空格或者行结束
 			/^INSERT\s+/i,
 			/^UPDATE\s+/i,
 			/^DELETE\s+/i,
@@ -627,7 +820,19 @@ export class SQLLogParser {
 			/^BEGIN\s+/i,
 			/^COMMIT\s+/i,
 			/^ROLLBACK\s+/i,
-			/^WITH\s+/i
+			/^WITH\s+/i,
+			// 允许缩进的 SQL 开始（多行情况）
+			/^\s*SELECT(\s+|$)/i,
+			/^\s*INSERT\s+/i,
+			/^\s*UPDATE\s+/i,
+			/^\s*DELETE\s+/i,
+			/^\s*CREATE\s+/i,
+			/^\s*ALTER\s+/i,
+			/^\s*DROP\s+/i,
+			/^\s*BEGIN\s+/i,
+			/^\s*COMMIT\s+/i,
+			/^\s*ROLLBACK\s+/i,
+			/^\s*WITH\s+/i
 		];
 
 		return sqlStartPatterns.some(pattern => pattern.test(text));
@@ -687,21 +892,44 @@ export class SQLLogParser {
 	 * 从选中的终端文本中提取并处理 SQL
 	 */
 	public static processSelectedText(selectedText: string): ParsedSQL | null {
+		const startTime = performance.now();
+
 		// 解析终端文本
 		const entries = this.parseTerminalText(selectedText);
 
 		if (entries.length === 0) {
+			this.debugLog('没有找到有效的 SQL 条目');
 			return null;
 		}
 
-		// 处理第一个找到的 SQL 条目
-		const entry = entries[0];
-		let parameters: any[] = [];
+		// 限制处理的条目数量以提高性能
+		const maxEntriesToProcess = 10;
+		const entriesToProcess = Math.min(entries.length, maxEntriesToProcess);
 
-		if (entry.parameters) {
-			parameters = this.parseParameters(entry.parameters);
+		for (let i = 0; i < entriesToProcess; i++) {
+			const entry = entries[i];
+
+			try {
+				let parameters: any[] = [];
+
+				if (entry.parameters) {
+					parameters = this.parseParameters(entry.parameters);
+				}
+
+				const result = this.injectParameters(entry.sql, parameters);
+
+				if (result) {
+					const endTime = performance.now();
+					this.debugLog(`SQL 解析完成，耗时: ${(endTime - startTime).toFixed(2)}ms`);
+					return result;
+				}
+			} catch (error) {
+				this.debugLog(`处理第 ${i + 1} 个条目时出错:`, error);
+				continue;
+			}
 		}
 
-		return this.injectParameters(entry.sql, parameters);
+		this.debugLog('没有成功解析的 SQL 条目');
+		return null;
 	}
 }

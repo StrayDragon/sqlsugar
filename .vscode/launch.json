@@ -12,10 +12,52 @@
 			],
 			"name": "Run Extension",
 			"outFiles": [
-				"${workspaceFolder}/out/**/*.js"
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "npm: compile",
+			"request": "launch",
+			"type": "extensionHost"
+		},
+		{
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--enable-proposed-api=l8ng.sqlsugar"
+			],
+			"name": "Run Extension (No Compile)",
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
 			],
 			"request": "launch",
 			"type": "extensionHost"
 		},
+		{
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--extensionTestsPath=${workspaceFolder}/out/test/suite/index",
+				"--enable-proposed-api=l8ng.sqlsugar"
+			],
+			"name": "Run Extension Tests",
+			"outFiles": [
+				"${workspaceFolder}/out/**/*.js",
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "npm: compile",
+			"request": "launch",
+			"type": "extensionHost"
+		},
+		{
+			"args": [
+				"${workspaceFolder}/examples/sample.py",
+				"--extensionDevelopmentPath=${workspaceFolder}",
+				"--enable-proposed-api=l8ng.sqlsugar"
+			],
+			"name": "Debug with Sample File",
+			"outFiles": [
+				"${workspaceFolder}/dist/**/*.js"
+			],
+			"preLaunchTask": "npm: compile",
+			"request": "launch",
+			"type": "extensionHost"
+		}
 	]
 }

@@ -296,4 +296,142 @@ This is not a valid parameter line`;
 		assert.strictEqual(parsed!.parameters.length, 5);
 		assert.deepStrictEqual(parsed!.parameters, [1, 2, 3, 4, 5]);
 	});
+
+	test('Handle SQL injection attempts safely', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)
+('Robert\'); DROP TABLE users; --')`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should handle SQL injection attempts');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 1);
+		// The parameter should be safely escaped
+		assert.strictEqual(parsed!.injectedSQL, "INSERT INTO users (name) VALUES ('Robert'''); DROP TABLE users; --')");
+	});
+
+	test('Detect and block various SQL injection patterns', () => {
+		const injectionPatterns = [
+			"OR 1=1",
+			"AND 1=1",
+			"SELECT * FROM users",
+			"DROP TABLE users",
+			"UNION SELECT username, password FROM users",
+			"EXEC sp_configure",
+			"WAITFOR DELAY '0:0:5'",
+			"SLEEP(5)",
+			"LOAD_FILE('/etc/passwd')",
+			"INTO OUTFILE '/tmp/shell.php'",
+		];
+
+		injectionPatterns.forEach(pattern => {
+			const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)
+('${pattern}')`;
+
+			const parsed = SQLLogParser.processSelectedText(logText);
+
+			assert.ok(parsed, `Should handle injection pattern: ${pattern}`);
+			assert.strictEqual(parsed!.parameters.length, 1);
+			// The injected SQL should contain safely escaped content
+			assert.ok(parsed!.injectedSQL.includes("''"), 'Should contain escaped quotes');
+		});
+	});
+
+	test('Handle large terminal text gracefully', () => {
+		// Create a very large text (simulated)
+		let largeText = 'INFO sqlalchemy.engine.Engine: SELECT * FROM users\n';
+		for (let i = 0; i < 2000; i++) {
+			largeText += `Some non-SQL line ${i}\n`;
+		}
+		largeText += "('Alice',)";
+
+		const parsed = SQLLogParser.processSelectedText(largeText);
+
+		// Should handle large text without crashing
+		assert.ok(parsed, 'Should handle large terminal text');
+	});
+
+	test('Handle very long parameter lines', () => {
+		const longParam = 'x'.repeat(1500); // Create a very long parameter
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)
+('${longParam}')`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		// Should handle long parameters safely
+		assert.ok(parsed, 'Should handle long parameters');
+		assert.strictEqual(parsed!.parameters.length, 1);
+	});
+
+	test('Handle empty and invalid inputs', () => {
+		// Empty string
+		const parsed1 = SQLLogParser.processSelectedText('');
+		assert.ok(!parsed1, 'Should handle empty string');
+
+		// Null input
+		const parsed2 = SQLLogParser.processSelectedText(null as any);
+		assert.ok(!parsed2, 'Should handle null input');
+
+		// Undefined input
+		const parsed3 = SQLLogParser.processSelectedText(undefined as any);
+		assert.ok(!parsed3, 'Should handle undefined input');
+
+		// Non-string input
+		const parsed4 = SQLLogParser.processSelectedText(123 as any);
+		assert.ok(!parsed4, 'Should handle non-string input');
+	});
+
+	test('Handle malformed parameter strings', () => {
+		const malformedCases = [
+			'INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)\n(malformed',
+			'INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)\n{unclosed dict',
+			'INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)\n[unclosed list',
+			'INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)\n()',
+			'INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)\n{}',
+			'INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)\n[]',
+		];
+
+		malformedCases.forEach((caseText, index) => {
+			const parsed = SQLLogParser.processSelectedText(caseText);
+			assert.ok(parsed, `Should handle malformed case ${index + 1}`);
+			// Should not crash and should return some result
+			assert.ok(parsed!.originalSQL, 'Should have original SQL');
+		});
+	});
+
+	test('Handle special characters in parameters', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name, bio) VALUES (?, ?)
+('O\'Reilly', 'Multi-line\\nstring\\twith\\ttabs\\rand\\rnull\\x00')`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should handle special characters');
+		assert.strictEqual(parsed!.parameters.length, 2);
+		assert.strictEqual(parsed!.parameters[0], "O'Reilly");
+		assert.strictEqual(parsed!.parameters[1], 'Multi-line\nstring\twith\ttabs\rand\rnull\x00');
+	});
+
+	test('Handle extreme parameter values', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO measurements (value, timestamp, data) VALUES (?, ?, ?)
+(Infinity, -Infinity, NaN)`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should handle extreme values');
+		assert.strictEqual(parsed!.parameters.length, 3);
+		// Extreme values should be converted to NULL
+		assert.strictEqual(parsed!.injectedSQL, 'INSERT INTO measurements (value, timestamp, data) VALUES (NULL, NULL, NULL)');
+	});
+
+	test('Handle nested parameter structures', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name, metadata) VALUES (?, ?)
+('Alice', {'preferences': {'theme': 'dark', 'notifications': True}, 'settings': [1, 2, 3]})`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should handle nested structures');
+		assert.strictEqual(parsed!.parameters.length, 2);
+		assert.strictEqual(parsed!.parameters[0], 'Alice');
+		assert.ok(typeof parsed!.parameters[1] === 'string', 'Nested object should be serialized');
+	});
 });

@@ -34,15 +34,42 @@ export class TerminalMonitor {
 			vscode.window.onDidCloseTerminal(this.onTerminalClosed, this)
 		);
 
-		// 监听终端数据写入（需要 terminalDataWriteEvent API proposal）
-		this.disposables.push(
-			(vscode.window as any).onDidWriteTerminalData(this.onTerminalDataWritten, this)
-		);
+		// 检查是否支持 terminalDataWriteEvent API
+		if (this.isTerminalDataWriteEventAvailable()) {
+			try {
+				this.disposables.push(
+					(vscode.window as any).onDidWriteTerminalData(this.onTerminalDataWritten, this)
+				);
+				console.log('Terminal data write event API enabled');
+			} catch (error) {
+				console.warn('Failed to register terminal data write event listener:', error);
+			}
+		} else {
+			console.log('Terminal data write event API not available. Using clipboard-based selection only.');
+		}
 
 		// 初始化现有终端
 		vscode.window.terminals.forEach(terminal => {
 			this.terminalBuffer.set(terminal.name, []);
 		});
+	}
+
+	/**
+	 * 检查 terminalDataWriteEvent API 是否可用
+	 */
+	private isTerminalDataWriteEventAvailable(): boolean {
+		try {
+			// 检查是否在开发模式下运行或者API是否可用
+			if (typeof (vscode.window as any).onDidWriteTerminalData === 'function') {
+				// 尝试访问API，如果不可用会抛出异常
+				(vscode.window as any).onDidWriteTerminalData;
+				return true;
+			}
+			return false;
+		} catch (error) {
+			console.log('Terminal data write event API not available, will use clipboard fallback:', error instanceof Error ? error.message : String(error));
+			return false;
+		}
 	}
 
 	/**
@@ -84,16 +111,36 @@ export class TerminalMonitor {
 			// 检查是否有活动终端
 			const activeTerminal = vscode.window.activeTerminal;
 			if (!activeTerminal) {
+				console.log('No active terminal found');
 				return null;
 			}
 
-			// 主要方法：尝试从剪贴板获取选中的文本
-			// 用户在终端中选择文本后，通常可以使用 Ctrl+C 复制
+			// 方法1：使用 VS Code 命令复制终端选中的内容到剪贴板
+			try {
+				await vscode.commands.executeCommand('workbench.action.terminal.copySelection');
+				console.log('Executed terminal copy selection command');
+				
+				// 等待一小段时间确保复制完成
+				await new Promise(resolve => setTimeout(resolve, 100));
+				
+				// 然后从剪贴板获取内容
+				const clipboardText = await vscode.env.clipboard.readText();
+				if (clipboardText.trim()) {
+					console.log('Found text from terminal selection via command, length:', clipboardText.length);
+					return clipboardText;
+				}
+			} catch (error) {
+				console.log('Terminal copy selection command failed:', error);
+			}
+
+			// 方法2：尝试从剪贴板获取选中的文本（用户手动复制）
 			const clipboardText = await this.tryGetSelectionFromClipboard();
 			if (clipboardText) {
+				console.log('Found text from clipboard, length:', clipboardText.length);
 				return clipboardText;
 			}
 
+			console.log('No text found in clipboard');
 			return null;
 		} catch (error) {
 			console.warn('Failed to get terminal selection:', error);
@@ -128,9 +175,21 @@ export class TerminalMonitor {
 		try {
 			// 获取剪贴板内容
 			const clipboardText = await vscode.env.clipboard.readText();
+			console.log('Clipboard text length:', clipboardText.length);
+			console.log('Clipboard text preview:', clipboardText.substring(0, 100));
 
 			// 检查是否看起来像 SQL 日志
-			if (this.looksLikeSQLLog(clipboardText)) {
+			const looksLikeLog = this.looksLikeSQLLog(clipboardText);
+			console.log('Looks like SQL log:', looksLikeLog);
+			
+			if (looksLikeLog) {
+				return clipboardText;
+			}
+
+			// 如果看起来不像 SQL 日志，但剪贴板不为空，仍然返回内容
+			// 让更高层的逻辑来决定是否处理这个内容
+			if (clipboardText.trim()) {
+				console.log('Clipboard content doesn\'t look like SQL log, but returning anyway for further processing');
 				return clipboardText;
 			}
 
@@ -156,7 +215,18 @@ export class TerminalMonitor {
 			'DELETE FROM',
 			'CREATE TABLE',
 			'ALTER TABLE',
-			'DROP TABLE'
+			'DROP TABLE',
+			'BEGIN',
+			'COMMIT',
+			'ROLLBACK',
+			'SET',
+			'VALUES',
+			'WHERE',
+			'JOIN',
+			'GROUP BY',
+			'ORDER BY',
+			'HAVING',
+			'LIMIT'
 		];
 
 		for (const line of lines) {
@@ -172,6 +242,16 @@ export class TerminalMonitor {
 
 			// 检查是否包含占位符模式
 			if (trimmed.includes('?') || trimmed.includes(':') || trimmed.includes('%s')) {
+				return true;
+			}
+
+			// 检查是否包含参数格式
+			if (trimmed.match(/\(.*?\)/) || trimmed.match(/\{.*?\}/) || trimmed.match(/\[.*?\]/)) {
+				return true;
+			}
+
+			// 检查是否包含时间戳格式
+			if (trimmed.includes('[generated in') || trimmed.includes('INFO ') || trimmed.includes('DEBUG ')) {
 				return true;
 			}
 		}

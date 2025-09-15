@@ -53,6 +53,34 @@ export class ClipboardManager {
 	}
 
 	/**
+	 * 强制使用 wl-copy 复制（用户请求）
+	 */
+	public async copyWithWlCopy(text: string): Promise<boolean> {
+		try {
+			if (process.platform === 'linux' && await this.isCommandAvailable('wl-copy')) {
+				console.log('Using wl-copy to copy text, length:', text.length);
+				console.log('Text preview:', text.substring(0, 100));
+				
+				// 创建临时文件来避免 shell 转义问题
+				const tempFile = '/tmp/sqlsugar-wl-copy.txt';
+				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
+				await execAsync(`wl-copy < ${tempFile}`);
+				
+				// 验证复制是否成功
+				const { stdout } = await execAsync('wl-paste');
+				console.log('Verification - wl-paste result length:', stdout.length);
+				console.log('Verification - content matches:', stdout === text);
+				
+				return true;
+			}
+			return false;
+		} catch (error) {
+			console.warn('wl-copy command failed:', error);
+			return false;
+		}
+	}
+
+	/**
 	 * 使用系统命令复制
 	 */
 	private async copyWithSystemCommand(text: string): Promise<boolean> {
@@ -83,19 +111,25 @@ export class ClipboardManager {
 		try {
 			// 首先尝试 wl-copy (Wayland)
 			if (await this.isCommandAvailable('wl-copy')) {
-				await execAsync(`echo ${this.escapeShellArgument(text)} | wl-copy`);
+				const tempFile = '/tmp/sqlsugar-copy.txt';
+				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
+				await execAsync(`wl-copy < ${tempFile}`);
 				return true;
 			}
 
 			// 然后尝试 xclip (X11)
 			if (await this.isCommandAvailable('xclip')) {
-				await execAsync(`echo ${this.escapeShellArgument(text)} | xclip -selection clipboard`);
+				const tempFile = '/tmp/sqlsugar-copy.txt';
+				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
+				await execAsync(`xclip -selection clipboard < ${tempFile}`);
 				return true;
 			}
 
 			// 最后尝试 xsel
 			if (await this.isCommandAvailable('xsel')) {
-				await execAsync(`echo ${this.escapeShellArgument(text)} | xsel --clipboard --input`);
+				const tempFile = '/tmp/sqlsugar-copy.txt';
+				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
+				await execAsync(`xsel --clipboard --input < ${tempFile}`);
 				return true;
 			}
 
@@ -162,8 +196,14 @@ export class ClipboardManager {
 	 * 转义 shell 参数
 	 */
 	private escapeShellArgument(text: string): string {
-		// 简单的转义，处理单引号和双引号
-		return text.replace(/'/g, "'\\''").replace(/"/g, '\\"');
+		// 使用单引号包围，只在文本中包含单引号时进行特殊处理
+		if (text.includes("'")) {
+			// 如果包含单引号，使用双引号包围
+			return `"${text.replace(/"/g, '\\"')}"`;
+		} else {
+			// 否则使用单引号包围
+			return `'${text}'`;
+		}
 	}
 
 	/**

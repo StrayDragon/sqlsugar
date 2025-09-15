@@ -50,6 +50,9 @@ let devMetrics: DevMetrics = {
 
 const isTestEnvironment = process.env.VSCODE_TEST === 'true';
 
+// Debug mode flag
+let debugMode = false;
+
 export function activate(context: vscode.ExtensionContext) {
 	console.log('sqlsugar activated');
 
@@ -238,6 +241,131 @@ export function activate(context: vscode.ExtensionContext) {
 		await handleGenerateTestLogs();
 	});
 	disposables.push(generateTestLogs);
+
+	// Debug mode toggle command
+	const toggleDebugMode = vscode.commands.registerCommand('sqlsugar.toggleDebugMode', async () => {
+		debugMode = !debugMode;
+		SQLLogParser.setDebugMode(debugMode);
+		
+		const message = debugMode ? 
+			'SQLSugar debug mode enabled. Check developer console for detailed logs.' : 
+			'SQLSugar debug mode disabled.';
+		
+		vscode.window.showInformationMessage(message, { modal: false });
+		
+		// Update status bar to show debug mode
+		if (statusBarItem) {
+			if (debugMode) {
+				statusBarItem.text = '$(bug) SQLSugar Debug';
+				statusBarItem.tooltip = 'SQLSugar Debug Mode - Click to toggle';
+				statusBarItem.show();
+			} else {
+				// Restore normal status bar
+				if (currentConnection) {
+					statusBarItem.text = `$(database) ${currentConnection.alias}`;
+					statusBarItem.tooltip = `${currentConnection.driver} - ${currentConnection.host || currentConnection.dataSourceName || 'Unknown'}`;
+				} else {
+					statusBarItem.text = '$(database) No Connection';
+					statusBarItem.tooltip = 'Click to select database connection';
+				}
+				statusBarItem.show();
+			}
+		}
+	});
+	disposables.push(toggleDebugMode);
+
+	// Test clipboard command
+	const testClipboard = vscode.commands.registerCommand('sqlsugar.testClipboard', async () => {
+		try {
+			const clipboardText = await vscode.env.clipboard.readText();
+			
+			// 详细的调试信息
+			console.log('=== SQLSugar Clipboard Debug Info ===');
+			console.log('Clipboard content length:', clipboardText.length);
+			console.log('Clipboard content (first 500 chars):', clipboardText.substring(0, 500));
+			console.log('Clipboard content (char codes):', Array.from(clipboardText.substring(0, 50)).map(c => c.charCodeAt(0)));
+			
+			// 检查是否为空或只有空白字符
+			if (!clipboardText.trim()) {
+				vscode.window.showErrorMessage('❌ Clipboard is empty or contains only whitespace', { modal: false });
+				return;
+			}
+			
+			// 分析每一行
+			const lines = clipboardText.trim().split('\n');
+			console.log('Number of lines:', lines.length);
+			
+			let foundSQLKeywords = false;
+			const analysis = lines.map((line, index) => {
+				const trimmed = line.trim();
+				const hasSQLKeywords = [
+					'sqlalchemy.engine.Engine',
+					'INSERT INTO',
+					'SELECT', 
+					'UPDATE',
+					'DELETE FROM',
+					'CREATE TABLE',
+					'ALTER TABLE',
+					'DROP TABLE',
+					'BEGIN',
+					'COMMIT',
+					'ROLLBACK'
+				].some(keyword => trimmed.toLowerCase().includes(keyword.toLowerCase()));
+				
+				const hasPlaceholders = trimmed.includes('?') || trimmed.includes(':') || trimmed.includes('%s');
+				const hasParams = trimmed.match(/\(.*?\)/) || trimmed.match(/\{.*?\}/) || trimmed.match(/\[.*?\]/);
+				const hasTimestamp = trimmed.includes('INFO ') || trimmed.includes('DEBUG ') || trimmed.includes('[generated in');
+				
+				if (hasSQLKeywords || hasPlaceholders || hasParams || hasTimestamp) {
+					foundSQLKeywords = true;
+				}
+				
+				return {
+					lineNumber: index + 1,
+					content: trimmed,
+					hasSQLKeywords,
+					hasPlaceholders,
+					hasParams,
+					hasTimestamp
+				};
+			});
+			
+			// 显示分析结果
+			console.log('Line analysis:', analysis);
+			
+			if (foundSQLKeywords) {
+				const message = `✅ Clipboard content appears to be SQL log (${lines.length} lines detected)`;
+				console.log(message);
+				
+				// 尝试解析SQL
+				try {
+					const parsed = SQLLogParser.processSelectedText(clipboardText);
+					if (parsed) {
+						console.log('✅ Successfully parsed SQL:', parsed);
+						vscode.window.showInformationMessage(`SQL log detected! Found SQL with ${parsed.parameters.length} parameters.`, {
+							modal: false,
+							detail: `Original: ${parsed.originalSQL}\nInjected: ${parsed.injectedSQL}`
+						});
+					} else {
+						console.log('❌ Failed to parse SQL');
+						vscode.window.showErrorMessage('❌ Clipboard contains SQL-like text but parsing failed', { modal: false });
+					}
+				} catch (parseError) {
+					console.log('❌ Parse error:', parseError);
+					vscode.window.showErrorMessage(`❌ Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}`, { modal: false });
+				}
+			} else {
+				const message = `❌ Clipboard content does not appear to be SQL log (${lines.length} lines)\nFirst line: "${lines[0]?.trim().substring(0, 50)}..."`;
+				console.log(message);
+				vscode.window.showErrorMessage(message, { modal: false });
+			}
+			
+		} catch (error) {
+			console.log('❌ Clipboard read error:', error);
+			vscode.window.showErrorMessage(`❌ Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+		}
+	});
+	disposables.push(testClipboard);
 
 	// Dev metrics command for tests/tools
 	const metricsCmd = vscode.commands.registerCommand('sqlsugar._devGetMetrics', async () => {
@@ -962,24 +1090,37 @@ function restartSqlsClientWithConnection(connection: DatabaseConnection): void {
  */
 async function handleCopyTerminalSQL(): Promise<void> {
 	try {
+		if (debugMode) {
+			console.log('[SQLSugar Debug] 开始处理终端SQL复制命令');
+		}
+		
 		const clipboardManager = ClipboardManager.getInstance();
 		let selectedText: string | null = null;
-		let sourceType: 'editor' | 'terminal' | 'none' = 'none';
+		let sourceType: 'editor' | 'terminal' | 'clipboard' | 'none' = 'none';
 
 		// 首先尝试从编辑器获取选中的文本
 		const editor = vscode.window.activeTextEditor;
 		if (editor && editor.selection && !editor.selection.isEmpty) {
 			selectedText = editor.document.getText(editor.selection);
 			sourceType = 'editor';
+			if (debugMode) {
+				console.log('[SQLSugar Debug] 从编辑器获取选中文本，长度:', selectedText?.length);
+			}
 		}
 
 		// 如果编辑器没有选中文本，尝试从终端获取
 		if (!selectedText) {
 			try {
+				if (debugMode) {
+					console.log('[SQLSugar Debug] 尝试从终端获取选中文本');
+				}
 				const terminalMonitor = TerminalMonitor.getInstance();
 				selectedText = await terminalMonitor.getSelectedText();
 				if (selectedText) {
 					sourceType = 'terminal';
+					if (debugMode) {
+						console.log('[SQLSugar Debug] 从终端获取选中文本，长度:', selectedText.length);
+					}
 				}
 			} catch (terminalError) {
 				console.warn('Terminal monitor error:', terminalError);
@@ -989,16 +1130,76 @@ async function handleCopyTerminalSQL(): Promise<void> {
 
 		// 如果仍然没有选中文本，显示错误信息
 		if (!selectedText) {
-			vscode.window.showWarningMessage('No SQL log text selected or detected.', {
-				modal: false,
-				detail: 'Please select text containing "INFO sqlalchemy.engine.Engine:" followed by SQL statements in the terminal or editor.'
-			});
-			return;
+			if (debugMode) {
+				console.log('[SQLSugar Debug] 没有找到选中文本');
+				console.log('[SQLSugar Debug] 尝试检查剪贴板内容作为后备方案...');
+			}
+			
+			// 尝试从剪贴板获取内容作为后备方案
+			try {
+				const clipboardText = await vscode.env.clipboard.readText();
+				if (debugMode) {
+					console.log('[SQLSugar Debug] 剪贴板内容长度:', clipboardText.length);
+					console.log('[SQLSugar Debug] 剪贴板内容前200字符:', clipboardText.substring(0, 200));
+				}
+				
+				if (clipboardText.trim()) {
+					// 检查是否看起来像SQL日志
+					const looksLikeSQL = clipboardText.includes('sqlalchemy.engine.Engine') || 
+									  clipboardText.includes('SELECT') || 
+									  clipboardText.includes('INSERT INTO') ||
+									  clipboardText.includes('UPDATE') ||
+									  clipboardText.includes('DELETE FROM');
+					
+					if (looksLikeSQL) {
+						if (debugMode) {
+							console.log('[SQLSugar Debug] 剪贴板内容看起来像SQL日志，使用剪贴板内容');
+						}
+						selectedText = clipboardText;
+						sourceType = 'clipboard';
+					} else {
+						if (debugMode) {
+							console.log('[SQLSugar Debug] 剪贴板内容不像SQL日志');
+						}
+						vscode.window.showWarningMessage('No SQL log text selected or detected.', {
+							modal: false,
+							detail: 'Please select text containing "INFO sqlalchemy.engine.Engine:" followed by SQL statements in the terminal or editor. Clipboard content does not appear to be SQL log.'
+						});
+						return;
+					}
+				} else {
+					if (debugMode) {
+						console.log('[SQLSugar Debug] 剪贴板为空');
+					}
+					vscode.window.showWarningMessage('No SQL log text selected or detected.', {
+						modal: false,
+						detail: 'Please select text containing "INFO sqlalchemy.engine.Engine:" followed by SQL statements in the terminal or editor. Clipboard is empty.'
+					});
+					return;
+				}
+			} catch (clipboardError) {
+				if (debugMode) {
+					console.log('[SQLSugar Debug] 剪贴板读取失败:', clipboardError);
+				}
+				vscode.window.showWarningMessage('No SQL log text selected or detected.', {
+					modal: false,
+					detail: 'Please select text containing "INFO sqlalchemy.engine.Engine:" followed by SQL statements in the terminal or editor. Could not access clipboard.'
+				});
+				return;
+			}
 		}
 
 		// 解析 SQL 日志
+		if (debugMode) {
+			console.log('[SQLSugar Debug] 开始解析SQL日志，文本长度:', selectedText.length);
+			console.log('[SQLSugar Debug] 选中的文本前200字符:', selectedText.substring(0, 200));
+		}
+		
 		const parsedSQL = SQLLogParser.processSelectedText(selectedText);
 		if (!parsedSQL) {
+			if (debugMode) {
+				console.log('[SQLSugar Debug] SQL解析失败，没有找到有效的SQL语句');
+			}
 			vscode.window.showWarningMessage('No valid SQL statement found in the selected text. Please select SQLAlchemy log output with SQL statements.', {
 				modal: false,
 				detail: 'Expected format: "INFO sqlalchemy.engine.Engine: SELECT * FROM users WHERE id = ?" followed by parameter values.'
@@ -1008,19 +1209,46 @@ async function handleCopyTerminalSQL(): Promise<void> {
 
 		// 检查选择是否为空
 		if (!selectedText.trim()) {
+			if (debugMode) {
+				console.log('[SQLSugar Debug] 选中的文本为空');
+			}
 			vscode.window.showWarningMessage('Selected text is empty. Please select SQLAlchemy log output in the terminal or editor.');
 			return;
 		}
 
+		if (debugMode) {
+			console.log('[SQLSugar Debug] SQL解析成功:');
+			console.log('[SQLSugar Debug] - 原始SQL:', parsedSQL.originalSQL);
+			console.log('[SQLSugar Debug] - 注入SQL:', parsedSQL.injectedSQL);
+			console.log('[SQLSugar Debug] - 占位符类型:', parsedSQL.placeholderType);
+			console.log('[SQLSugar Debug] - 参数数量:', parsedSQL.parameters.length);
+			console.log('[SQLSugar Debug] - 参数:', parsedSQL.parameters);
+		}
+
 		// 如果没有参数需要注入，直接复制原始 SQL
 		if (parsedSQL.placeholderType === 'none' || parsedSQL.parameters.length === 0) {
-			const success = await clipboardManager.copyText(parsedSQL.originalSQL);
+			if (debugMode) {
+				console.log('[SQLSugar Debug] 没有参数需要注入，直接复制原始SQL');
+			}
+			// Try wl-copy first on Linux (user request)
+			let success = false;
+			if (process.platform === 'linux') {
+				success = await clipboardManager.copyWithWlCopy(parsedSQL.originalSQL);
+			}
+			
+			// Fall back to normal copy method if wl-copy fails
+			if (!success) {
+				success = await clipboardManager.copyText(parsedSQL.originalSQL);
+			}
 			if (success) {
 				const sourceMsg = sourceType === 'editor' ? ' (from editor)' : ' (from terminal)';
 				vscode.window.showInformationMessage(`SQL statement copied to clipboard${sourceMsg} (no parameters to inject).`, {
 					modal: false
 				});
 			} else {
+				if (debugMode) {
+					console.log('[SQLSugar Debug] 复制到剪贴板失败');
+				}
 				vscode.window.showErrorMessage('Failed to copy SQL to clipboard. Please check your clipboard permissions.', {
 					modal: false
 				});
@@ -1028,8 +1256,16 @@ async function handleCopyTerminalSQL(): Promise<void> {
 			return;
 		}
 
-		// 复制注入参数后的 SQL
-		const success = await clipboardManager.copyText(parsedSQL.injectedSQL);
+		// 复制注入参数后的 SQL - 优先使用 wl-copy
+		let success = false;
+		if (process.platform === 'linux') {
+			success = await clipboardManager.copyWithWlCopy(parsedSQL.injectedSQL);
+		}
+		
+		// 如果 wl-copy 失败，回退到正常复制方法
+		if (!success) {
+			success = await clipboardManager.copyText(parsedSQL.injectedSQL);
+		}
 		if (success) {
 			const sourceMsg = sourceType === 'editor' ? ' (from editor)' : ' (from terminal)';
 			const message = `SQL with ${parsedSQL.parameters.length} parameter(s) injected copied to clipboard${sourceMsg}.`;

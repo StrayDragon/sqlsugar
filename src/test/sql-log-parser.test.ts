@@ -182,4 +182,118 @@ malformed parameter line`;
 		assert.ok(parsed3, 'Should parse SQL without parameters');
 		assert.strictEqual(parsed3!.injectedSQL, 'SELECT * FROM users WHERE id = ?');
 	});
+
+	test('Parse real-world SQLAlchemy log with complex parameters', () => {
+		const logText = `2024-01-15 10:30:45,123 INFO sqlalchemy.engine.Engine: INSERT INTO users (name, email, age, is_active, created_at) VALUES (?, ?, ?, ?, ?)
+2024-01-15 10:30:45,124 INFO sqlalchemy.engine.Engine [generated in 0.00015s] ('John Doe', 'john@example.com', 30, True, '2024-01-15 10:30:45.123456')`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse real-world SQLAlchemy log');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 5);
+		assert.deepStrictEqual(parsed!.parameters, ['John Doe', 'john@example.com', 30, true, '2024-01-15 10:30:45.123456']);
+	});
+
+	test('Parse SQLAlchemy log with multi-line parameters', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO products (name, description, price, metadata) VALUES (?, ?, ?, ?)
+('Premium Widget', 'A high-quality widget with advanced features and 
+long description that spans multiple lines', 99.99, {'color': 'blue', 'size': 'large'})`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse multi-line parameters');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 4);
+		assert.strictEqual(parsed!.parameters[0], 'Premium Widget');
+		assert.strictEqual(parsed!.parameters[1], 'A high-quality widget with advanced features and \nlong description that spans multiple lines');
+		assert.strictEqual(parsed!.parameters[2], 99.99);
+	});
+
+	test('Parse SQLAlchemy log with escaped characters', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name, bio) VALUES (?, ?)
+('O\\'Reilly', 'Developer with \\"quotes\\" and \\\\backslashes\\\\')`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse escaped characters');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 2);
+		assert.deepStrictEqual(parsed!.parameters, ["O'Reilly", 'Developer with "quotes" and \\backslashes\\']);
+	});
+
+	test('Parse SQLAlchemy log with NULL and None values', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: UPDATE users SET name = ?, bio = ?, age = ? WHERE id = ?
+(NULL, None, None, 1)`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse NULL and None values');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 4);
+		assert.deepStrictEqual(parsed!.parameters, [null, null, null, 1]);
+	});
+
+	test('Parse SQLAlchemy log with scientific notation', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO measurements (value, timestamp) VALUES (?, ?)
+(1.23e-4, '2024-01-15 10:30:45')`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse scientific notation');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 2);
+		assert.strictEqual(parsed!.parameters[0], 0.000123);
+		assert.strictEqual(parsed!.parameters[1], '2024-01-15 10:30:45');
+	});
+
+	test('Parse SQLAlchemy log with mixed data types', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO orders (user_id, product_id, quantity, price, shipped) VALUES (?, ?, ?, ?, ?)
+(123, 456, 2, 29.99, False)`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse mixed data types');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 5);
+		assert.deepStrictEqual(parsed!.parameters, [123, 456, 2, 29.99, false]);
+	});
+
+	test('Handle malformed parameter lines gracefully', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)
+This is not a valid parameter line`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should handle malformed parameters gracefully');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 0);
+	});
+
+	test('Parse SQLAlchemy log with dictionary parameters', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: SELECT * FROM users WHERE name = :name AND age > :age
+{'name': 'Alice', 'age': 25}`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse dictionary parameters');
+		assert.strictEqual(parsed!.placeholderType, 'named');
+		assert.strictEqual(parsed!.parameters.length, 2);
+		assert.strictEqual(parsed!.parameters[0].name, 'name');
+		assert.strictEqual(parsed!.parameters[0].value, 'Alice');
+		assert.strictEqual(parsed!.parameters[1].name, 'age');
+		assert.strictEqual(parsed!.parameters[1].value, 25);
+	});
+
+	test('Parse SQLAlchemy log with list parameters', () => {
+		const logText = `INFO sqlalchemy.engine.Engine: SELECT * FROM users WHERE id IN ?
+[1, 2, 3, 4, 5]`;
+
+		const parsed = SQLLogParser.processSelectedText(logText);
+
+		assert.ok(parsed, 'Should parse list parameters');
+		assert.strictEqual(parsed!.placeholderType, 'question');
+		assert.strictEqual(parsed!.parameters.length, 5);
+		assert.deepStrictEqual(parsed!.parameters, [1, 2, 3, 4, 5]);
+	});
 });

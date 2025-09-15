@@ -35,6 +35,14 @@
       {
         "command": "sqlsugar.generateTestLogs",
         "title": "SQLSugar: Generate Test SQLAlchemy Logs"
+      },
+      {
+        "command": "sqlsugar.toggleDebugMode",
+        "title": "SQLSugar: Toggle Debug Mode"
+      },
+      {
+        "command": "sqlsugar.testClipboard",
+        "title": "SQLSugar: Test Clipboard Content"
       }
     ],
     "menus": {
@@ -65,6 +73,12 @@
         },
         {
           "command": "sqlsugar.generateTestLogs"
+        },
+        {
+          "command": "sqlsugar.toggleDebugMode"
+        },
+        {
+          "command": "sqlsugar.testClipboard"
         }
       ]
     },

@@ -17,10 +17,20 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - `pnpm run check-types` - Run TypeScript type checking
 - `pnpm run lint` - Run ESLint on src directory
 
+### Justfile Commands (Alternative Task Runner)
+- `just package-vsix` or `just pv` - Package as .vsix file
+- `just install-local` - Build and install extension locally
+- `just clean` - Clean generated files (dist/, out/, *.vsix)
+- `just deep-clean` or `just dc` - Clean including node_modules/
+- `just backup` - Create backup of current vsix with timestamp
+- `just open-vscode` - Open VS Code with proposed APIs enabled
+
 ### Development Environment
 - Use `pnpm run watch` for development - it builds the extension and watches for changes
 - Use F5 in VS Code to launch the extension in debug mode (requires compilation first)
 - Tests are run with `vscode-test` framework
+- VS Code workspace includes configured tasks for parallel compilation (watch:tsc + watch:esbuild)
+- Use `just open-vscode` to open VS Code with proposed APIs enabled for development
 
 ## Architecture
 
@@ -34,12 +44,15 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - Includes database connection switching functionality
 
 **Additional Components**:
-- `src/indentationAnalyzer.ts` - Handles Python multi-line SQL indentation preservation
-- `src/sql-log-parser.ts` - Parses SQLAlchemy logs from terminal output and extracts SQL with parameters
-- `src/terminal-monitor.ts` - Monitors terminal output for SQL log detection
-- `src/clipboard-manager.ts` - Handles clipboard operations with fallback support
+- `src/indentationAnalyzer.ts` - Handles Python multi-line SQL indentation preservation with sophisticated pattern analysis
+- `src/sql-log-parser.ts` - Parses SQLAlchemy logs from terminal output and extracts SQL with parameters using regex patterns
+- `src/terminal-monitor.ts` - Monitors terminal output for SQL log detection using VS Code terminal API
+- `src/clipboard-manager.ts` - Handles clipboard operations with cross-platform fallback support
 - `src/test/extension.test.ts` - Comprehensive test suite with 1500+ lines
 - `src/test/sql-log-parser.test.ts` - Tests for SQL log parsing functionality
+- `src/test/indentationAnalyzer.test.ts` - Tests for indentation pattern detection
+- `src/test/connection-switching.test.ts` - Tests for database connection management
+- `src/test/sqlalchemy-generator-patterns.test.ts` - Tests for SQLAlchemy log pattern recognition
 
 **Key Features**:
 - **Multi-language SQL string detection**: Supports Python, JavaScript, TypeScript
@@ -52,6 +65,8 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - **Terminal SQL extraction**: Parses SQLAlchemy logs from terminal output and extracts SQL with injected parameters
 - **Smart parameter parsing**: Handles various parameter formats (tuples, dictionaries, lists) with proper type conversion
 - **Clipboard fallback support**: Works across different platforms with multiple clipboard command support
+- **Advanced indentation analysis**: Sophisticated pattern detection for Python multi-line strings including hierarchical, keyword-aligned, and continuation patterns
+- **Debug utilities**: Built-in test log generation and metrics tracking for development
 
 ### Language-Specific Behaviors
 
@@ -79,6 +94,12 @@ The extension supports several configuration options:
 - `sqlsugar.cleanupOnClose`: When to delete temp files (on close vs on save)
 - `sqlsugar.showSQLPreview`: Show preview of original and injected SQL after copying
 - `sqlsugar.enableWlCopyFallback`: Enable wl-copy fallback for clipboard operations on Wayland
+
+### Advanced Configuration
+The `sqlsConfigPath` supports variable substitution:
+- `${workspaceFolder}` - Resolves to the current workspace folder
+- `${env:VAR_NAME}` - Resolves to environment variable values
+- Example: `${workspaceFolder}/docker/sqls-config.yml` or `${env:HOME}/.config/sqls/config.yml`
 
 ### Terminal SQL Extraction
 
@@ -179,6 +200,15 @@ examples/                # Example usage files
 - Test parameter injection with different data types (strings, numbers, booleans, nulls, dates)
 - Verify clipboard operations work across different platforms
 - Test edge cases like malformed parameters, escaped characters, and multi-line parameters
+- Use `sqlsugar.toggleDebugMode` to enable debug logging for troubleshooting
+- Use `sqlsugar.testClipboard` to test clipboard functionality across platforms
+
+### Development Tools and Debugging
+The extension includes several developer-facing commands:
+- `sqlsugar._devGetMetrics` - Shows resource usage metrics (active disposables, temp files, command invocations)
+- `sqlsugar.toggleDebugMode` - Enables/disables debug logging for troubleshooting
+- `sqlsugar.generateTestLogs` - Generates comprehensive SQLAlchemy test logs
+- `sqlsugar.testClipboard` - Tests clipboard functionality and shows platform-specific tools
 
 ### SQL Integration
 - Requires `sqls` language server to be installed and available in PATH

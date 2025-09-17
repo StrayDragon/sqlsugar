@@ -90,7 +90,6 @@
           "default": "sqls",
           "description": "Path to sqls executable"
         },
-
         "sqlsugar.tempFileCleanup": {
           "type": "boolean",
           "default": true,
@@ -101,7 +100,6 @@
           "default": true,
           "description": "If true, delete temp SQL file on editor close; if false, delete on save when tempFileCleanup is enabled"
         },
-
         "sqlsugar.sqlsConfigPath": {
           "type": "string",
           "default": "",
@@ -136,8 +134,8 @@
     "test": "vscode-test --timeout=600000"
   },
   "dependencies": {
-    "vscode-languageclient": "^9.0.1",
-    "js-yaml": "^4.1.0"
+    "js-yaml": "^4.1.0",
+    "vscode-languageclient": "^9.0.1"
   },
   "repository": {
     "type": "git",
@@ -156,6 +154,7 @@
     "@vscode/vsce": "^3.6.0",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
+    "mocha": "^11.7.2",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.2"
   }

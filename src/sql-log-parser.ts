@@ -61,12 +61,12 @@ export class SQLLogParser {
 	];
 
 	// SQL关键词模式 - 用于快速识别
-	private static readonly SQL_KEYWORDS = new Set([
+	private static readonly SQL_KEYWORDS = [
 		'SELECT', 'INSERT', 'UPDATE', 'DELETE', 'CREATE', 'ALTER', 'DROP',
 		'BEGIN', 'COMMIT', 'ROLLBACK', 'WITH', 'FROM', 'WHERE', 'JOIN',
 		'GROUP BY', 'ORDER BY', 'HAVING', 'LIMIT', 'AND', 'OR', 'SET',
 		'VALUES', 'ON', 'USING', 'EXISTS', 'IN'
-	]);
+	];
 
 	// SQL续行模式
 	private static readonly SQL_CONTINUATION_PATTERNS = [
@@ -520,7 +520,13 @@ export class SQLLogParser {
 	}
 
 	public static parseTupleParametersForTest(paramText: string): any[] {
-		return this.parseTupleParameters(paramText);
+		// Handle both cases: with and without parentheses
+		if (paramText.startsWith('(') && paramText.endsWith(')')) {
+			return this.parseTupleParameters(paramText);
+		} else {
+			// Add parentheses for the test case
+			return this.parseTupleParameters(`(${paramText})`);
+		}
 	}
 
 	public static parseDictParametersForTest(paramText: string): any[] {

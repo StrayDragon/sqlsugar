@@ -8,6 +8,7 @@ import { LanguageClient, LanguageClientOptions, Executable, ServerOptions } from
 import { SQLLogParser, ParsedSQL } from './sql-log-parser';
 import { TerminalMonitor } from './terminal-monitor';
 import { ClipboardManager } from './clipboard-manager';
+import { Jinja2TemplateProcessor } from './jinja2-processor';
 
 let client: LanguageClient | undefined;
 let extensionContext: vscode.ExtensionContext;
@@ -282,30 +283,30 @@ export function activate(context: vscode.ExtensionContext) {
 	const testClipboard = vscode.commands.registerCommand('sqlsugar.testClipboard', async () => {
 		try {
 			const clipboardText = await vscode.env.clipboard.readText();
-			
+
 			// 详细的调试信息
 			console.log('=== SQLSugar Clipboard Debug Info ===');
 			console.log('Clipboard content length:', clipboardText.length);
 			console.log('Clipboard content (first 500 chars):', clipboardText.substring(0, 500));
 			console.log('Clipboard content (char codes):', Array.from(clipboardText.substring(0, 50)).map(c => c.charCodeAt(0)));
-			
+
 			// 检查是否为空或只有空白字符
 			if (!clipboardText.trim()) {
 				vscode.window.showErrorMessage('❌ Clipboard is empty or contains only whitespace', { modal: false });
 				return;
 			}
-			
+
 			// 分析每一行
 			const lines = clipboardText.trim().split('\n');
 			console.log('Number of lines:', lines.length);
-			
+
 			let foundSQLKeywords = false;
 			const analysis = lines.map((line, index) => {
 				const trimmed = line.trim();
 				const hasSQLKeywords = [
 					'sqlalchemy.engine.Engine',
 					'INSERT INTO',
-					'SELECT', 
+					'SELECT',
 					'UPDATE',
 					'DELETE FROM',
 					'CREATE TABLE',
@@ -315,15 +316,15 @@ export function activate(context: vscode.ExtensionContext) {
 					'COMMIT',
 					'ROLLBACK'
 				].some(keyword => trimmed.toLowerCase().includes(keyword.toLowerCase()));
-				
+
 				const hasPlaceholders = trimmed.includes('?') || trimmed.includes(':') || trimmed.includes('%s');
 				const hasParams = trimmed.match(/\(.*?\)/) || trimmed.match(/\{.*?\}/) || trimmed.match(/\[.*?\]/);
 				const hasTimestamp = trimmed.includes('INFO ') || trimmed.includes('DEBUG ') || trimmed.includes('[generated in');
-				
+
 				if (hasSQLKeywords || hasPlaceholders || hasParams || hasTimestamp) {
 					foundSQLKeywords = true;
 				}
-				
+
 				return {
 					lineNumber: index + 1,
 					content: trimmed,
@@ -333,14 +334,14 @@ export function activate(context: vscode.ExtensionContext) {
 					hasTimestamp
 				};
 			});
-			
+
 			// 显示分析结果
 			console.log('Line analysis:', analysis);
-			
+
 			if (foundSQLKeywords) {
 				const message = `✅ Clipboard content appears to be SQL log (${lines.length} lines detected)`;
 				console.log(message);
-				
+
 				// 尝试解析SQL
 				try {
 					const parsed = SQLLogParser.processSelectedText(clipboardText);
@@ -363,13 +364,19 @@ export function activate(context: vscode.ExtensionContext) {
 				console.log(message);
 				vscode.window.showErrorMessage(message, { modal: false });
 			}
-			
+
 		} catch (error) {
 			console.log('❌ Clipboard read error:', error);
 			vscode.window.showErrorMessage(`❌ Failed to read clipboard: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
 		}
 	});
 	disposables.push(testClipboard);
+
+	// Jinja2 template copy command
+	const copyJinja2Template = vscode.commands.registerCommand('sqlsugar.copyJinja2Template', async () => {
+		await Jinja2TemplateProcessor.handleCopyJinja2Template();
+	});
+	disposables.push(copyJinja2Template);
 
 	// Dev metrics command for tests/tools
 	const metricsCmd = vscode.commands.registerCommand('sqlsugar._devGetMetrics', async () => {

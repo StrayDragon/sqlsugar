@@ -15,7 +15,8 @@
   ],
   "activationEvents": [
     "onCommand:sqlsugar.editInlineSQL",
-    "onCommand:sqlsugar.copyTerminalSQL"
+    "onCommand:sqlsugar.copyTerminalSQL",
+    "onCommand:sqlsugar.copyJinja2Template"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -43,6 +44,10 @@
       {
         "command": "sqlsugar.testClipboard",
         "title": "SQLSugar: Test Clipboard Content"
+      },
+      {
+        "command": "sqlsugar.copyJinja2Template",
+        "title": "SQLSugar: Copy Jinja2 Template SQL (Generate Demo)"
       }
     ],
     "menus": {
@@ -54,6 +59,11 @@
         },
         {
           "command": "sqlsugar.copyTerminalSQL",
+          "when": "editorHasSelection",
+          "group": "1_modification"
+        },
+        {
+          "command": "sqlsugar.copyJinja2Template",
           "when": "editorHasSelection",
           "group": "1_modification"
         }
@@ -79,6 +89,9 @@
         },
         {
           "command": "sqlsugar.testClipboard"
+        },
+        {
+          "command": "sqlsugar.copyJinja2Template"
         }
       ]
     },

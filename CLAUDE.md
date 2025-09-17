@@ -48,11 +48,13 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - `src/sql-log-parser.ts` - Parses SQLAlchemy logs from terminal output and extracts SQL with parameters using regex patterns
 - `src/terminal-monitor.ts` - Monitors terminal output for SQL log detection using VS Code terminal API
 - `src/clipboard-manager.ts` - Handles clipboard operations with cross-platform fallback support
+- `src/jinja2-processor.ts` - Detects and processes Jinja2 template SQL, generating demo SQL with realistic values
 - `src/test/extension.test.ts` - Comprehensive test suite with 1500+ lines
 - `src/test/sql-log-parser.test.ts` - Tests for SQL log parsing functionality
 - `src/test/indentationAnalyzer.test.ts` - Tests for indentation pattern detection
 - `src/test/connection-switching.test.ts` - Tests for database connection management
 - `src/test/sqlalchemy-generator-patterns.test.ts` - Tests for SQLAlchemy log pattern recognition
+- `src/test/jinja2-processor.test.ts` - Tests for Jinja2 template detection and demo SQL generation
 
 **Key Features**:
 - **Multi-language SQL string detection**: Supports Python, JavaScript, TypeScript
@@ -66,6 +68,7 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - **Smart parameter parsing**: Handles various parameter formats (tuples, dictionaries, lists) with proper type conversion
 - **Clipboard fallback support**: Works across different platforms with multiple clipboard command support
 - **Advanced indentation analysis**: Sophisticated pattern detection for Python multi-line strings including hierarchical, keyword-aligned, and continuation patterns
+- **Jinja2 template SQL processing**: Detects Jinja2 syntax in SQL templates and generates demo SQL with realistic values
 - **Debug utilities**: Built-in test log generation and metrics tracking for development
 
 ### Language-Specific Behaviors
@@ -94,6 +97,77 @@ The extension supports several configuration options:
 - `sqlsugar.cleanupOnClose`: When to delete temp files (on close vs on save)
 - `sqlsugar.showSQLPreview`: Show preview of original and injected SQL after copying
 - `sqlsugar.enableWlCopyFallback`: Enable wl-copy fallback for clipboard operations on Wayland
+
+### Jinja2 Template SQL Support
+
+The extension now supports detecting and processing Jinja2 template SQL using a powerful Python-based processor, allowing you to generate demo SQL from complex templates containing Jinja2 syntax.
+
+**Features**:
+- **Accurate Template Processing**: Uses Python's Jinja2 library for reliable template parsing
+- **Complex Conditional Support**: Handles complex `{% if %}` statements, nested conditions, and loops
+- **Variable Extraction**: Extracts variables from expressions, conditionals, and loops with type inference
+- **Smart Type Inference**: Determines variable types from naming patterns (user_name → string, user_age → number, is_active → boolean)
+- **Demo SQL Generation**: Replaces variables with realistic demo values based on inferred types
+- **Fallback Support**: Includes TypeScript implementation as fallback when Python is unavailable
+
+**Architecture**:
+- **Primary Method**: Python script (`scripts/jinja2-simple-processor.py`) with full Jinja2 support
+- **Fallback Method**: TypeScript implementation for basic variable detection
+- **Dependencies**: Requires `uv` package manager and Python (auto-installs dependencies via script metadata)
+
+**Usage**:
+1. Select a Jinja2 template SQL in your editor
+2. Right-click and choose "SQLSugar: Copy Jinja2 Template SQL (Generate Demo)"
+3. The extension analyzes the template using Python and copies demo SQL to clipboard
+4. A notification shows variables found and generated demo SQL
+
+**Example**:
+```sql
+-- Input Template
+SELECT * FROM users
+WHERE name = '{{ user_name }}'
+  AND age > {{ user_age }}
+  AND is_active = {{ is_active }}
+  {% if show_created %}AND created_at > '{{ start_date }}'{% endif %}
+ORDER BY created_at DESC
+LIMIT {{ limit_value }}
+
+-- Generated Demo SQL
+SELECT * FROM users
+WHERE name = 'demo_user_name'
+  AND age > 42
+  AND is_active = TRUE
+  AND created_at > 'demo_start_date'
+ORDER BY created_at DESC
+LIMIT 10
+```
+
+**Supported Jinja2 Syntax**:
+- Variables: `{{ variable_name }}`, `{{ object.property }}`, `{{ variable|filter }}`
+- Conditionals: `{% if condition %}...{% elif %}...{% else %}...{% endif %}`
+- Complex conditions: `{% if filter_cs_wechat_info_ids %}AND cwi.id IN {{ filter_cs_wechat_info_ids }}{% endif %}`
+- Loops: `{% for item in items %}...{% endfor %}`
+- Comments: `{# comment #}`
+- Filters: `{{ variable|default('value') }}`, `{{ date|strftime('%Y-%m-%d') }}`
+
+**Advanced Example**:
+```sql
+SELECT * FROM users
+WHERE department_id = {{ department_id }}
+  AND created_date >= '{{ start_date }}'
+  {% if is_active %}AND status = 'active'{% endif %}
+  {% if min_amount %}AND total_orders >= {{ min_amount }}{% endif %}
+ORDER BY created_at DESC
+LIMIT {{ limit }} OFFSET {{ offset }}
+```
+
+**Interactive Processing**:
+For more advanced processing with interactive variable input, use the standalone Python script:
+```bash
+uv run scripts/jinja2-sql-processor.py process-file template.sql
+```
+
+This provides a rich terminal interface for customizing variable values and seeing real-time SQL generation.
 
 ### Advanced Configuration
 The `sqlsConfigPath` supports variable substitution:
@@ -140,9 +214,11 @@ src/
 ├── sql-log-parser.ts     # SQLAlchemy log parsing
 ├── terminal-monitor.ts   # Terminal output monitoring
 ├── clipboard-manager.ts  # Clipboard operations
+├── jinja2-processor.ts   # Jinja2 template detection and demo SQL generation
 └── test/
     ├── extension.test.ts    # Extension tests
-    └── sql-log-parser.test.ts # SQL log parser tests
+    ├── sql-log-parser.test.ts # SQL log parser tests
+    └── jinja2-processor.test.ts # Jinja2 template tests
 
 dist/                    # Built extension (generated)
 docs/                    # Documentation and planning
@@ -151,8 +227,11 @@ docs/                    # Documentation and planning
 
 docker/                  # Docker setup for testing (sqls config examples)
 debug/                   # Debug tools and test data
-└── generate_sqlalchemy_logs.py # SQLAlchemy log generator
+├── generate_sqlalchemy_logs.py # SQLAlchemy log generator
+└── test-jinja2-simple.js    # Manual Jinja2 processor test
 examples/                # Example usage files
+├── jinja2-example.sql    # Jinja2 template SQL example
+└── python-example.py     # Python example with Jinja2 templates
 ```
 
 ## Development Guidelines
@@ -183,6 +262,13 @@ examples/                # Example usage files
 - `TerminalMonitor.getSelectedText()` - Gets selected text from terminal or clipboard
 - `ClipboardManager.copyText()` - Copies text with platform-specific fallbacks
 
+### Jinja2 Template Processing Functions
+- `Jinja2TemplateProcessor.analyzeTemplate()` - Main entry point for analyzing Jinja2 templates
+- `Jinja2TemplateProcessor.detectJinja2Syntax()` - Detects Jinja2 syntax in SQL templates
+- `Jinja2TemplateProcessor.extractVariables()` - Extracts variables from templates with type inference
+- `Jinja2TemplateProcessor.generateDemoSQL()` - Generates demo SQL with realistic values
+- `Jinja2TemplateProcessor.handleCopyJinja2Template()` - Command handler for template processing
+
 ### Database Connection Management
 - Connections are loaded from sqls YAML configuration files
 - Status bar shows current connection with switching capability
@@ -203,12 +289,22 @@ examples/                # Example usage files
 - Use `sqlsugar.toggleDebugMode` to enable debug logging for troubleshooting
 - Use `sqlsugar.testClipboard` to test clipboard functionality across platforms
 
+### Jinja2 Template Testing
+- Test Jinja2 template detection with various syntax patterns (variables, conditionals, loops)
+- Verify variable extraction from complex expressions (`{{ user.profile.name }}`, `{{ variable|filter }}`)
+- Test type inference with different naming conventions and contexts
+- Validate demo SQL generation with realistic placeholder values
+- Test edge cases like nested control structures, comments, and complex filters
+- Use the examples in `examples/` directory for manual testing
+- Run `node test-jinja2-simple.js` for quick functionality verification without VS Code
+
 ### Development Tools and Debugging
 The extension includes several developer-facing commands:
 - `sqlsugar._devGetMetrics` - Shows resource usage metrics (active disposables, temp files, command invocations)
 - `sqlsugar.toggleDebugMode` - Enables/disables debug logging for troubleshooting
 - `sqlsugar.generateTestLogs` - Generates comprehensive SQLAlchemy test logs
 - `sqlsugar.testClipboard` - Tests clipboard functionality and shows platform-specific tools
+- `sqlsugar.copyJinja2Template` - Processes Jinja2 template SQL and generates demo SQL
 
 ### SQL Integration
 - Requires `sqls` language server to be installed and available in PATH

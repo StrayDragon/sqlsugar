@@ -8,9 +8,13 @@ export class TerminalMonitor {
 	private static instance: TerminalMonitor;
 	private terminalBuffer: Map<string, string[]> = new Map();
 	private disposables: vscode.Disposable[] = [];
+	private cleanupInterval?: NodeJS.Timeout;
+	private readonly MAX_BUFFER_SIZE = 500; // 减小缓冲区大小
+	private readonly CLEANUP_INTERVAL_MS = 5 * 60 * 1000; // 5分钟清理一次
 
 	private constructor() {
 		this.setupTerminalListeners();
+		this.startCleanupTimer();
 	}
 
 	public static getInstance(): TerminalMonitor {
@@ -42,7 +46,7 @@ export class TerminalMonitor {
 				);
 				console.log('Terminal data write event API enabled');
 			} catch (error) {
-				console.warn('Failed to register terminal data write event listener:', error);
+				console.warn('Failed to register terminal data write event listener:', error instanceof Error ? error.message : String(error));
 			}
 		} else {
 			console.log('Terminal data write event API not available. Using clipboard-based selection only.');
@@ -96,9 +100,47 @@ export class TerminalMonitor {
 			const lines = event.data.split('\n');
 			buffer.push(...lines);
 
-			// 保持缓冲区大小合理（保留最后 1000 行）
-			if (buffer.length > 1000) {
-				buffer.splice(0, buffer.length - 1000);
+			// 保持缓冲区大小合理（使用循环缓冲区模式）
+			this.trimBuffer(buffer);
+		}
+	}
+
+	/**
+	 * 修剪缓冲区大小，使用更高效的循环缓冲区方式
+	 */
+	private trimBuffer(buffer: string[]): void {
+		if (buffer.length > this.MAX_BUFFER_SIZE) {
+			// 使用循环缓冲区模式，保留最新的内容
+			buffer.splice(0, buffer.length - this.MAX_BUFFER_SIZE);
+		}
+	}
+
+	/**
+	 * 启动清理定时器
+	 */
+	private startCleanupTimer(): void {
+		// 定期清理不活跃的终端缓冲区
+		this.cleanupInterval = setInterval(() => {
+			this.cleanupInactiveBuffers();
+		}, this.CLEANUP_INTERVAL_MS);
+	}
+
+	/**
+	 * 清理不活跃的终端缓冲区
+	 */
+	private cleanupInactiveBuffers(): void {
+		const activeTerminalNames = new Set(
+			vscode.window.terminals.map(t => t.name)
+		);
+
+		// 清理已关闭或不活跃的终端缓冲区
+		for (const [terminalName, buffer] of this.terminalBuffer) {
+			if (!activeTerminalNames.has(terminalName)) {
+				this.terminalBuffer.delete(terminalName);
+				console.log(`Cleaned up buffer for inactive terminal: ${terminalName}`);
+			} else if (buffer.length > this.MAX_BUFFER_SIZE / 2) {
+				// 如果缓冲区过大，进行清理
+				this.trimBuffer(buffer);
 			}
 		}
 	}
@@ -143,7 +185,7 @@ export class TerminalMonitor {
 			console.log('No text found in clipboard');
 			return null;
 		} catch (error) {
-			console.warn('Failed to get terminal selection:', error);
+			console.warn('Failed to get terminal selection:', error instanceof Error ? error.message : String(error));
 			return null;
 		}
 	}
@@ -163,7 +205,7 @@ export class TerminalMonitor {
 			// 用户需要手动选择文本，然后通过命令触发
 			return null;
 		} catch (error) {
-			console.warn('Failed to get terminal selection:', error);
+			console.warn('Failed to get terminal selection:', error instanceof Error ? error.message : String(error));
 			return null;
 		}
 	}
@@ -195,7 +237,7 @@ export class TerminalMonitor {
 
 			return null;
 		} catch (error) {
-			console.warn('Failed to read clipboard:', error);
+			console.warn('Failed to read clipboard:', error instanceof Error ? error.message : String(error));
 			return null;
 		}
 	}
@@ -283,14 +325,23 @@ export class TerminalMonitor {
 	 * 清理资源
 	 */
 	public dispose(): void {
+		// 清理定时器
+		if (this.cleanupInterval) {
+			clearInterval(this.cleanupInterval);
+			this.cleanupInterval = undefined;
+		}
+
+		// 清理 disposables
 		this.disposables.forEach(disposable => {
 			try {
 				disposable.dispose();
 			} catch (error) {
-				console.warn('Error disposing terminal monitor:', error);
+				console.warn('Error disposing terminal monitor:', error instanceof Error ? error.message : String(error));
 			}
 		});
 		this.disposables = [];
+
+		// 清理缓冲区
 		this.terminalBuffer.clear();
 	}
 }

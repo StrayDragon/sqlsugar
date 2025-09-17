@@ -176,7 +176,9 @@ export function activate(context: vscode.ExtensionContext) {
 			const shouldCleanup = getConfig('sqlsugar.tempFileCleanup', true);
 			const cleanupOnClose = getConfig('sqlsugar.cleanupOnClose', true);
 			if (shouldCleanup && !cleanupOnClose) {
-				try { await fs.promises.unlink(tempFilePath); } catch { }
+				try { await fs.promises.unlink(tempFilePath); } catch (error) {
+					console.warn('Failed to cleanup temp file on save:', error instanceof Error ? error.message : String(error));
+				}
 				if (isTestEnvironment) { devMetrics.activeTempFiles = Math.max(0, devMetrics.activeTempFiles - 1); }
 				// Only clean up listeners when file is actually deleted
 				cleanupTempListeners(tempDisposables);
@@ -189,7 +191,9 @@ export function activate(context: vscode.ExtensionContext) {
 			const shouldCleanup = getConfig('sqlsugar.tempFileCleanup', true);
 			const cleanupOnClose = getConfig('sqlsugar.cleanupOnClose', true);
 			if (shouldCleanup && cleanupOnClose) {
-				try { await fs.promises.unlink(tempFilePath); } catch { }
+				try { await fs.promises.unlink(tempFilePath); } catch (error) {
+					console.warn('Failed to cleanup temp file on close:', error instanceof Error ? error.message : String(error));
+				}
 				if (isTestEnvironment) { devMetrics.activeTempFiles = Math.max(0, devMetrics.activeTempFiles - 1); }
 			}
 			// Always clean up listeners when document is closed
@@ -390,7 +394,14 @@ export function activate(context: vscode.ExtensionContext) {
 
 function deactivateTempListeners(disposables: vscode.Disposable[]) {
 	while (disposables.length) {
-		try { disposables.pop()?.dispose(); } catch { }
+		try {
+			const disposable = disposables.pop();
+			if (disposable) {
+				disposable.dispose();
+			}
+		} catch (error) {
+			console.warn('Failed to dispose listener:', error instanceof Error ? error.message : String(error));
+		}
 	}
 }
 
@@ -405,10 +416,17 @@ export async function deactivate() {
 	if (client) {
 		try {
 			await client.stop();
-		} catch {
-			// ignore
+		} catch (error) {
+			console.warn('Failed to stop language client:', error instanceof Error ? error.message : String(error));
 		}
 		client = undefined;
+	}
+
+	// Clean up other resources
+	try {
+		statusBarItem?.dispose();
+	} catch (error) {
+		console.warn('Failed to dispose status bar:', error instanceof Error ? error.message : String(error));
 	}
 }
 
@@ -470,7 +488,11 @@ function startSqlsClient(context: vscode.ExtensionContext) {
 
 function stopExistingClient(): void {
 	if (client) {
-		try { client.stop(); } catch { }
+		try {
+			client.stop();
+		} catch (error) {
+			console.warn('Failed to stop existing client:', error instanceof Error ? error.message : String(error));
+		}
 		client = undefined;
 	}
 }

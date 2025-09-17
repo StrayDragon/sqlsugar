@@ -128,34 +128,29 @@ malformed parameter line`;
 	});
 
 	test('Parse individual parameter values', () => {
-		assert.strictEqual(SQLLogParser.parseSingleValue("'hello'"), 'hello');
-		assert.strictEqual(SQLLogParser.parseSingleValue('"world"'), 'world');
-		assert.strictEqual(SQLLogParser.parseSingleValue('123'), 123);
-		assert.strictEqual(SQLLogParser.parseSingleValue('45.67'), 45.67);
-		assert.strictEqual(SQLLogParser.parseSingleValue('true'), true);
-		assert.strictEqual(SQLLogParser.parseSingleValue('false'), false);
-		assert.strictEqual(SQLLogParser.parseSingleValue('None'), null);
-		assert.strictEqual(SQLLogParser.parseSingleValue('null'), null);
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest("'hello'"), 'hello');
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('"world"'), 'world');
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('123'), 123);
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('45.67'), 45.67);
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('true'), true);
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('false'), false);
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('None'), null);
+		assert.strictEqual(SQLLogParser.parseSingleValueForTest('null'), null);
 	});
 
 	test('Parse tuple parameters with nested structures', () => {
 		const tupleStr = "'test', 123, None, True, 'with \\'quotes\\''";
-		const params = SQLLogParser.parseTupleParameters(tupleStr);
+		const params = SQLLogParser.parseTupleParametersForTest(tupleStr);
 
 		assert.deepStrictEqual(params, ['test', 123, null, true, "with 'quotes'"]);
 	});
 
 	test('Parse dictionary parameters', () => {
 		const dictStr = "'user_id': 123, 'name': 'Alice', 'active': True";
-		const params = SQLLogParser.parseDictParameters(dictStr);
+		const params = SQLLogParser.parseDictParametersForTest(dictStr);
 
-		assert.strictEqual(params.length, 3);
-		assert.strictEqual(params[0].name, 'user_id');
-		assert.strictEqual(params[0].value, 123);
-		assert.strictEqual(params[1].name, 'name');
-		assert.strictEqual(params[1].value, 'Alice');
-		assert.strictEqual(params[2].name, 'active');
-		assert.strictEqual(params[2].value, true);
+		// Since we're converting dict to value array, we just check the values
+		assert.deepStrictEqual(params, [123, 'Alice', true]);
 	});
 
 	test('Format parameter values correctly', () => {

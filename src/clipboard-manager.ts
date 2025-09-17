@@ -85,7 +85,16 @@ export class ClipboardManager {
 	 */
 	private async copyWithSystemCommand(text: string): Promise<boolean> {
 		try {
+			if (!text || typeof text !== 'string') {
+				console.warn('Invalid text input for copy operation');
+				return false;
+			}
+
 			const platform = process.platform;
+			if (!platform) {
+				console.warn('Unable to detect platform');
+				return false;
+			}
 
 			switch (platform) {
 				case 'linux':
@@ -99,7 +108,7 @@ export class ClipboardManager {
 					return false;
 			}
 		} catch (error) {
-			console.warn('System command copy failed:', error);
+			console.warn('System command copy failed:', error instanceof Error ? error.message : String(error));
 			return false;
 		}
 	}
@@ -108,35 +117,53 @@ export class ClipboardManager {
 	 * 在 Linux 上复制（支持 wl-copy 和 xclip）
 	 */
 	private async copyOnLinux(text: string): Promise<boolean> {
+		const tempFile = `/tmp/sqlsugar-copy-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.txt`;
+
 		try {
 			// 首先尝试 wl-copy (Wayland)
 			if (await this.isCommandAvailable('wl-copy')) {
-				const tempFile = '/tmp/sqlsugar-copy.txt';
-				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
-				await execAsync(`wl-copy < ${tempFile}`);
-				return true;
+				return await this.copyWithTempFile(text, tempFile, 'wl-copy');
 			}
 
 			// 然后尝试 xclip (X11)
 			if (await this.isCommandAvailable('xclip')) {
-				const tempFile = '/tmp/sqlsugar-copy.txt';
-				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
-				await execAsync(`xclip -selection clipboard < ${tempFile}`);
-				return true;
+				return await this.copyWithTempFile(text, tempFile, 'xclip -selection clipboard');
 			}
 
 			// 最后尝试 xsel
 			if (await this.isCommandAvailable('xsel')) {
-				const tempFile = '/tmp/sqlsugar-copy.txt';
-				await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
-				await execAsync(`xsel --clipboard --input < ${tempFile}`);
-				return true;
+				return await this.copyWithTempFile(text, tempFile, 'xsel --clipboard --input');
 			}
 
 			console.warn('No clipboard command available on Linux');
 			return false;
 		} catch (error) {
-			console.warn('Linux copy command failed:', error);
+			console.warn('Linux copy command failed:', error instanceof Error ? error.message : String(error));
+			return false;
+		} finally {
+			// 清理临时文件
+			try {
+				await execAsync(`rm -f ${tempFile}`);
+			} catch (cleanupError) {
+				console.warn('Failed to cleanup temp file:', cleanupError instanceof Error ? cleanupError.message : String(cleanupError));
+			}
+		}
+	}
+
+	/**
+	 * 使用临时文件复制文本
+	 */
+	private async copyWithTempFile(text: string, tempFile: string, command: string): Promise<boolean> {
+		try {
+			// 写入临时文件
+			await execAsync(`cat > ${tempFile} << 'EOF'\n${text}\nEOF`);
+
+			// 执行复制命令
+			await execAsync(`${command} < ${tempFile}`);
+
+			return true;
+		} catch (error) {
+			console.warn(`Failed to copy with ${command}:`, error instanceof Error ? error.message : String(error));
 			return false;
 		}
 	}
@@ -185,9 +212,12 @@ export class ClipboardManager {
 	 */
 	private async isCommandAvailable(command: string): Promise<boolean> {
 		try {
+			if (!command || typeof command !== 'string') {
+				return false;
+			}
 			await execAsync(`command -v ${command}`);
 			return true;
-		} catch {
+		} catch (error) {
 			return false;
 		}
 	}
@@ -196,6 +226,10 @@ export class ClipboardManager {
 	 * 转义 shell 参数
 	 */
 	private escapeShellArgument(text: string): string {
+		if (!text || typeof text !== 'string') {
+			return "''";
+		}
+
 		// 使用单引号包围，只在文本中包含单引号时进行特殊处理
 		if (text.includes("'")) {
 			// 如果包含单引号，使用双引号包围

@@ -400,216 +400,180 @@ export class Jinja2TemplateProcessor {
      * 处理Jinja2模板复制命令 - 使用Python脚本
      */
     public static async handleCopyJinja2Template(): Promise<boolean> {
-        return await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "处理 Jinja2 模板",
-            cancellable: false
-        }, async (progress) => {
-            try {
-                progress.report({ message: "初始化处理...", increment: 0 });
+        try {
+            vscode.window.showInformationMessage('正在处理 Jinja2 模板...', { modal: false });
 
-                const editor = vscode.window.activeTextEditor;
-                if (!editor || !editor.selection || editor.selection.isEmpty) {
-                    vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
-                    return false;
-                }
-
-                progress.report({ message: "获取选中文本...", increment: 10 });
-                const selectedText = editor.document.getText(editor.selection);
-
-                progress.report({ message: "解析 Jinja2 模板...", increment: 30 });
-                // 使用Python脚本处理Jinja2模板
-                const result = await this.processWithPythonScript(selectedText);
-
-                if (!result.success) {
-                    vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
-                    return false;
-                }
-
-                if (result.variables.length === 0) {
-                    // 没有变量，直接复制
-                    progress.report({ message: "复制 SQL 到剪贴板...", increment: 80 });
-                    await vscode.env.clipboard.writeText(result.demoSQL || '');
-                    vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
-                    return true;
-                }
-
-                // 添加模板内容到变量中，用于预览
-                const variablesWithTemplate = result.variables.map(v => ({
-                    ...v,
-                    templateContent: selectedText
-                }));
-
-                progress.report({ message: "获取用户输入...", increment: 50 });
-                // 获取用户输入的变量值
-                const userValues = await this.getUserInputForVariables(variablesWithTemplate);
-                if (!userValues) {
-                    return false; // 用户取消了输入
-                }
-
-                progress.report({ message: "生成最终 SQL...", increment: 70 });
-                // 使用用户输入的值重新生成SQL
-                const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
-
-                progress.report({ message: "显示预览...", increment: 85 });
-                // 显示最终预览并确认
-                const shouldCopy = await this.showFinalSQLPreview(finalSQL, result.variables.length);
-                if (!shouldCopy) {
-                    return false; // 用户选择了不复制
-                }
-
-                progress.report({ message: "复制 SQL 到剪贴板...", increment: 95 });
-                // 复制最终SQL到剪贴板
-                await vscode.env.clipboard.writeText(finalSQL);
-
-                // 显示结果信息
-                const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s).`;
-                const detail = `Variables used: ${Object.entries(userValues).map(([name, value]) => `${name} = ${value}`).join(', ')}`;
-
-                vscode.window.showInformationMessage(message, {
-                    modal: false,
-                    detail
-                });
-
-                return true;
-            } catch (error) {
-                console.error('Error in handleCopyJinja2Template:', error);
-                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.selection || editor.selection.isEmpty) {
+                vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
                 return false;
             }
-        });
+
+            const selectedText = editor.document.getText(editor.selection);
+
+            // 使用Python脚本处理Jinja2模板
+            const result = await this.processWithPythonScript(selectedText);
+
+            if (!result.success) {
+                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
+                return false;
+            }
+
+            if (result.variables.length === 0) {
+                // 没有变量，直接复制
+                await vscode.env.clipboard.writeText(result.demoSQL || '');
+                vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
+                return true;
+            }
+
+            // 添加模板内容到变量中，用于预览
+            const variablesWithTemplate = result.variables.map(v => ({
+                ...v,
+                templateContent: selectedText
+            }));
+
+            // 获取用户输入的变量值
+            const userValues = await this.getUserInputForVariables(variablesWithTemplate);
+            if (!userValues) {
+                return false; // 用户取消了输入
+            }
+
+            // 使用用户输入的值重新生成SQL
+            const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
+
+            // 显示最终预览并确认
+            const shouldCopy = await this.showFinalSQLPreview(finalSQL, result.variables.length);
+            if (!shouldCopy) {
+                return false; // 用户选择了不复制
+            }
+
+            // 复制最终SQL到剪贴板
+            await vscode.env.clipboard.writeText(finalSQL);
+
+            // 显示结果信息
+            const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s).`;
+            const detail = `Variables used: ${Object.entries(userValues).map(([name, value]) => `${name} = ${value}`).join(', ')}`;
+
+            vscode.window.showInformationMessage(message, {
+                modal: false,
+                detail
+            });
+
+            return true;
+        } catch (error) {
+            console.error('Error in handleCopyJinja2Template:', error);
+            vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+            return false;
+        }
     }
 
     /**
      * 快速模式：直接使用默认值生成SQL
      */
     public static async handleCopyJinja2TemplateQuick(): Promise<boolean> {
-        return await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "快速处理 Jinja2 模板",
-            cancellable: false
-        }, async (progress) => {
-            try {
-                progress.report({ message: "初始化处理...", increment: 0 });
+        try {
+            vscode.window.showInformationMessage('正在快速处理 Jinja2 模板...', { modal: false });
 
-                const editor = vscode.window.activeTextEditor;
-                if (!editor || !editor.selection || editor.selection.isEmpty) {
-                    vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
-                    return false;
-                }
-
-                progress.report({ message: "获取选中文本...", increment: 20 });
-                const selectedText = editor.document.getText(editor.selection);
-
-                progress.report({ message: "解析 Jinja2 模板...", increment: 40 });
-                // 使用Python脚本处理Jinja2模板
-                const result = await this.processWithPythonScript(selectedText);
-
-                if (!result.success) {
-                    vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
-                    return false;
-                }
-
-                progress.report({ message: "生成默认 SQL...", increment: 70 });
-                // 使用默认值生成SQL
-                const finalSQL = result.demoSQL || '';
-
-                progress.report({ message: "复制 SQL 到剪贴板...", increment: 90 });
-                // 复制到剪贴板
-                await vscode.env.clipboard.writeText(finalSQL);
-
-                // 显示结果信息
-                const message = result.variables.length > 0
-                    ? `Generated demo SQL from Jinja2 template with ${result.variables.length} variable(s) using default values.`
-                    : 'Generated SQL from Jinja2 template (no variables found).';
-
-                vscode.window.showInformationMessage(message, { modal: false });
-
-                return true;
-            } catch (error) {
-                console.error('Error in handleCopyJinja2TemplateQuick:', error);
-                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.selection || editor.selection.isEmpty) {
+                vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
                 return false;
             }
-        });
+
+            const selectedText = editor.document.getText(editor.selection);
+
+            // 使用Python脚本处理Jinja2模板
+            const result = await this.processWithPythonScript(selectedText);
+
+            if (!result.success) {
+                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
+                return false;
+            }
+
+            // 使用默认值生成SQL
+            const finalSQL = result.demoSQL || '';
+
+            // 复制到剪贴板
+            await vscode.env.clipboard.writeText(finalSQL);
+
+            // 显示结果信息
+            const message = result.variables.length > 0
+                ? `Generated demo SQL from Jinja2 template with ${result.variables.length} variable(s) using default values.`
+                : 'Generated SQL from Jinja2 template (no variables found).';
+
+            vscode.window.showInformationMessage(message, { modal: false });
+
+            return true;
+        } catch (error) {
+            console.error('Error in handleCopyJinja2TemplateQuick:', error);
+            vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+            return false;
+        }
     }
 
     /**
      * Webview模式：直接打开可视化编辑器
      */
     public static async handleCopyJinja2TemplateWebview(): Promise<boolean> {
-        return await vscode.window.withProgress({
-            location: vscode.ProgressLocation.Notification,
-            title: "启动可视化编辑器",
-            cancellable: false
-        }, async (progress) => {
-            try {
-                progress.report({ message: "初始化可视化编辑器...", increment: 0 });
+        try {
+            vscode.window.showInformationMessage('正在启动可视化编辑器...', { modal: false });
 
-                const editor = vscode.window.activeTextEditor;
-                if (!editor || !editor.selection || editor.selection.isEmpty) {
-                    vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
-                    return false;
-                }
-
-                progress.report({ message: "获取选中文本...", increment: 15 });
-                const selectedText = editor.document.getText(editor.selection);
-
-                progress.report({ message: "解析 Jinja2 模板...", increment: 30 });
-                // 使用Python脚本处理Jinja2模板
-                const result = await this.processWithPythonScript(selectedText);
-
-                if (!result.success) {
-                    vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
-                    return false;
-                }
-
-                if (result.variables.length === 0) {
-                    // 没有变量，直接复制
-                    progress.report({ message: "复制 SQL 到剪贴板...", increment: 80 });
-                    await vscode.env.clipboard.writeText(result.demoSQL || '');
-                    vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
-                    return true;
-                }
-
-                progress.report({ message: "准备可视化编辑器...", increment: 50 });
-                // 添加模板内容到变量中
-                const variablesWithTemplate = result.variables.map(v => ({
-                    ...v,
-                    templateContent: selectedText
-                }));
-
-                progress.report({ message: "启动可视化编辑器...", increment: 70 });
-                // 直接打开Webview编辑器
-                const userValues = await Jinja2WebviewEditor.showEditor(
-                    selectedText,
-                    result.variables,
-                    'Jinja2模板可视化编辑器'
-                );
-
-                if (!userValues) {
-                    return false; // 用户关闭了编辑器
-                }
-
-                progress.report({ message: "生成最终 SQL...", increment: 85 });
-                // 生成最终SQL
-                const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
-
-                progress.report({ message: "复制 SQL 到剪贴板...", increment: 95 });
-                // 复制到剪贴板
-                await vscode.env.clipboard.writeText(finalSQL);
-
-                // 显示结果信息
-                const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s) using visual editor.`;
-                vscode.window.showInformationMessage(message, { modal: false });
-
-                return true;
-            } catch (error) {
-                console.error('Error in handleCopyJinja2TemplateWebview:', error);
-                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || !editor.selection || editor.selection.isEmpty) {
+                vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
                 return false;
             }
-        });
+
+            const selectedText = editor.document.getText(editor.selection);
+
+            // 使用Python脚本处理Jinja2模板
+            const result = await this.processWithPythonScript(selectedText);
+
+            if (!result.success) {
+                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
+                return false;
+            }
+
+            if (result.variables.length === 0) {
+                // 没有变量，直接复制
+                await vscode.env.clipboard.writeText(result.demoSQL || '');
+                vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
+                return true;
+            }
+
+            // 添加模板内容到变量中
+            const variablesWithTemplate = result.variables.map(v => ({
+                ...v,
+                templateContent: selectedText
+            }));
+
+            // 直接打开Webview编辑器
+            const userValues = await Jinja2WebviewEditor.showEditor(
+                selectedText,
+                result.variables,
+                'Jinja2模板可视化编辑器'
+            );
+
+            if (!userValues) {
+                return false; // 用户关闭了编辑器
+            }
+
+            // 生成最终SQL
+            const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
+
+            // 复制到剪贴板
+            await vscode.env.clipboard.writeText(finalSQL);
+
+            // 显示结果信息
+            const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s) using visual editor.`;
+            vscode.window.showInformationMessage(message, { modal: false });
+
+            return true;
+        } catch (error) {
+            console.error('Error in handleCopyJinja2TemplateWebview:', error);
+            vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+            return false;
+        }
     }
 
     /**

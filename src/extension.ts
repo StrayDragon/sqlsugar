@@ -9,6 +9,7 @@ import { SQLLogParser, ParsedSQL } from './sql-log-parser';
 import { TerminalMonitor } from './terminal-monitor';
 import { ClipboardManager } from './clipboard-manager';
 import { Jinja2TemplateProcessor } from './jinja2-processor';
+import { Jinja2TypeInferenceConfig } from './jinja2-type-inference-config';
 
 let client: LanguageClient | undefined;
 let extensionContext: vscode.ExtensionContext;
@@ -372,12 +373,39 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 	disposables.push(testClipboard);
 
-	// Jinja2 template copy command
+	// Jinja2 template copy commands
 	const copyJinja2Template = vscode.commands.registerCommand('sqlsugar.copyJinja2Template', async () => {
 		await Jinja2TemplateProcessor.handleCopyJinja2Template();
 	});
 	disposables.push(copyJinja2Template);
 
+	const copyJinja2TemplateQuick = vscode.commands.registerCommand('sqlsugar.copyJinja2TemplateQuick', async () => {
+		await Jinja2TemplateProcessor.handleCopyJinja2TemplateQuick();
+	});
+	disposables.push(copyJinja2TemplateQuick);
+
+	const copyJinja2TemplateWebview = vscode.commands.registerCommand('sqlsugar.copyJinja2TemplateWebview', async () => {
+		await Jinja2TemplateProcessor.handleCopyJinja2TemplateWebview();
+	});
+	disposables.push(copyJinja2TemplateWebview);
+
+	// Jinja2 type inference configuration commands
+	const configureJinja2TypeRules = vscode.commands.registerCommand('sqlsugar.configureJinja2TypeRules', async () => {
+		await Jinja2TypeInferenceConfig.showConfigUI();
+	});
+	disposables.push(configureJinja2TypeRules);
+
+	const exportJinja2TypeRules = vscode.commands.registerCommand('sqlsugar.exportJinja2TypeRules', async () => {
+		await Jinja2TypeInferenceConfig.exportConfig();
+	});
+	disposables.push(exportJinja2TypeRules);
+
+	const importJinja2TypeRules = vscode.commands.registerCommand('sqlsugar.importJinja2TypeRules', async () => {
+		await Jinja2TypeInferenceConfig.importConfig();
+	});
+	disposables.push(importJinja2TypeRules);
+
+	
 	// Dev metrics command for tests/tools
 	const metricsCmd = vscode.commands.registerCommand('sqlsugar._devGetMetrics', async () => {
 		return { ...devMetrics };
@@ -1414,3 +1442,4 @@ async function handleGenerateTestLogs(): Promise<void> {
 		);
 	}
 }
+

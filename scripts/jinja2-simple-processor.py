@@ -73,8 +73,11 @@ class SimpleJinja2Processor:
             # Generate demo values
             demo_values = self._generate_demo_values(variables)
 
+            # For demo SQL, simplify conditionals first (assume conditions are true)
+            simplified_template = self._simplify_conditionals_for_demo(template_content) if has_conditionals else template_content
+
             # Render demo SQL
-            demo_sql = self._render_template(template_content, demo_values)
+            demo_sql = self._render_template(simplified_template, demo_values)
 
             return ProcessResult(
                 success=True,
@@ -233,11 +236,153 @@ class SimpleJinja2Processor:
             # If rendering fails, return the original template
             return template_content
 
+    def _simplify_conditionals_for_demo(self, template_content: str) -> str:
+        """Simplify conditional statements for demo SQL generation"""
+        # For demo purposes, we'll make intelligent decisions about conditional blocks
+        # This approach handles common patterns found in SQL templates
+
+        result = template_content
+
+        # Strategy for different conditional patterns:
+        # 1. Simple existence checks -> assume true (include content)
+        # 2. Filter/limit conditions -> include for demo
+        # 3. Debug/dev conditionals -> exclude
+        # 4. Optional features -> include for demo
+
+        # Pattern 1: Include if it looks like a filter or common condition
+        include_patterns = [
+            r'\{%\s*if\s+.*?(filter|show|enable|include|has_|is_).*?%.*?\{%\s*endif\s*%\}',
+            r'\{%\s*if\s+.*?(!=|>=|<=|>|<).*?%.*?\{%\s*endif\s*%\}',
+            r'\{%\s*if\s+.*?(not|and|or).*?%.*?\{%\s*endif\s*%\}'
+        ]
+
+        # Pattern 2: Exclude if it looks like debug/dev condition
+        exclude_patterns = [
+            r'\{%\s*if\s+.*?(debug|dev|test|development).*?%.*?\{%\s*endif\s*%\}'
+        ]
+
+        # Process multi-line conditional blocks carefully
+        lines = result.split('\n')
+        output_lines = []
+        i = 0
+        while i < len(lines):
+            line = lines[i]
+
+            # Start of conditional block
+            if '{% if' in line:
+                # Extract the condition
+                condition_match = re.search(r'\{%\s*if\s+(.+?)\s*%}', line)
+                if condition_match:
+                    condition = condition_match.group(1).strip()
+
+                    # Decide whether to include this block
+                    should_include = self._should_include_condition_for_demo(condition)
+
+                    if should_include:
+                        # Find the end of this if block
+                        block_content = []
+                        i += 1
+                        nesting_level = 0
+
+                        while i < len(lines):
+                            current_line = lines[i]
+
+                            if '{% if' in current_line:
+                                nesting_level += 1
+                            elif '{% endif' in current_line:
+                                if nesting_level == 0:
+                                    i += 1  # Skip endif line
+                                    break
+                                else:
+                                    nesting_level -= 1
+                            elif '{% else' in current_line or '{% elif' in current_line:
+                                if nesting_level == 0:
+                                    # Skip else/elif blocks since we're including the if block
+                                    i += 1
+                                    # Skip to endif
+                                    while i < len(lines) and '{% endif' not in lines[i]:
+                                        i += 1
+                                    if i < len(lines):
+                                        i += 1  # Skip endif
+                                    break
+
+                            block_content.append(current_line)
+                            i += 1
+
+                        # Add the block content (without the if/endif tags)
+                        output_lines.extend(block_content)
+                    else:
+                        # Skip this entire if block
+                        nesting_level = 0
+                        i += 1
+                        while i < len(lines):
+                            if '{% if' in lines[i]:
+                                nesting_level += 1
+                            elif '{% endif' in lines[i]:
+                                if nesting_level == 0:
+                                    i += 1
+                                    break
+                                else:
+                                    nesting_level -= 1
+                            i += 1
+                else:
+                    # Couldn't parse condition, keep as-is for safety
+                    output_lines.append(line)
+                    i += 1
+            else:
+                # Not a conditional line, keep it
+                output_lines.append(line)
+                i += 1
+
+        result = '\n'.join(output_lines)
+
+        # Clean up any remaining simple if/endif tags (fallback)
+        result = re.sub(r'\{%\s*if\s+([^%]+?)\s*%\}', '', result)
+        result = re.sub(r'\{%\s*endif\s*%\}', '', result)
+        result = re.sub(r'\{%\s*else\s*%.*?(?=\{%\s*endif)', '', result, flags=re.DOTALL)
+        result = re.sub(r'\{%\s*elif\s+[^%]+?\s*%.*?(?=\{%\s*endif)', '', result, flags=re.DOTALL)
+
+        # Clean up whitespace and line breaks
+        result = re.sub(r'\n\s*\n\s*\n', '\n\n', result)
+        result = re.sub(r'^\s+|\s+$', '', result, flags=re.MULTILINE)
+
+        return result.strip()
+
+    def _should_include_condition_for_demo(self, condition: str) -> bool:
+        """Decide whether to include a conditional block in demo SQL"""
+        condition_lower = condition.lower()
+
+        # Include patterns (common demo scenarios)
+        include_keywords = [
+            'show_', 'enable_', 'has_', 'is_', 'filter_', 'include_',
+            '!=', '>=', '<=', '>', '<', 'not null', 'is not',
+            'limit', 'offset', 'order', 'group', 'where'
+        ]
+
+        # Exclude patterns (debug/dev scenarios)
+        exclude_keywords = [
+            'debug', 'dev', 'test', 'development', 'verbose',
+            'logging', 'trace'
+        ]
+
+        # Check exclude patterns first
+        for keyword in exclude_keywords:
+            if keyword in condition_lower:
+                return False
+
+        # Check include patterns
+        for keyword in include_keywords:
+            if keyword in condition_lower:
+                return True
+
+        # Default: include for demo (conservative approach)
+        return True
+
 
 def main():
     """Main function for command line usage"""
     parser = argparse.ArgumentParser(description='Process Jinja2 SQL templates')
-    parser.add_argument('template', help='Jinja2 template content or file path')
+    parser.add_argument('template', nargs='?', help='Jinja2 template content or file path')
     parser.add_argument('--file', '-f', action='store_true', help='Treat template as file path')
     parser.add_argument('--json', '-j', action='store_true', help='Output as JSON')
     parser.add_argument('--vars', '-v', help='JSON file with variable values')
@@ -246,8 +391,37 @@ def main():
 
     processor = SimpleJinja2Processor()
 
-    # Get template content
-    if args.file:
+    # Check if we should read from stdin
+    if not args.template and not args.file:
+        # Read JSON from stdin
+        try:
+            stdin_data = sys.stdin.read()
+            input_data = json.loads(stdin_data)
+            template_content = input_data.get('template', '')
+            variables = input_data.get('variables', {})
+
+            # Process template with variables
+            result = processor.analyze_template(template_content)
+
+            # Override variables if provided
+            if variables:
+                for var in result.variables:
+                    if var.name in variables:
+                        var.default_value = variables[var.name]
+
+        except json.JSONDecodeError as e:
+            result = ProcessResult(
+                success=False,
+                variables=[],
+                error=f"Invalid JSON input: {str(e)}"
+            )
+        except Exception as e:
+            result = ProcessResult(
+                success=False,
+                variables=[],
+                error=f"Error processing input: {str(e)}"
+            )
+    elif args.file:
         try:
             with open(args.template, 'r', encoding='utf-8') as f:
                 template_content = f.read()

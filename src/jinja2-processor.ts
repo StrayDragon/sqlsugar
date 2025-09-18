@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
+import { Jinja2WebviewEditor } from './jinja2-webview';
+import { VariableTypeInference } from './jinja2-type-inference';
+import { Jinja2TypeInferenceConfig } from './jinja2-type-inference-config';
 
 export interface Jinja2Variable {
     name: string;
-    type: 'string' | 'number' | 'boolean' | 'null' | 'unknown';
+    type: 'string' | 'number' | 'boolean' | 'null' | 'unknown' | 'integer' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'email' | 'url';
     defaultValue?: any;
     description?: string;
 }
@@ -397,86 +400,559 @@ export class Jinja2TemplateProcessor {
      * 处理Jinja2模板复制命令 - 使用Python脚本
      */
     public static async handleCopyJinja2Template(): Promise<boolean> {
-        try {
-            const editor = vscode.window.activeTextEditor;
-            if (!editor || !editor.selection || editor.selection.isEmpty) {
-                vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
-                return false;
-            }
+        return await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "处理 Jinja2 模板",
+            cancellable: false
+        }, async (progress) => {
+            try {
+                progress.report({ message: "初始化处理...", increment: 0 });
 
-            const selectedText = editor.document.getText(editor.selection);
+                const editor = vscode.window.activeTextEditor;
+                if (!editor || !editor.selection || editor.selection.isEmpty) {
+                    vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
+                    return false;
+                }
 
-            // 使用Python脚本处理Jinja2模板
-            const result = await this.processWithPythonScript(selectedText);
+                progress.report({ message: "获取选中文本...", increment: 10 });
+                const selectedText = editor.document.getText(editor.selection);
 
-            if (!result.success) {
-                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
-                return false;
-            }
+                progress.report({ message: "解析 Jinja2 模板...", increment: 30 });
+                // 使用Python脚本处理Jinja2模板
+                const result = await this.processWithPythonScript(selectedText);
 
-            if (result.variables.length === 0) {
-                // 没有变量，直接复制
-                await vscode.env.clipboard.writeText(result.demoSQL || '');
-                vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
+                if (!result.success) {
+                    vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
+                    return false;
+                }
+
+                if (result.variables.length === 0) {
+                    // 没有变量，直接复制
+                    progress.report({ message: "复制 SQL 到剪贴板...", increment: 80 });
+                    await vscode.env.clipboard.writeText(result.demoSQL || '');
+                    vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
+                    return true;
+                }
+
+                // 添加模板内容到变量中，用于预览
+                const variablesWithTemplate = result.variables.map(v => ({
+                    ...v,
+                    templateContent: selectedText
+                }));
+
+                progress.report({ message: "获取用户输入...", increment: 50 });
+                // 获取用户输入的变量值
+                const userValues = await this.getUserInputForVariables(variablesWithTemplate);
+                if (!userValues) {
+                    return false; // 用户取消了输入
+                }
+
+                progress.report({ message: "生成最终 SQL...", increment: 70 });
+                // 使用用户输入的值重新生成SQL
+                const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
+
+                progress.report({ message: "显示预览...", increment: 85 });
+                // 显示最终预览并确认
+                const shouldCopy = await this.showFinalSQLPreview(finalSQL, result.variables.length);
+                if (!shouldCopy) {
+                    return false; // 用户选择了不复制
+                }
+
+                progress.report({ message: "复制 SQL 到剪贴板...", increment: 95 });
+                // 复制最终SQL到剪贴板
+                await vscode.env.clipboard.writeText(finalSQL);
+
+                // 显示结果信息
+                const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s).`;
+                const detail = `Variables used: ${Object.entries(userValues).map(([name, value]) => `${name} = ${value}`).join(', ')}`;
+
+                vscode.window.showInformationMessage(message, {
+                    modal: false,
+                    detail
+                });
+
                 return true;
+            } catch (error) {
+                console.error('Error in handleCopyJinja2Template:', error);
+                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+                return false;
             }
+        });
+    }
 
-            // 获取用户输入的变量值
-            const userValues = await this.getUserInputForVariables(result.variables);
-            if (!userValues) {
-                return false; // 用户取消了输入
+    /**
+     * 快速模式：直接使用默认值生成SQL
+     */
+    public static async handleCopyJinja2TemplateQuick(): Promise<boolean> {
+        return await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "快速处理 Jinja2 模板",
+            cancellable: false
+        }, async (progress) => {
+            try {
+                progress.report({ message: "初始化处理...", increment: 0 });
+
+                const editor = vscode.window.activeTextEditor;
+                if (!editor || !editor.selection || editor.selection.isEmpty) {
+                    vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
+                    return false;
+                }
+
+                progress.report({ message: "获取选中文本...", increment: 20 });
+                const selectedText = editor.document.getText(editor.selection);
+
+                progress.report({ message: "解析 Jinja2 模板...", increment: 40 });
+                // 使用Python脚本处理Jinja2模板
+                const result = await this.processWithPythonScript(selectedText);
+
+                if (!result.success) {
+                    vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
+                    return false;
+                }
+
+                progress.report({ message: "生成默认 SQL...", increment: 70 });
+                // 使用默认值生成SQL
+                const finalSQL = result.demoSQL || '';
+
+                progress.report({ message: "复制 SQL 到剪贴板...", increment: 90 });
+                // 复制到剪贴板
+                await vscode.env.clipboard.writeText(finalSQL);
+
+                // 显示结果信息
+                const message = result.variables.length > 0
+                    ? `Generated demo SQL from Jinja2 template with ${result.variables.length} variable(s) using default values.`
+                    : 'Generated SQL from Jinja2 template (no variables found).';
+
+                vscode.window.showInformationMessage(message, { modal: false });
+
+                return true;
+            } catch (error) {
+                console.error('Error in handleCopyJinja2TemplateQuick:', error);
+                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+                return false;
             }
+        });
+    }
 
-            // 使用用户输入的值重新生成SQL
-            const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
+    /**
+     * Webview模式：直接打开可视化编辑器
+     */
+    public static async handleCopyJinja2TemplateWebview(): Promise<boolean> {
+        return await vscode.window.withProgress({
+            location: vscode.ProgressLocation.Notification,
+            title: "启动可视化编辑器",
+            cancellable: false
+        }, async (progress) => {
+            try {
+                progress.report({ message: "初始化可视化编辑器...", increment: 0 });
 
-            // 复制最终SQL到剪贴板
-            await vscode.env.clipboard.writeText(finalSQL);
+                const editor = vscode.window.activeTextEditor;
+                if (!editor || !editor.selection || editor.selection.isEmpty) {
+                    vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', { modal: false });
+                    return false;
+                }
 
-            // 显示结果信息
-            const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s).`;
-            const detail = `Variables used: ${Object.entries(userValues).map(([name, value]) => `${name} = ${value}`).join(', ')}\n\nGenerated SQL:\n${finalSQL}`;
+                progress.report({ message: "获取选中文本...", increment: 15 });
+                const selectedText = editor.document.getText(editor.selection);
 
-            vscode.window.showInformationMessage(message, {
-                modal: false,
-                detail
-            });
+                progress.report({ message: "解析 Jinja2 模板...", increment: 30 });
+                // 使用Python脚本处理Jinja2模板
+                const result = await this.processWithPythonScript(selectedText);
 
-            return true;
-        } catch (error) {
-            console.error('Error in handleCopyJinja2Template:', error);
-            vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
-            return false;
+                if (!result.success) {
+                    vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${result.error}`, { modal: false });
+                    return false;
+                }
+
+                if (result.variables.length === 0) {
+                    // 没有变量，直接复制
+                    progress.report({ message: "复制 SQL 到剪贴板...", increment: 80 });
+                    await vscode.env.clipboard.writeText(result.demoSQL || '');
+                    vscode.window.showInformationMessage('No variables found in Jinja2 template. SQL copied to clipboard.', { modal: false });
+                    return true;
+                }
+
+                progress.report({ message: "准备可视化编辑器...", increment: 50 });
+                // 添加模板内容到变量中
+                const variablesWithTemplate = result.variables.map(v => ({
+                    ...v,
+                    templateContent: selectedText
+                }));
+
+                progress.report({ message: "启动可视化编辑器...", increment: 70 });
+                // 直接打开Webview编辑器
+                const userValues = await Jinja2WebviewEditor.showEditor(
+                    selectedText,
+                    result.variables,
+                    'Jinja2模板可视化编辑器'
+                );
+
+                if (!userValues) {
+                    return false; // 用户关闭了编辑器
+                }
+
+                progress.report({ message: "生成最终 SQL...", increment: 85 });
+                // 生成最终SQL
+                const finalSQL = await this.generateSQLWithUserValues(selectedText, userValues);
+
+                progress.report({ message: "复制 SQL 到剪贴板...", increment: 95 });
+                // 复制到剪贴板
+                await vscode.env.clipboard.writeText(finalSQL);
+
+                // 显示结果信息
+                const message = `Generated SQL from Jinja2 template with ${result.variables.length} variable(s) using visual editor.`;
+                vscode.window.showInformationMessage(message, { modal: false });
+
+                return true;
+            } catch (error) {
+                console.error('Error in handleCopyJinja2TemplateWebview:', error);
+                vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`, { modal: false });
+                return false;
+            }
+        });
+    }
+
+    /**
+     * 获取用户输入的变量值 - 增强版
+     */
+    private static async getUserInputForVariables(variables: any[]): Promise<Record<string, any> | null> {
+        if (variables.length === 0) {
+            return {};
+        }
+
+        // 提供输入方式选择
+        const inputMethod = await vscode.window.showQuickPick(
+            [
+                {
+                    label: '向导模式',
+                    detail: '逐个输入变量值，带有智能建议',
+                    description: '适合少量变量或需要精确控制'
+                },
+                {
+                    label: '快速模式',
+                    detail: '一次性输入所有变量（JSON格式）',
+                    description: '适合大量变量或批量处理'
+                },
+                {
+                    label: '可视化编辑器',
+                    detail: '图形化界面配置变量，实时预览SQL',
+                    description: '适合复杂模板或需要可视化操作'
+                },
+                {
+                    label: '使用默认值',
+                    detail: '使用系统生成的默认演示值',
+                    description: '适合快速生成演示SQL'
+                }
+            ],
+            {
+                title: '选择变量输入方式',
+                placeHolder: '如何为Jinja2模板变量提供值？'
+            }
+        );
+
+        if (!inputMethod) {
+            return null; // 用户取消了选择
+        }
+
+        switch (inputMethod.label) {
+            case '向导模式':
+                return this.getUserInputWizard(variables);
+            case '快速模式':
+                return this.getUserInputQuickMode(variables);
+            case '可视化编辑器':
+                return this.getUserInputWebview(variables);
+            case '使用默认值':
+                return this.generateDefaultValues(variables);
+            default:
+                return null;
         }
     }
 
     /**
-     * 获取用户输入的变量值
+     * 向导模式：逐个输入变量值（带实时预览）
      */
-    private static async getUserInputForVariables(variables: any[]): Promise<Record<string, any> | null> {
+    private static async getUserInputWizard(variables: any[]): Promise<Record<string, any> | null> {
         const userValues: Record<string, any> = {};
+        const templateContent = variables.length > 0 ? variables[0].templateContent || '' : '';
 
-        // 显示变量输入界面
-        for (const variable of variables) {
-            const inputOptions: vscode.InputBoxOptions = {
-                title: `Enter value for variable: ${variable.name}`,
-                prompt: `Type: ${variable.type}${variable.description ? `\nDescription: ${variable.description}` : ''}`,
-                placeHolder: this.getPlaceholderForType(variable.type, variable.name),
-                validateInput: (value: string) => {
-                    return this.validateVariableInput(value, variable.type);
+        // 显示总进度
+        const progressOptions = {
+            title: `配置变量值 (${variables.length} 个变量)`,
+            location: vscode.ProgressLocation.Notification,
+            cancellable: true
+        };
+
+        await vscode.window.withProgress(progressOptions, async (progress, token) => {
+            for (let i = 0; i < variables.length; i++) {
+                if (token.isCancellationRequested) {
+                    return null;
                 }
-            };
 
-            const value = await vscode.window.showInputBox(inputOptions);
-            if (value === undefined) {
-                // 用户取消了输入
-                return null;
+                const variable = variables[i];
+                progress.report({
+                    message: `配置变量 ${i + 1}/${variables.length}: ${variable.name}`,
+                    increment: (100 / variables.length)
+                });
+
+                // 生成智能默认值
+                const defaultValue = this.getSmartDefaultValue(variable);
+
+                const inputOptions: vscode.InputBoxOptions = {
+                    title: `配置变量值 (${i + 1}/${variables.length})`,
+                    prompt: `变量: ${variable.name}\n类型: ${variable.type}${variable.description ? `\n描述: ${variable.description}` : ''}`,
+                    placeHolder: this.getPlaceholderForType(variable.type, variable.name),
+                    value: defaultValue.toString(),
+                    validateInput: (value: string) => {
+                        return this.validateVariableInput(value, variable.type);
+                    }
+                };
+
+                const value = await vscode.window.showInputBox(inputOptions);
+                if (value === undefined) {
+                    return null;
+                }
+
+                userValues[variable.name] = this.formatValueByType(value, variable.type);
+
+                // 在最后一个变量输入后显示预览
+                if (i === variables.length - 1 && templateContent) {
+                    await this.showSQLPreview(templateContent, userValues);
+                }
             }
-
-            userValues[variable.name] = this.formatValueByType(value, variable.type);
-        }
+        });
 
         return userValues;
+    }
+
+    /**
+     * Webview模式：可视化编辑器
+     */
+    private static async getUserInputWebview(variables: any[]): Promise<Record<string, any> | null> {
+        try {
+            const templateContent = variables.length > 0 ? variables[0].templateContent || '' : '';
+
+            const userValues = await Jinja2WebviewEditor.showEditor(
+                templateContent,
+                variables,
+                'Jinja2模板变量配置'
+            );
+
+            return userValues;
+        } catch (error) {
+            console.warn('Webview editor was closed or failed:', error);
+            return null;
+        }
+    }
+
+    /**
+     * 快速模式：JSON格式一次性输入
+     */
+    private static async getUserInputQuickMode(variables: any[]): Promise<Record<string, any> | null> {
+        // 生成JSON模板
+        const jsonTemplate = this.generateJSONTemplate(variables);
+
+        const inputOptions: vscode.InputBoxOptions = {
+            title: '批量输入变量值 (JSON格式)',
+            prompt: '请输入JSON格式的变量值，例如：\n' + jsonTemplate,
+            placeHolder: '{"variable_name": "value", "number_var": 42}',
+            value: jsonTemplate,
+            validateInput: (value: string) => {
+                try {
+                    const parsed = JSON.parse(value);
+                    const missingVars = variables.filter(v => !(v.name in parsed));
+                    if (missingVars.length > 0) {
+                        return `缺少变量: ${missingVars.map(v => v.name).join(', ')}`;
+                    }
+
+                    // 验证变量类型
+                    for (const [varName, varValue] of Object.entries(parsed)) {
+                        const variable = variables.find(v => v.name === varName);
+                        if (variable) {
+                            const validationResult = this.validateVariableValue(varValue, variable.type);
+                            if (validationResult) {
+                                return `${varName}: ${validationResult}`;
+                            }
+                        }
+                    }
+
+                    return null;
+                } catch (error) {
+                    return 'JSON格式错误: ' + (error instanceof Error ? error.message : String(error));
+                }
+            }
+        };
+
+        const jsonValue = await vscode.window.showInputBox(inputOptions);
+        if (!jsonValue) {
+            return null;
+        }
+
+        try {
+            const parsed = JSON.parse(jsonValue);
+            // 格式化值以符合SQL语法
+            const formattedValues: Record<string, any> = {};
+            for (const [varName, varValue] of Object.entries(parsed)) {
+                const variable = variables.find(v => v.name === varName);
+                if (variable) {
+                    formattedValues[varName] = this.formatValueByType(String(varValue), variable.type);
+                }
+            }
+            return formattedValues;
+        } catch (error) {
+            vscode.window.showErrorMessage('JSON解析失败');
+            return null;
+        }
+    }
+
+    /**
+     * 生成默认值
+     */
+    private static generateDefaultValues(variables: any[]): Record<string, any> {
+        const values: Record<string, any> = {};
+        for (const variable of variables) {
+            values[variable.name] = this.getSmartDefaultValue(variable);
+        }
+        return values;
+    }
+
+    /**
+     * 生成JSON模板
+     */
+    private static generateJSONTemplate(variables: any[]): string {
+        const template: Record<string, any> = {};
+        for (const variable of variables) {
+            template[variable.name] = this.getSmartDefaultValue(variable);
+        }
+        return JSON.stringify(template, null, 2);
+    }
+
+    /**
+     * 获取智能默认值
+     */
+    private static getSmartDefaultValue(variable: any): any {
+        const lowerName = variable.name.toLowerCase();
+
+        switch (variable.type) {
+            case 'string':
+                if (lowerName.includes('name')) {return 'demo_name';}
+                if (lowerName.includes('email')) {return 'demo@example.com';}
+                if (lowerName.includes('id')) {return 'demo_id';}
+                if (lowerName.includes('status')) {return 'active';}
+                if (lowerName.includes('date') || lowerName.includes('time')) {return '2024-01-01';}
+                return 'demo_value';
+
+            case 'number':
+            case 'integer':
+                if (lowerName.includes('limit')) {return 10;}
+                if (lowerName.includes('offset')) {return 0;}
+                if (lowerName.includes('age')) {return 25;}
+                if (lowerName.includes('count')) {return 1;}
+                if (lowerName.includes('id')) {return 123;}
+                return 42;
+
+            case 'boolean':
+                if (lowerName.includes('is_') || lowerName.includes('has_') || lowerName.includes('can_')) {
+                    return true;
+                }
+                return false;
+
+            case 'date':
+                return '2024-01-01';
+
+            default:
+                return 'demo_value';
+        }
+    }
+
+    /**
+     * 验证变量值（针对快速模式）
+     */
+    private static validateVariableValue(value: any, type: string): string | null {
+        switch (type) {
+            case 'number':
+            case 'integer':
+                if (typeof value !== 'number' || !Number.isInteger(value)) {
+                    return '必须是整数';
+                }
+                break;
+            case 'boolean':
+                if (typeof value !== 'boolean') {
+                    return '必须是布尔值';
+                }
+                break;
+            case 'string':
+                if (typeof value !== 'string') {
+                    return '必须是字符串';
+                }
+                break;
+        }
+        return null;
+    }
+
+    /**
+     * 显示SQL预览
+     */
+    private static async showSQLPreview(templateContent: string, userValues: Record<string, any>): Promise<void> {
+        try {
+            const previewSQL = await this.generateSQLWithUserValues(templateContent, userValues);
+
+            const showPreview = await vscode.window.showInformationMessage(
+                '是否要预览生成的SQL？',
+                { modal: false },
+                '预览', '跳过'
+            );
+
+            if (showPreview === '预览') {
+                // 显示预览文档
+                const document = await vscode.workspace.openTextDocument({
+                    content: previewSQL,
+                    language: 'sql'
+                });
+                await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Beside });
+            }
+        } catch (error) {
+            console.warn('Failed to show SQL preview:', error);
+        }
+    }
+
+    /**
+     * 显示最终SQL预览并确认复制
+     */
+    private static async showFinalSQLPreview(finalSQL: string, variableCount: number): Promise<boolean> {
+        const options = [
+            { label: '复制到剪贴板', description: '将生成的SQL复制到剪贴板' },
+            { label: '预览并复制', description: '先预览SQL再复制到剪贴板' },
+            { label: '取消', description: '取消操作' }
+        ];
+
+        const choice = await vscode.window.showQuickPick(options, {
+            title: 'SQL生成完成',
+            placeHolder: `已处理 ${variableCount} 个变量，如何处理生成的SQL？`
+        });
+
+        if (!choice || choice.label === '取消') {
+            return false;
+        }
+
+        if (choice.label === '预览并复制') {
+            // 显示预览文档
+            const document = await vscode.workspace.openTextDocument({
+                content: finalSQL,
+                language: 'sql'
+            });
+            await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Beside });
+
+            // 询问是否复制
+            const shouldCopy = await vscode.window.showInformationMessage(
+                '是否复制此SQL到剪贴板？',
+                { modal: false },
+                '复制', '不复制'
+            );
+
+            return shouldCopy === '复制';
+        }
+
+        return choice.label === '复制到剪贴板';
     }
 
     /**
@@ -562,41 +1038,52 @@ export class Jinja2TemplateProcessor {
      */
     private static async generateSQLWithUserValues(templateSQL: string, userValues: Record<string, any>): Promise<string> {
         try {
-            // 创建Python脚本来渲染模板
-            const { exec } = require('child_process');
-            const { promisify } = require('util');
-            const execAsync = promisify(exec);
+            // 显示进度通知
+            return await vscode.window.withProgress({
+                location: vscode.ProgressLocation.Notification,
+                title: "正在处理Jinja2模板...",
+                cancellable: false
+            }, async (progress) => {
+                progress.report({ increment: 0, message: "初始化Python处理器..." });
 
-            // 获取脚本路径
-            const extensionPath = vscode.extensions.getExtension('l8ng.sqlsugar')?.extensionPath || process.cwd();
-            const scriptPath = require('path').join(extensionPath, 'scripts', 'jinja2-render.py');
+                // 创建Python脚本来渲染模板
+                const { exec } = require('child_process');
+                const { promisify } = require('util');
+                const execAsync = promisify(exec);
 
-            // 准备输入数据
-            const inputData = {
-                template: templateSQL,
-                variables: userValues
-            };
+                // 获取脚本路径
+                const extensionPath = vscode.extensions.getExtension('l8ng.sqlsugar')?.extensionPath || process.cwd();
+                const scriptPath = require('path').join(extensionPath, 'scripts', 'jinja2-simple-processor.py');
 
-            // 执行Python脚本
-            const { stdout, stderr } = await execAsync(
-                `uv run "${scriptPath}" --json`,
-                {
-                    input: JSON.stringify(inputData),
-                    encoding: 'utf8',
-                    timeout: 10000
+                // 准备输入数据
+                const inputData = {
+                    template: templateSQL,
+                    variables: userValues
+                };
+
+                progress.report({ increment: 30, message: "执行Python脚本处理..." });
+
+                // 执行Python脚本
+                const { stdout, stderr } = await execAsync(
+                    `uv run "${scriptPath}" --json`,
+                    {
+                        input: JSON.stringify(inputData),
+                        encoding: 'utf8',
+                        timeout: 10000
+                    }
+                );
+
+                if (stderr) {
+                    console.warn('Python script stderr:', stderr);
                 }
-            );
 
-            if (stderr) {
-                console.warn('Python script stderr:', stderr);
-            }
-
-            const result = JSON.parse(stdout);
-            if (result.success) {
-                return result.sql;
-            } else {
-                throw new Error(result.error || 'Failed to render template');
-            }
+                const result = JSON.parse(stdout);
+                if (result.success) {
+                    return result.sql;
+                } else {
+                    throw new Error(result.error || 'Failed to render template');
+                }
+            });
 
         } catch (error: any) {
             console.error('Error generating SQL with user values:', error);
@@ -635,7 +1122,7 @@ export class Jinja2TemplateProcessor {
             const { stdout, stderr } = await execAsync(
                 `uv run "${scriptPath}" --json`,
                 {
-                    input: templateContent,
+                    input: JSON.stringify({ template: templateContent }),
                     encoding: 'utf8',
                     timeout: 10000 // 10秒超时
                 }

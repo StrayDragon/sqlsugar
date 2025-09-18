@@ -1,3 +1,4 @@
+# Development and build files
 .vscode/**
 .vscode-test/**
 out/**
@@ -10,10 +11,34 @@ vsc-extension-quickstart.md
 **/tsconfig.json
 **/eslint.config.mjs
 **/*.map
-**/*.ts
 **/.vscode-test.*
+
+# Documentation and examples
 docs/**
 docker/**
 examples/**
+
+# Lock files
 pnpm-lock.yaml
 pnpm-workspace.yaml
+yarn.lock
+package-lock.json
+
+# Debug and test files
+debug/**
+test-*.js
+**/__pycache__/**
+*.log
+
+# Development configuration
+.claude/**
+.github/**
+
+# Temporary and cache files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# Build artifacts that shouldn't be included
+*.vsix

@@ -162,12 +162,7 @@ LIMIT {{ limit }} OFFSET {{ offset }}
 ```
 
 **Interactive Processing**:
-For more advanced processing with interactive variable input, use the standalone Python script:
-```bash
-uv run scripts/jinja2-sql-processor.py process-file template.sql
-```
-
-This provides a rich terminal interface for customizing variable values and seeing real-time SQL generation.
+For more advanced processing with interactive variable input, use the VS Code extension command which provides a user-friendly interface for entering variable values and seeing real-time SQL generation.
 
 ### Advanced Configuration
 The `sqlsConfigPath` supports variable substitution:

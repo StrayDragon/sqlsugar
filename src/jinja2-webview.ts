@@ -1,11 +1,28 @@
 import * as vscode from 'vscode';
-import { Jinja2Variable } from './jinja2-processor';
-import { VariableTypeInference, VariableInference, VariableType, TypeInferenceRule } from './jinja2-type-inference';
-import { Jinja2ConditionProcessor, ConditionContext } from './jinja2-condition-processor';
+import { Jinja2Variable } from './jinja2-nunjucks-processor';
 
 /**
- * Jinja2模板Webview编辑器
- * 提供可视化的变量配置界面
+ * WebView变量值接口
+ */
+interface VariableValue {
+    name: string;
+    type: string;
+    value: any;
+    isEmpty: boolean;
+}
+
+/**
+ * WebView编辑器结果接口
+ */
+interface WebViewResult {
+    success: boolean;
+    values?: Record<string, any>;
+    error?: string;
+}
+
+/**
+ * Jinja2 WebView编辑器
+ * 提供可视化模板编辑和变量管理界面
  */
 export class Jinja2WebviewEditor {
     private static readonly viewType = 'sqlsugar.jinja2Editor';
@@ -14,10 +31,10 @@ export class Jinja2WebviewEditor {
     private rejectPromise: ((reason?: any) => void) | undefined;
 
     /**
-     * 显示Webview编辑器
+     * 显示 WebView 编辑器
      */
     public static showEditor(
-        templateContent: string,
+        template: string,
         variables: Jinja2Variable[],
         title: string = 'Jinja2模板编辑器'
     ): Promise<Record<string, any>> {
@@ -25,15 +42,15 @@ export class Jinja2WebviewEditor {
             const editor = new Jinja2WebviewEditor();
             editor.resolvePromise = resolve;
             editor.rejectPromise = reject;
-            editor.show(templateContent, variables, title);
+            editor.show(template, variables, title);
         });
     }
 
-    private show(templateContent: string, variables: Jinja2Variable[], title: string): void {
-        // 创建或显示webview面板
+    private show(template: string, variables: Jinja2Variable[], title: string): void {
+        // 创建或显示 webview 面板
         if (this.panel) {
             this.panel.reveal();
-            this.updateContent(templateContent, variables);
+            this.updateContent(template, variables);
             return;
         }
 
@@ -45,11 +62,11 @@ export class Jinja2WebviewEditor {
                 enableScripts: true,
                 retainContextWhenHidden: true,
                 localResourceRoots: [],
-                enableCommandUris: true
+                enableCommandUris: false
             }
         );
 
-        this.panel.webview.html = this.getHtmlContent(templateContent, variables);
+        this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
         this.setupWebviewListeners();
     }
 
@@ -74,10 +91,6 @@ export class Jinja2WebviewEditor {
 
     private async handleWebviewMessage(message: any): Promise<void> {
         switch (message.command) {
-            case 'updateVariable':
-                // 实时更新预览（不需要响应）
-                break;
-
             case 'submit':
                 if (this.resolvePromise && message.values) {
                     this.resolvePromise(message.values);
@@ -92,1313 +105,1137 @@ export class Jinja2WebviewEditor {
                 }
                 break;
 
-            case 'preview':
-                // 显示预览
-                if (message.sql) {
-                    await this.showSQLPreview(message.sql);
-                }
-                break;
-
             case 'copyToClipboard':
-                // 复制到剪贴板
-                if (message.sql) {
-                    await vscode.env.clipboard.writeText(message.sql);
+                if (message.text) {
+                    await vscode.env.clipboard.writeText(message.text);
                     vscode.window.showInformationMessage('SQL已复制到剪贴板');
                 }
                 break;
 
-            case 'autoConfigCompleted':
-                vscode.window.showInformationMessage('自动配置完成！');
+            case 'showError':
+                if (message.message) {
+                    vscode.window.showErrorMessage(message.message);
+                }
                 break;
         }
     }
 
-    private updateContent(templateContent: string, variables: Jinja2Variable[]): void {
+    private updateContent(template: string, variables: Jinja2Variable[]): void {
         if (!this.panel) {
             return;
         }
 
-        this.panel.webview.html = this.getHtmlContent(templateContent, variables);
+        this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
     }
 
-    private getHtmlContent(templateContent: string, variables: Jinja2Variable[]): string {
-        // 对每个变量进行智能类型推断
-        const variableInferences = variables.map(v => ({
-            ...v,
-            inference: VariableTypeInference.inferVariableType(v.name, templateContent)
-        }));
+    private getHtmlContent(webview: vscode.Webview, template: string, variables: Jinja2Variable[]): string {
+        const nonce = getNonce();
+        const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
 
-        const defaultValues = this.generateDefaultValues(variables);
-        const templateJSON = JSON.stringify(templateContent);
-        const variablesJSON = JSON.stringify(variableInferences);
-        const defaultValuesJSON = JSON.stringify(defaultValues);
+        // 获取主题配置
+        const theme = vscode.workspace.getConfiguration('sqlsugar').get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
+        const fontSize = vscode.workspace.getConfiguration('sqlsugar').get<number>('sqlSyntaxHighlightFontSize', 14);
 
-        return `
-<!DOCTYPE html>
+        // 构建变量初始值 - 使用安全的方式创建对象
+        const initialValuesObj: Record<string, any> = {};
+        variables.forEach(v => {
+            initialValuesObj[v.name] = v.defaultValue;
+        });
+        const initialValues = JSON.stringify(initialValuesObj);
+
+        // 构建变量配置 - 使用安全的方式创建数组
+        const variableConfigs = JSON.stringify(variables.map(v => ({
+            name: v.name,
+            defaultValue: v.defaultValue,
+            description: v.description || '',
+            type: v.type
+        })));
+
+        return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jinja2模板智能编辑器</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline';">
+    <title>Jinja2 Template Editor - ${templatePreview}</title>
     <style>
+        :root {
+            --vscode-font-family: var(--vscode-font-family), system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            --vscode-font-size: var(--vscode-font-size, 13px);
+            --vscode-foreground: var(--vscode-foreground, #cccccc);
+            --vscode-background: var(--vscode-background, #1e1e1e);
+            --vscode-editor-background: var(--vscode-editor-background, #1e1e1e);
+            --vscode-textBlockQuote-background: var(--vscode-textBlockQuote-background, #7f7f7f26);
+            --vscode-textBlockQuote-border: var(--vscode-textBlockQuote-border, #007acc80);
+            --vscode-textLink-activeForeground: var(--vscode-textLink-activeForeground, #4e94ce);
+            --vscode-textLink-foreground: var(--vscode-textLink-foreground, #3794ff);
+            --vscode-button-background: var(--vscode-button-background, #0e639c);
+            --vscode-button-foreground: var(--vscode-button-foreground, #ffffff);
+            --vscode-button-hoverBackground: var(--vscode-button-hoverBackground, #1177bb);
+            --vscode-button-secondaryBackground: var(--vscode-button-secondaryBackground, #3a3d41);
+            --vscode-button-secondaryForeground: var(--vscode-button-secondaryForeground, #cccccc);
+            --vscode-button-secondaryHoverBackground: var(--vscode-button-secondaryHoverBackground, #45494e);
+            --vscode-checkbox-background: var(--vscode-checkbox-background, #3c3c3c);
+            --vscode-checkbox-border: var(--vscode-checkbox-border, #6e6e6e);
+            --vscode-dropdown-background: var(--vscode-dropdown-background, #3c3c3c);
+            --vscode-dropdown-foreground: var(--vscode-dropdown-foreground, #f0f0f0);
+            --vscode-input-background: var(--vscode-input-background, #3c3c3c);
+            --vscode-input-foreground: var(--vscode-input-foreground, #cccccc);
+            --vscode-input-border: var(--vscode-input-border, #6e6e6e);
+            --vscode-input-placeholderForeground: var(--vscode-input-placeholderForeground, #a6a6a6);
+            --vscode-badge-background: var(--vscode-badge-background, #4d4d4d);
+            --vscode-badge-foreground: var(--vscode-badge-foreground, #ffffff);
+            --vscode-errorForeground: var(--vscode-errorForeground, #f48771);
+            --vscode-warningForeground: var(--vscode-warningForeground, #cca700);
+            --vscode-infoForeground: var(--vscode-infoForeground, #3794ff);
+            --vscode-icon-foreground: var(--vscode-icon-foreground, #c5c5c5);
+            --vscode-focusBorder: var(--vscode-focusBorder, #007fd4);
+        }
+
         * {
+            box-sizing: border-box;
             margin: 0;
             padding: 0;
-            box-sizing: border-box;
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--vscode-editor-background);
-            color: var(--vscode-editor-foreground);
+            font-family: var(--vscode-font-family);
+            font-size: var(--vscode-font-size);
+            color: var(--vscode-foreground);
+            background-color: var(--vscode-background);
             padding: 20px;
-            height: 100vh;
-            overflow: hidden;
+            line-height: 1.6;
         }
 
         .container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            grid-template-rows: auto 1fr auto;
+            display: flex;
+            flex-direction: column;
             gap: 20px;
-            height: 100%;
+            max-width: 1400px;
+            margin: 0 auto;
+            height: calc(100vh - 40px);
         }
 
         .header {
-            grid-column: 1 / -1;
             text-align: center;
-            padding: 10px;
-            border-bottom: 1px solid var(--vscode-panel-border);
+            padding: 10px 0;
+            border-bottom: 1px solid var(--vscode-textBlockQuote-border);
         }
 
-        .variables-section {
+        .title {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .template-preview {
+            font-style: italic;
+            color: var(--vscode-textLink-foreground);
+            font-size: 0.9em;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            flex: 1;
+            min-height: 0;
+            height: calc(100vh - 180px);
+        }
+
+        .left-panel, .right-panel {
             display: flex;
             flex-direction: column;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            overflow: hidden;
+            gap: 15px;
+            min-height: 0;
         }
 
-        .variables-header {
-            background: var(--vscode-panel-background);
-            padding: 10px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            font-weight: bold;
+        .panel-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 8px 12px;
+            background-color: var(--vscode-textBlockQuote-background);
+            border-radius: 4px;
+            font-weight: 500;
         }
 
-        .variables-content {
+        .panel-title {
+            font-size: 1.1em;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: inherit;
+            font-size: 0.9em;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .btn-primary {
+            background-color: var(--vscode-button-background);
+            color: var(--vscode-button-foreground);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--vscode-button-hoverBackground);
+        }
+
+        .btn-secondary {
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+        }
+
+        .btn-secondary:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
+        }
+
+        .variables-section {
             flex: 1;
             overflow-y: auto;
             padding: 15px;
+            background-color: var(--vscode-editor-background);
+            border-radius: 6px;
+            border: 1px solid var(--vscode-input-border);
         }
 
-        .variable-group {
+        .variable-item {
             margin-bottom: 20px;
             padding: 15px;
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 4px;
-            background: var(--vscode-input-background);
-            transition: border-color 0.2s;
-        }
-
-        .variable-group:hover {
-            border-color: var(--vscode-focusBorder);
+            background-color: var(--vscode-textBlockQuote-background);
+            border-radius: 6px;
+            border: 1px solid var(--vscode-textBlockQuote-border);
         }
 
         .variable-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             margin-bottom: 10px;
         }
 
-        .variable-info {
-            flex: 1;
-        }
-
         .variable-name {
-            font-weight: bold;
-            color: var(--vscode-foreground);
-            font-size: 14px;
-            margin-bottom: 2px;
+            font-weight: 600;
+            color: var(--vscode-textLink-foreground);
         }
 
-        .variable-type {
-            font-size: 11px;
-            color: var(--vscode-descriptionForeground);
-            margin-bottom: 4px;
-        }
-
-        .variable-confidence {
-            font-size: 10px;
-            padding: 2px 6px;
-            border-radius: 3px;
-            display: inline-block;
-            margin-top: 2px;
-        }
-
-        .confidence-high {
-            background: var(--vscode-badge-background);
+        .variable-type-badge {
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8em;
+            background-color: var(--vscode-badge-background);
             color: var(--vscode-badge-foreground);
         }
 
-        .confidence-medium {
-            background: var(--vscode-editorWarning-foreground);
-            color: var(--vscode-editor-background);
-        }
-
-        .confidence-low {
-            background: var(--vscode-errorForeground);
-            color: var(--vscode-editor-background);
+        .variable-description {
+            font-size: 0.9em;
+            color: var(--vscode-input-placeholderForeground);
+            margin-bottom: 12px;
         }
 
         .variable-controls {
+            display: grid;
+            grid-template-columns: auto 1fr auto;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .quick-options {
             display: flex;
+            flex-wrap: wrap;
             gap: 5px;
-            margin-top: 10px;
+            margin-top: 5px;
         }
 
-        .format-selector {
-            flex: 1;
-            padding: 4px 8px;
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 3px;
-            background: var(--vscode-dropdown-background);
-            color: var(--vscode-dropdown-foreground);
-            font-size: 11px;
-        }
-
-        .input-wrapper {
-            position: relative;
-            margin-top: 8px;
-        }
-
-        .variable-input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid var(--vscode-input-border);
-            border-radius: 4px;
-            background: var(--vscode-input-background);
-            color: var(--vscode-input-foreground);
-            font-size: 13px;
-        }
-
-        .variable-input:focus {
-            outline: none;
-            border-color: var(--vscode-focusBorder);
-        }
-
-        .suggestions {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            right: 0;
-            max-height: 120px;
-            overflow-y: auto;
-            background: var(--vscode-dropdown-background);
-            border: 1px solid var(--vscode-dropdown-border);
-            border-radius: 3px;
-            z-index: 1000;
-            display: none;
-        }
-
-        .suggestion-item {
-            padding: 6px 8px;
+        .quick-option-btn {
+            padding: 2px 6px;
+            font-size: 0.75em;
+            background-color: var(--vscode-button-secondaryBackground);
+            color: var(--vscode-button-secondaryForeground);
+            border: none;
+            border-radius: 2px;
             cursor: pointer;
-            font-size: 12px;
-            border-bottom: 1px solid var(--vscode-dropdown-border);
+            white-space: nowrap;
         }
 
-        .suggestion-item:hover {
-            background: var(--vscode-list-hoverBackground);
+        .quick-option-btn:hover {
+            background-color: var(--vscode-button-secondaryHoverBackground);
         }
 
-        .suggestion-item:last-child {
-            border-bottom: none;
+        .type-select {
+            padding: 6px 8px;
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 3px;
+            background-color: var(--vscode-dropdown-background);
+            color: var(--vscode-dropdown-foreground);
+            font-family: inherit;
+            font-size: 0.9em;
+        }
+
+        .value-input {
+            padding: 6px 8px;
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 3px;
+            background-color: var(--vscode-input-background);
+            color: var(--vscode-input-foreground);
+            font-family: inherit;
+            font-size: 0.9em;
+        }
+
+        .value-input:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .empty-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+
+        .empty-checkbox input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            accent-color: var(--vscode-button-background);
         }
 
         .preview-section {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            border: 1px solid var(--vscode-panel-border);
-            border-radius: 4px;
-            overflow: hidden;
+            min-height: 0;
         }
 
-        .preview-header {
-            background: var(--vscode-panel-background);
-            padding: 10px;
-            border-bottom: 1px solid var(--vscode-panel-border);
-            font-weight: bold;
+        .sql-preview {
+            flex: 1;
+            border: 1px solid var(--vscode-input-border);
+            border-radius: 6px;
+            padding: 15px;
+            background-color: var(--vscode-editor-background);
+            color: var(--vscode-input-foreground);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: ${fontSize}px;
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-y: auto;
+            min-height: 300px;
+            max-height: calc(100vh - 300px);
+        }
+
+        .template-original {
+            font-size: 0.9em;
+            color: var(--vscode-input-placeholderForeground);
+            margin-bottom: 10px;
+            white-space: pre-wrap;
+            max-height: 150px;
+            overflow-y: auto;
+            padding: 12px;
+            background-color: var(--vscode-textBlockQuote-background);
+            border-radius: 3px;
+            border-left: 3px solid var(--vscode-textBlockQuote-border);
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            line-height: 1.4;
+        }
+
+        .status-info {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            font-size: 0.8em;
+            color: var(--vscode-input-placeholderForeground);
+            margin-top: 10px;
         }
 
-        .preview-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 15px;
-            font-family: 'Consolas', 'Monaco', monospace;
-            font-size: 12px;
-            white-space: pre-wrap;
-            background: var(--vscode-textBlockQuote-background);
-            border: 1px solid var(--vscode-textBlockQuote-border);
-            margin: 10px;
-            border-radius: 4px;
-        }
+        /* SQL 语法高亮主题 */
+        .theme-vscode-dark .sql-keyword { color: #569cd6; font-weight: bold; }
+        .theme-vscode-dark .sql-string { color: #ce9178; }
+        .theme-vscode-dark .sql-number { color: #b5cea8; }
+        .theme-vscode-dark .sql-function { color: #dcdcaa; }
+        .theme-vscode-dark .sql-operator { color: #d4d4d4; }
+        .theme-vscode-dark .sql-comment { color: #6a9955; font-style: italic; }
+        .theme-vscode-dark .sql-placeholder { color: #4ec9b0; font-weight: bold; }
 
-        .condition-info {
-            background: var(--vscode-badge-background);
-            color: var(--vscode-badge-foreground);
-            padding: 8px 12px;
-            border-radius: 4px;
-            font-size: 11px;
-            margin: 10px 0;
-        }
+        /* VSCode Light Theme */
+        .theme-vscode-light .sql-keyword { color: #0000ff; font-weight: bold; }
+        .theme-vscode-light .sql-string { color: #a31515; }
+        .theme-vscode-light .sql-number { color: #098658; }
+        .theme-vscode-light .sql-function { color: #795e26; }
+        .theme-vscode-light .sql-operator { color: #000000; }
+        .theme-vscode-light .sql-comment { color: #008000; font-style: italic; }
+        .theme-vscode-light .sql-placeholder { color: #0070c0; font-weight: bold; }
 
-        .condition-item {
-            margin-bottom: 4px;
-            padding: 2px 0;
-        }
+        /* GitHub Dark Theme */
+        .theme-github-dark .sql-keyword { color: #ff7b72; font-weight: bold; }
+        .theme-github-dark .sql-string { color: #a5d6ff; }
+        .theme-github-dark .sql-number { color: #79c0ff; }
+        .theme-github-dark .sql-function { color: #d2a8ff; }
+        .theme-github-dark .sql-operator { color: #c9d1d9; }
+        .theme-github-dark .sql-comment { color: #8b949e; font-style: italic; }
+        .theme-github-dark .sql-placeholder { color: #7ee787; font-weight: bold; }
 
-        .condition-kept {
-            color: var(--vscode-icon-foreground);
-        }
+        /* GitHub Light Theme */
+        .theme-github-light .sql-keyword { color: #cf222e; font-weight: bold; }
+        .theme-github-light .sql-string { color: #0a3069; }
+        .theme-github-light .sql-number { color: #0550ae; }
+        .theme-github-light .sql-function { color: #8250df; }
+        .theme-github-light .sql-operator { color: #24292f; }
+        .theme-github-light .sql-comment { color: #6e7781; font-style: italic; }
+        .theme-github-light .sql-placeholder { color: #116329; font-weight: bold; }
 
-        .condition-removed {
-            color: var(--vscode-errorForeground);
-            text-decoration: line-through;
-        }
+        /* Monokai Theme */
+        .theme-monokai .sql-keyword { color: #f92672; font-weight: bold; }
+        .theme-monokai .sql-string { color: #e6db74; }
+        .theme-monokai .sql-number { color: #ae81ff; }
+        .theme-monokai .sql-function { color: #a6e22e; }
+        .theme-monokai .sql-operator { color: #f8f8f2; }
+        .theme-monokai .sql-comment { color: #75715e; font-style: italic; }
+        .theme-monokai .sql-placeholder { color: #66d9ef; font-weight: bold; }
 
-        .buttons {
-            grid-column: 1 / -1;
-            display: flex;
-            gap: 10px;
-            justify-content: center;
-            padding: 15px;
-            border-top: 1px solid var(--vscode-panel-border);
-        }
+        /* Solarized Dark Theme */
+        .theme-solarized-dark .sql-keyword { color: #268bd2; font-weight: bold; }
+        .theme-solarized-dark .sql-string { color: #2aa198; }
+        .theme-solarized-dark .sql-number { color: #d33682; }
+        .theme-solarized-dark .sql-function { color: #859900; }
+        .theme-solarized-dark .sql-operator { color: #93a1a1; }
+        .theme-solarized-dark .sql-comment { color: #586e75; font-style: italic; }
+        .theme-solarized-dark .sql-placeholder { color: #cb4b16; font-weight: bold; }
 
-        .btn {
-            padding: 8px 16px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 13px;
-            font-weight: 500;
-            transition: all 0.2s;
-        }
+        /* Solarized Light Theme */
+        .theme-solarized-light .sql-keyword { color: #268bd2; font-weight: bold; }
+        .theme-solarized-light .sql-string { color: #2aa198; }
+        .theme-solarized-light .sql-number { color: #d33682; }
+        .theme-solarized-light .sql-function { color: #859900; }
+        .theme-solarized-light .sql-operator { color: #586e75; }
+        .theme-solarized-light .sql-comment { color: #93a1a1; font-style: italic; }
+        .theme-solarized-light .sql-placeholder { color: #cb4b16; font-weight: bold; }
 
-        .btn-primary {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-        }
+        /* Dracula Theme */
+        .theme-dracula .sql-keyword { color: #ff79c6; font-weight: bold; }
+        .theme-dracula .sql-string { color: #f1fa8c; }
+        .theme-dracula .sql-number { color: #bd93f9; }
+        .theme-dracula .sql-function { color: #50fa7b; }
+        .theme-dracula .sql-operator { color: #f8f8f2; }
+        .theme-dracula .sql-comment { color: #6272a4; font-style: italic; }
+        .theme-dracula .sql-placeholder { color: #8be9fd; font-weight: bold; }
 
-        .btn-primary:hover {
-            background: var(--vscode-button-hoverBackground);
-        }
-
-        .btn-secondary {
-            background: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-        }
-
-        .btn-secondary:hover {
-            background: var(--vscode-button-secondaryHoverBackground);
-        }
-
-        .btn-danger {
-            background: var(--vscode-errorForeground);
-            color: var(--vscode-errorForeground);
-        }
-
-        .preview-actions {
-            display: flex;
-            gap: 5px;
-        }
-
-        .btn-small {
-            padding: 4px 8px;
-            font-size: 11px;
-        }
-
-        .loading {
-            text-align: center;
-            padding: 20px;
-            color: var(--vscode-descriptionForeground);
-        }
-
-        .error {
-            color: var(--vscode-errorForeground);
-            background: var(--vscode-errorBackground);
-            padding: 10px;
-            border-radius: 4px;
-            margin: 10px 0;
-            font-size: 12px;
-        }
-
-        .type-indicator {
-            display: inline-block;
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            margin-right: 4px;
-        }
-
-        .type-string { background: #007acc; }
-        .type-number { background: #098658; }
-        .type-boolean { background: #0000ff; }
-        .type-date { background: #ff8c00; }
-        .type-datetime { background: #9400d3; }
-        .type-email { background: #008000; }
-        .type-url { background: #000080; }
-        .type-json { background: #8b4513; }
-
-        /* 类型快速选择按钮 */
-        .type-quick-select {
-            display: flex;
-            gap: 4px;
-            margin-bottom: 8px;
-            flex-wrap: wrap;
-        }
-
-        .type-btn {
-            background: var(--vscode-button-secondaryBackground);
-            color: var(--vscode-button-secondaryForeground);
-            border: 1px solid var(--vscode-button-border);
-            border-radius: 4px;
-            padding: 4px 8px;
-            font-size: 14px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            min-width: 32px;
-            height: 28px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
-
-        .type-btn:hover {
-            background: var(--vscode-button-secondaryHoverBackground);
-            transform: translateY(-1px);
-        }
-
-        .type-btn.active {
-            background: var(--vscode-button-background);
-            color: var(--vscode-button-foreground);
-            border-color: var(--vscode-button-background);
-            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-        }
-
-        .type-btn:active {
-            transform: translateY(0);
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <h2>Jinja2模板智能编辑器</h2>
-            <p>智能变量类型推断 · 多格式输入器 · Python风格条件处理</p>
+            <div class="title">Jinja2 Template Editor</div>
+            <div class="template-preview">${templatePreview}</div>
         </div>
 
-        <div class="variables-section">
-            <div class="variables-header">
-                <span>智能变量配置 (${variables.length} 个变量)</span>
-                <button class="btn btn-secondary btn-small" onclick="autoConfigure()">自动配置</button>
-            </div>
-            <div class="variables-content" id="variablesContent">
-                <!-- 变量输入将在这里动态生成 -->
-            </div>
-        </div>
+        <div class="main-content">
+            <div class="left-panel">
+                <div class="panel-header">
+                    <span class="panel-title">变量配置</span>
+                    <div class="controls">
+                        <button class="btn-secondary" id="resetButton">
+                            <span>↺</span> 重置默认值
+                        </button>
+                        <button class="btn-primary" id="refreshButton">
+                            <span>↻</span> 刷新模板
+                        </button>
+                    </div>
+                </div>
 
-        <div class="preview-section">
-            <div class="preview-header">
-                <span>SQL预览 (智能条件处理)</span>
-                <div class="preview-actions">
-                    <button class="btn btn-secondary btn-small" onclick="refreshPreview()">刷新预览</button>
-                    <button class="btn btn-secondary btn-small" onclick="copySQL()">复制SQL</button>
+                <div class="variables-section" id="variablesContainer">
+                    <!-- 变量控件将在这里动态生成 -->
                 </div>
             </div>
-            <div class="preview-content" id="previewContent">
-                <div class="loading">请配置变量值...</div>
-            </div>
-            <div id="conditionInfo"></div>
-        </div>
 
-        <div class="buttons">
-            <button class="btn btn-secondary" onclick="autoConfigure()">智能配置</button>
-            <button class="btn btn-secondary" onclick="cancel()">取消</button>
-            <button class="btn btn-primary" onclick="submit()">生成并复制SQL</button>
+            <div class="right-panel">
+                <div class="panel-header">
+                    <span class="panel-title">SQL 预览</span>
+                    <div class="controls">
+                        <button class="btn-primary" id="copyButton">
+                            <span>⎘</span> 复制到剪贴板
+                        </button>
+                    </div>
+                </div>
+
+                <div class="preview-section">
+                    <div class="template-original" id="templateOriginal"></div>
+                    <div class="sql-preview theme-${theme}" id="sqlPreview">-- 请配置变量值生成 SQL...</div>
+                    <div class="status-info">
+                        <span id="statusInfo">准备就绪</span>
+                        <span id="variableCount"></span>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script>
-        const vscode = acquireVsCodeApi();
-        let templateContent = ${templateJSON};
-        let variables = ${variablesJSON};
-        let defaultValues = ${defaultValuesJSON};
-        let currentValues = { ...defaultValues };
+    <script nonce="${nonce}">
+        // 从 VS Code 传递的数据
+        const template = ${JSON.stringify(template)};
+        const variables = ${variableConfigs};
+
+        // 初始值
+        let initialValues = ${initialValues};
+
+        // 支持的类型
+        const supportedTypes = [
+            { value: 'string', label: '字符串 (String)', autoQuote: true },
+            { value: 'number', label: '数字 (Number)', autoQuote: false },
+            { value: 'date', label: '日期 (Date)', autoQuote: true },
+            { value: 'datetime', label: '日期时间 (DateTime)', autoQuote: true },
+            { value: 'boolean', label: '布尔值 (Boolean)', autoQuote: false },
+            { value: 'null', label: '空值 (NULL)', autoQuote: false }
+        ];
+
+        // 快捷日期时间选项
+        const quickDateOptions = [
+            { label: '今天', value: 'today' },
+            { label: '昨天', value: 'yesterday' },
+            { label: '明天', value: 'tomorrow' },
+            { label: '本周一', value: 'this_monday' },
+            { label: '本周末', value: 'this_sunday' },
+            { label: '本月1号', value: 'this_month_1st' },
+            { label: '本月最后一天', value: 'this_month_last' }
+        ];
+
+        const quickTimeOptions = [
+            { label: '当前时间 (00:00:00)', value: 'current_time' },
+            { label: '准确时间 (系统时间)', value: 'exact_time' },
+            { label: '字符串 \'00:00:00\'', value: 'string_000000' }
+        ];
+
+        // 获取快捷日期值
+        function getQuickDateValue(option) {
+            const now = new Date();
+            const pad = (num) => num.toString().padStart(2, '0');
+
+            switch (option) {
+                case 'today':
+                    return \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
+                case 'yesterday':
+                    const yesterday = new Date(now);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    return \`\${yesterday.getFullYear()}-\${pad(yesterday.getMonth() + 1)}-\${pad(yesterday.getDate())}\`;
+                case 'tomorrow':
+                    const tomorrow = new Date(now);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    return \`\${tomorrow.getFullYear()}-\${pad(tomorrow.getMonth() + 1)}-\${pad(tomorrow.getDate())}\`;
+                case 'this_monday':
+                    const monday = new Date(now);
+                    const day = now.getDay();
+                    const diff = day === 0 ? -6 : 1 - day;
+                    monday.setDate(monday.getDate() + diff);
+                    return \`\${monday.getFullYear()}-\${pad(monday.getMonth() + 1)}-\${pad(monday.getDate())}\`;
+                case 'this_sunday':
+                    const sunday = new Date(now);
+                    const day2 = now.getDay();
+                    const diff2 = day2 === 0 ? 0 : 7 - day2;
+                    sunday.setDate(sunday.getDate() + diff2);
+                    return \`\${sunday.getFullYear()}-\${pad(sunday.getMonth() + 1)}-\${pad(sunday.getDate())}\`;
+                case 'this_month_1st':
+                    return \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-01\`;
+                case 'this_month_last':
+                    const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    return \`\${lastDay.getFullYear()}-\${pad(lastDay.getMonth() + 1)}-\${pad(lastDay.getDate())}\`;
+                default:
+                    return \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
+            }
+        }
+
+        // 获取快捷时间值
+        function getQuickTimeValue(option) {
+            const now = new Date();
+            const pad = (num) => num.toString().padStart(2, '0');
+
+            switch (option) {
+                case 'current_time':
+                    return '00:00:00';
+                case 'exact_time':
+                    return \`\${pad(now.getHours())}:\${pad(now.getMinutes())}:\${pad(now.getSeconds())}\`;
+                case 'string_000000':
+                    return '00:00:00';
+                default:
+                    return \`\${pad(now.getHours())}:\${pad(now.getMinutes())}:\${pad(now.getSeconds())}\`;
+            }
+        }
 
         // 初始化页面
-        function init() {
-            renderVariables();
-            refreshPreview();
+        document.addEventListener('DOMContentLoaded', function() {
+            displayTemplate();
+            generateVariableControls();
+            refreshTemplate();
+
+            // 添加按钮事件监听器
+            document.getElementById('resetButton').addEventListener('click', resetToDefaults);
+            document.getElementById('refreshButton').addEventListener('click', refreshTemplate);
+            document.getElementById('copyButton').addEventListener('click', copyToClipboard);
+        });
+
+        // 显示模板
+        function displayTemplate() {
+            const templateElement = document.getElementById('templateOriginal');
+            templateElement.textContent = template;
         }
 
-        // 渲染变量输入
-        function renderVariables() {
-            const container = document.getElementById('variablesContent');
+        // 生成变量控件
+        function generateVariableControls() {
+            const container = document.getElementById('variablesContainer');
             container.innerHTML = '';
 
-            variables.forEach((variable, index) => {
-                const inference = variable.inference;
-                const group = document.createElement('div');
-                group.className = 'variable-group';
+            variables.forEach(variable => {
+                const div = document.createElement('div');
+                div.className = 'variable-item';
 
-                const header = document.createElement('div');
-                header.className = 'variable-header';
+                const typeLabel = supportedTypes.find(t => t.value === variable.type)?.label || variable.type;
+                const safeName = variable.name.replace(/[^a-zA-Z0-9_]/g, '_');
 
-                const info = document.createElement('div');
-                info.className = 'variable-info';
+                // 安全地创建HTML内容
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'variable-header';
 
-                const nameDiv = document.createElement('div');
-                nameDiv.className = 'variable-name';
-                nameDiv.innerHTML = \`<span class="type-indicator type-\${inference.type}"></span>\${variable.name}\`;
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'variable-name';
+                nameSpan.textContent = variable.name;
 
-                const typeDiv = document.createElement('div');
-                typeDiv.className = 'variable-type';
-                typeDiv.textContent = \`智能推断: \${inference.type}\${inference.subType ? ' · ' + inference.subType : ''}\`;
+                const typeSpan = document.createElement('span');
+                typeSpan.className = 'variable-type-badge';
+                typeSpan.textContent = typeLabel;
 
-                const confidenceDiv = document.createElement('div');
-                confidenceDiv.className = \`variable-confidence confidence-\${getConfidenceClass(inference.confidence)}\`;
-                confidenceDiv.textContent = \`置信度: \${Math.round(inference.confidence * 100)}%\`;
+                headerDiv.appendChild(nameSpan);
+                headerDiv.appendChild(typeSpan);
+                div.appendChild(headerDiv);
 
-                info.appendChild(nameDiv);
-                info.appendChild(typeDiv);
-                info.appendChild(confidenceDiv);
+                if (variable.description) {
+                    const descDiv = document.createElement('div');
+                    descDiv.className = 'variable-description';
+                    descDiv.textContent = variable.description;
+                    div.appendChild(descDiv);
+                }
 
-                header.appendChild(info);
-                group.appendChild(header);
+                const controlsDiv = document.createElement('div');
+                controlsDiv.className = 'variable-controls';
 
-                // 格式选择器
-                const controls = document.createElement('div');
-                controls.className = 'variable-controls';
+                // 类型选择
+                const typeSelect = document.createElement('select');
+                typeSelect.className = 'type-select';
+                typeSelect.id = 'type_' + safeName;
 
-                // 类型快速选择按钮
-                const typeQuickSelect = document.createElement('div');
-                typeQuickSelect.className = 'type-quick-select';
-                typeQuickSelect.id = \`type-quick-select-\${index}\`;
-
-                // 初始化类型选择按钮（将在JavaScript中创建）
-
-                const formatSelect = document.createElement('select');
-                formatSelect.className = 'format-selector';
-                formatSelect.innerHTML = getFormatOptions(inference);
-                formatSelect.dataset.currentFormat = getBestFormatForValue(currentValues[variable.name] || defaultValues[variable.name] || '', inference);
-                formatSelect.value = formatSelect.dataset.currentFormat;
-                formatSelect.addEventListener('change', (e) => changeFormat(index, e.target.value));
-
-                controls.appendChild(typeQuickSelect);
-                controls.appendChild(formatSelect);
-                group.appendChild(controls);
-
-                // 输入区域
-                const inputWrapper = document.createElement('div');
-                inputWrapper.className = 'input-wrapper';
-
-                const input = document.createElement('input');
-                input.className = 'variable-input';
-                input.placeholder = getPlaceholder(inference);
-                input.value = currentValues[variable.name] || defaultValues[variable.name] || '';
-                input.dataset.variableName = variable.name;
-                input.dataset.variableIndex = index;
-
-                // 添加建议下拉
-                const suggestions = document.createElement('div');
-                suggestions.className = 'suggestions';
-                suggestions.id = \`suggestions-\${index}\`;
-
-                input.addEventListener('input', (e) => {
-                    currentValues[variable.name] = e.target.value;
-                    showSuggestions(index, e.target.value, inference);
-                    refreshPreview();
+                supportedTypes.forEach(type => {
+                    const option = document.createElement('option');
+                    option.value = type.value;
+                    option.selected = type.value === variable.type;
+                    option.textContent = type.label;
+                    typeSelect.appendChild(option);
                 });
 
-                input.addEventListener('focus', (e) => {
-                    showSuggestions(index, e.target.value, inference);
+                // 值输入
+                const valueInput = document.createElement('input');
+                valueInput.type = 'text';
+                valueInput.className = 'value-input';
+                valueInput.id = 'value_' + safeName;
+                valueInput.placeholder = '输入 ' + variable.name + ' 的值';
+                valueInput.value = formatValueForInput(initialValues[variable.name], variable.type);
+
+                // 空值复选框
+                const emptyDiv = document.createElement('div');
+                emptyDiv.className = 'empty-checkbox';
+
+                const emptyCheckbox = document.createElement('input');
+                emptyCheckbox.type = 'checkbox';
+                emptyCheckbox.id = 'empty_' + safeName;
+
+                const emptyLabel = document.createElement('label');
+                emptyLabel.htmlFor = 'empty_' + safeName;
+                emptyLabel.textContent = '空值';
+
+                emptyDiv.appendChild(emptyCheckbox);
+                emptyDiv.appendChild(emptyLabel);
+
+                controlsDiv.appendChild(typeSelect);
+                controlsDiv.appendChild(valueInput);
+                controlsDiv.appendChild(emptyDiv);
+                div.appendChild(controlsDiv);
+
+                // 添加快捷选项区域
+                const quickOptionsDiv = document.createElement('div');
+                quickOptionsDiv.className = 'quick-options';
+                quickOptionsDiv.id = 'quickOptions_' + safeName;
+
+                // 根据类型显示不同的快捷选项
+                function updateQuickOptions() {
+                    const currentType = typeSelect.value;
+                    quickOptionsDiv.innerHTML = '';
+
+                    if (currentType === 'date') {
+                        quickDateOptions.forEach(option => {
+                            const btn = document.createElement('button');
+                            btn.className = 'quick-option-btn';
+                            btn.textContent = option.label;
+                            btn.onclick = () => {
+                                valueInput.value = getQuickDateValue(option.value);
+                                updateVariable(variable.name);
+                            };
+                            quickOptionsDiv.appendChild(btn);
+                        });
+                    } else if (currentType === 'datetime') {
+                        // 为日期时间类型同时显示日期和时间快捷选项
+                        quickDateOptions.forEach(option => {
+                            const btn = document.createElement('button');
+                            btn.className = 'quick-option-btn';
+                            btn.textContent = option.label;
+                            btn.onclick = () => {
+                                const currentValue = valueInput.value;
+                                const timeMatch = currentValue.match(/ (\d{2}:\d{2}:\d{2})$/);
+                                const timePart = timeMatch ? timeMatch[1] : ' 00:00:00';
+                                valueInput.value = getQuickDateValue(option.value) + timePart;
+                                updateVariable(variable.name);
+                            };
+                            quickOptionsDiv.appendChild(btn);
+                        });
+
+                        // 添加分隔线
+                        const separator = document.createElement('span');
+                        separator.textContent = '|';
+                        separator.style.margin = '0 5px';
+                        quickOptionsDiv.appendChild(separator);
+
+                        quickTimeOptions.forEach(option => {
+                            const btn = document.createElement('button');
+                            btn.className = 'quick-option-btn';
+                            btn.textContent = option.label;
+                            btn.onclick = () => {
+                                const currentValue = valueInput.value;
+                                const dateMatch = currentValue.match(/^(\d{4}-\d{2}-\d{2})/);
+                                const datePart = dateMatch ? dateMatch[1] : getQuickDateValue('today');
+                                valueInput.value = datePart + ' ' + getQuickTimeValue(option.value);
+                                updateVariable(variable.name);
+                            };
+                            quickOptionsDiv.appendChild(btn);
+                        });
+                    }
+                }
+
+                // 初始显示快捷选项
+                updateQuickOptions();
+
+                // 类型改变时更新快捷选项
+                typeSelect.addEventListener('change', () => {
+                    updateVariableType(variable.name);
+                    updateQuickOptions();
                 });
 
-                input.addEventListener('blur', (e) => {
-                    setTimeout(() => hideSuggestions(index), 200);
-                });
+                div.appendChild(quickOptionsDiv);
 
-                inputWrapper.appendChild(input);
-                inputWrapper.appendChild(suggestions);
-                group.appendChild(inputWrapper);
+                // 添加事件监听器
+                valueInput.addEventListener('change', () => updateVariable(variable.name));
+                emptyCheckbox.addEventListener('change', () => toggleEmptyValue(variable.name));
 
-                container.appendChild(group);
+                container.appendChild(div);
             });
 
-            // 初始化类型选择按钮
-            variables.forEach((variable, index) => {
-                const inference = variable.inference;
-                initTypeQuickSelect(index, inference.type);
-            });
-
+            updateVariableCount();
         }
 
-        // 初始化类型选择按钮
-        function initTypeQuickSelect(index, currentType) {
-            const container = document.getElementById(\`type-quick-select-\${index}\`);
-            if (!container) return;
-
-            const types = [
-                { type: 'string', emoji: '📝', label: '文本' },
-                { type: 'integer', emoji: '🔢', label: '整数' },
-                { type: 'number', emoji: '🔣', label: '小数' },
-                { type: 'boolean', emoji: '✅', label: '布尔' },
-                { type: 'date', emoji: '📅', label: '日期' },
-                { type: 'time', emoji: '⏰', label: '时间' },
-                { type: 'datetime', emoji: '📆', label: '日期时间' },
-                { type: 'email', emoji: '📧', label: '邮箱' },
-                { type: 'url', emoji: '🔗', label: '链接' },
-                { type: 'uuid', emoji: '🆔', label: 'UUID' }
-            ];
-
-            let buttonsHTML = '';
-            types.forEach(t => {
-                const isActive = t.type === currentType ? 'active' : '';
-                buttonsHTML += \`<button class="type-btn \${isActive}"
-                                  onclick="changeVariableType(\${index}, '\${t.type}')"
-                                  title="\${t.label}">
-                                    \${t.emoji}
-                                </button>\`;
-            });
-            container.innerHTML = buttonsHTML;
-        }
-
-        // 获取置信度样式类
-        function getConfidenceClass(confidence) {
-            if (confidence >= 0.8) return 'confidence-high';
-            if (confidence >= 0.6) return 'confidence-medium';
-            return 'confidence-low';
-        }
-
-        // 获取格式选项
-        function getFormatOptions(inference) {
-            let options;
-
-            switch (inference.type) {
-                case 'string':
-                    options = ['Plain Text', 'Email', 'URL', 'Phone', 'JSON String', 'SQL String'];
-                    break;
-                case 'number':
-                    options = ['Decimal', 'Integer', 'Scientific', 'Hexadecimal', 'Binary'];
-                    break;
-                case 'integer':
-                    options = ['Decimal', 'Hexadecimal', 'Binary', 'Octal', 'Roman'];
-                    break;
-                case 'date':
-                    options = ['YYYY-MM-DD', 'MM/DD/YYYY', 'DD/MM/YYYY', 'YYYY/MM/DD', 'Unix Timestamp'];
-                    break;
-                case 'time':
-                    options = ['HH:mm:ss', 'HH:mm', 'HH:mm:ss.SSS', '12-hour', 'Unix Time'];
-                    break;
-                case 'datetime':
-                    options = ['YYYY-MM-DD HH:mm:ss', 'ISO 8601', 'RFC 2822', 'Unix Timestamp'];
-                    break;
-                case 'boolean':
-                    options = ['true/false', '1/0', 'yes/no', 'on/off', 'enabled/disabled'];
-                    break;
-                default:
-                    options = ['Default'];
+        // 格式化值用于输入框
+        function formatValueForInput(value, type) {
+            if (value === null || value === undefined) {
+                return '';
             }
 
-            return options.map(opt => \`<option value="\${opt}">\${opt}</option>\`).join('');
+            if (type === 'string' && typeof value === 'string') {
+                return value;
+            }
+
+            if (type === 'number' && typeof value === 'number') {
+                return String(value);
+            }
+
+            if (type === 'boolean' && typeof value === 'boolean') {
+                return value ? 'true' : 'false';
+            }
+
+            if (type === 'date') {
+                return String(value);
+            }
+
+            return String(value);
         }
 
-        // 获取最适合的格式
-        function getBestFormatForValue(value, inference) {
-            if (!value) return 'Default';
+        // 更新变量类型
+        function updateVariableType(variableName) {
+            const safeName = variableName.replace(/[^a-zA-Z0-9_]/g, '_');
+            const typeSelect = document.getElementById('type_' + safeName);
+            if (!typeSelect) return;
 
-            const type = inference.type;
-            const strValue = String(value).toLowerCase();
+            const newType = typeSelect.value;
+
+            // 更新变量类型
+            const variable = variables.find(v => v.name === variableName);
+            if (variable) {
+                variable.type = newType;
+
+                // 如果新类型是 null，自动选中空值复选框
+                if (newType === 'null') {
+                    const emptyCheckbox = document.getElementById('empty_' + safeName);
+                    if (emptyCheckbox) {
+                        emptyCheckbox.checked = true;
+                        toggleEmptyValue(variableName);
+                    }
+                } else {
+                    // 更新默认值
+                    const valueInput = document.getElementById('value_' + safeName);
+                    if (valueInput) {
+                        valueInput.value = formatValueForInput(getDefaultForType(newType), newType);
+                    }
+
+                    // 清除空值复选框
+                    const emptyCheckbox = document.getElementById('empty_' + safeName);
+                    if (emptyCheckbox) {
+                        emptyCheckbox.checked = false;
+                    }
+
+                    updateVariable(variableName);
+                }
+            }
+
+            refreshTemplate();
+        }
+
+        // 获取类型的默认值
+        function getDefaultForType(type) {
+            const now = new Date();
+            const pad = (num) => num.toString().padStart(2, '0');
+            const today = \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
+            const nowTime = \`\${pad(now.getHours())}:\${pad(now.getMinutes())}:\${pad(now.getSeconds())}\`;
+
+            switch (type) {
+                case 'string': return 'demo_string';
+                case 'number': return 42;
+                case 'date': return today;
+                case 'datetime': return today + ' ' + nowTime;
+                case 'boolean': return true;
+                case 'null': return null;
+                default: return null;
+            }
+        }
+
+        // 更新变量值
+        function updateVariable(variableName) {
+            const safeName = variableName.replace(/[^a-zA-Z0-9_]/g, '_');
+            const valueInput = document.getElementById('value_' + safeName);
+            const typeSelect = document.getElementById('type_' + safeName);
+            const emptyCheckbox = document.getElementById('empty_' + safeName);
+
+            if (!valueInput || !typeSelect || !emptyCheckbox) return;
+
+            let value;
+
+            if (emptyCheckbox.checked) {
+                value = null;
+            } else {
+                const inputValue = valueInput.value;
+                const type = typeSelect.value;
+
+                value = parseValueByType(inputValue, type);
+            }
+
+            initialValues[variableName] = value;
+            refreshTemplate();
+        }
+
+        // 切换空值
+        function toggleEmptyValue(variableName) {
+            const safeName = variableName.replace(/[^a-zA-Z0-9_]/g, '_');
+            const emptyCheckbox = document.getElementById('empty_' + safeName);
+            const valueInput = document.getElementById('value_' + safeName);
+
+            if (!emptyCheckbox || !valueInput) return;
+
+            if (emptyCheckbox.checked) {
+                valueInput.disabled = true;
+                valueInput.value = '';
+                initialValues[variableName] = null;
+            } else {
+                valueInput.disabled = false;
+                const typeSelect = document.getElementById('type_' + safeName);
+                const type = typeSelect ? typeSelect.value : 'string';
+                valueInput.value = formatValueForInput(getDefaultForType(type), type);
+                initialValues[variableName] = getDefaultForType(type);
+            }
+
+            refreshTemplate();
+        }
+
+        // 根据类型解析值
+        function parseValueByType(inputValue, type) {
+            if (!inputValue.trim()) {
+                return getDefaultForType(type);
+            }
 
             switch (type) {
                 case 'string':
-                    if (strValue.includes('@')) return 'Email';
-                    if (strValue.startsWith('http') || strValue.startsWith('www')) return 'URL';
-                    if (strValue.match(/^\d+$/)) return 'Phone';
-                    try { JSON.parse(value); return 'JSON String'; } catch { }
-                    return 'Plain Text';
-
+                    return inputValue;
                 case 'number':
-                case 'integer':
-                    if (strValue.startsWith('0x')) return 'Hexadecimal';
-                    if (strValue.startsWith('0b')) return 'Binary';
-                    if (strValue.startsWith('0o')) return 'Octal';
-                    if (strValue.includes('e')) return 'Scientific';
-                    return 'Decimal';
-
+                    const num = Number(inputValue);
+                    return isNaN(num) ? getDefaultForType(type) : num;
                 case 'date':
-                    if (strValue.match(/^\d+$/)) return 'Unix Timestamp';
-                    if (strValue.includes('/')) {
-                        if (strValue.match(/^\d+\/\d+\/\d+$/)) {
-                            return strValue.startsWith('4') ? 'YYYY/MM/DD' : 'MM/DD/YYYY';
-                        }
-                    }
-                    return 'YYYY-MM-DD';
-
-                case 'time':
-                    if (strValue.match(/^\d+$/)) return 'Unix Time';
-                    if (strValue.includes('am') || strValue.includes('pm')) return '12-hour';
-                    if (strValue.length === 5) return 'HH:mm';
-                    return 'HH:mm:ss';
-
-                case 'datetime':
-                    if (strValue.match(/^\d+$/)) return 'Unix Timestamp';
-                    if (strValue.includes('T')) return 'ISO 8601';
-                    return 'YYYY-MM-DD HH:mm:ss';
-
+                    return inputValue;
                 case 'boolean':
-                    if (value === '1' || value === '0') return '1/0';
-                    if (value === 'yes' || value === 'no') return 'yes/no';
-                    if (value === 'on' || value === 'off') return 'on/off';
-                    if (value === 'enabled' || value === 'disabled') return 'enabled/disabled';
-                    return 'true/false';
-
+                    return inputValue.toLowerCase() === 'true' || inputValue === '1';
+                case 'null':
+                    return null;
                 default:
-                    return 'Default';
+                    return inputValue;
             }
         }
 
-        // 获取占位符
-        function getPlaceholder(inference) {
-            const type = inference.type;
-            const subType = inference.subType;
-
-            if (subType === 'user.id') return '例如: 1, 123, 999';
-            if (subType === 'pagination.limit') return '例如: 10, 25, 50, 100';
-            if (subType === 'pagination.offset') return '例如: 0, 10, 20';
-            if (subType === 'age') return '例如: 18, 25, 42, 65';
-            if (type === 'email') return '例如: user@example.com';
-            if (type === 'url') return '例如: https://example.com';
-            if (type === 'date') return '例如: 2024-01-01';
-            if (type === 'time') return '例如: 14:30:00';
-            if (type === 'datetime') return '例如: 2024-01-01 14:30:00';
-            if (type === 'boolean') return 'true 或 false';
-            if (type === 'number' || type === 'integer') return '输入数字...';
-            return '输入值...';
+        // SQL 语法高亮
+        function highlightSQL(sql) {
+            return sql
+                // 关键字
+                .replace(/\\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|OUTER|ON|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|EXISTS|TRUE|FALSE)\\b/g, '<span class="sql-keyword">$1</span>')
+                // 字符串
+                .replace(/'([^']|(\\\\'))*'/g, '<span class="sql-string">$&</span>')
+                // 数字
+                .replace(/\\b\\d+(\\.\\d+)?\\b/g, '<span class="sql-number">$&</span>')
+                // 函数
+                .replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, '<span class="sql-function">$1</span>(')
+                // 占位符
+                .replace(/:(\\w+)\\b/g, '<span class="sql-placeholder">$&</span>')
+                // 注释
+                .replace(/(--.*)$/gm, '<span class="sql-comment">$1</span>');
         }
 
-        // 显示建议
-        function showSuggestions(index, inputValue, inference) {
-            const suggestionsDiv = document.getElementById(\`suggestions-\${index}\`);
-            if (!suggestionsDiv) return;
+        // 渲染模板
+        function renderTemplate(templateText, context) {
+            // 简单的 Jinja2 模板渲染
+            let result = templateText;
 
-            const lowerInput = inputValue.toLowerCase();
-            const relevantSuggestions = inference.suggestions.filter(s =>
-                String(s).toLowerCase().includes(lowerInput)
-            );
+            // 处理变量 {{ variable }}
+            result = result.replace(/\\{\\{\\s*([^}]+)\\s*\\}\\}/g, (match, expr) => {
+                const trimmedExpr = expr.trim();
 
-            if (relevantSuggestions.length === 0) {
-                hideSuggestions(index);
+                // 处理简单的变量访问
+                if (!trimmedExpr.includes('.') && !trimmedExpr.includes('|')) {
+                    const value = context[trimmedExpr];
+                    if (value === null || value === undefined) {
+                        return 'NULL';
+                    }
+
+                    // 处理 SQLAlchemy 占位符
+                    if (String(value).startsWith(':')) {
+                        return String(value);
+                    }
+
+                    // 根据类型格式化
+                    if (typeof value === 'string') {
+                        return "'" + value.replace(/'/g, "''") + "'";
+                    }
+                    if (typeof value === 'boolean') {
+                        return value ? 'TRUE' : 'FALSE';
+                    }
+                    if (value instanceof Date) {
+                        return "'" + value.toISOString().replace('T', ' ').replace('Z', '') + "'";
+                    }
+                    return String(value);
+                }
+
+                // 更复杂的表达式，返回占位符
+                return '<' + trimmedExpr + '>';
+            });
+
+            // 处理 if 语句
+            result = result.replace(/\\{%\\s*if\\s+([^}]+)\\s*%\\}([\\s\\S]*?)\\{%\\s*endif\\s*%\\}/g, (match, condition, content) => {
+                try {
+                    // 简单的条件评估
+                    const conditionResult = evaluateCondition(condition, context);
+                    return conditionResult ? content : '';
+                } catch (e) {
+                    return '';
+                }
+            });
+
+            // 处理 SQLAlchemy 占位符 :value
+            result = result.replace(/:(\\w+)\\b/g, (match, placeholder) => {
+                const value = context[placeholder];
+                if (value === null || value === undefined) {
+                    return 'NULL';
+                }
+
+                if (typeof value === 'string') {
+                    return "'" + value.replace(/'/g, "''") + "'";
+                }
+                if (typeof value === 'boolean') {
+                    return value ? 'TRUE' : 'FALSE';
+                }
+                if (value instanceof Date) {
+                    return "'" + value.toISOString().replace('T', ' ').replace('Z', '') + "'";
+                }
+                return String(value);
+            });
+
+            return result;
+        }
+
+        // 简单的条件评估
+        function evaluateCondition(condition, context) {
+            // 处理变量存在性检查
+            if (condition.trim()) {
+                const varName = condition.trim();
+                const value = context[varName];
+                return value !== null && value !== undefined && value !== false && value !== 0 && value !== '';
+            }
+            return false;
+        }
+
+        // 刷新模板
+        function refreshTemplate() {
+            const statusInfo = document.getElementById('statusInfo');
+            const sqlPreview = document.getElementById('sqlPreview');
+
+            try {
+                // 处理 SQLAlchemy 占位符
+                let processedTemplate = template;
+                const sqlalchemyVars = [];
+
+                // 查找所有 SQLAlchemy 占位符
+                const sqlalchemyRegex = /:(\\w+)\\b/g;
+                let match;
+                while ((match = sqlalchemyRegex.exec(template)) !== null) {
+                    sqlalchemyVars.push(match[1]);
+                }
+
+                // 渲染模板
+                const renderedSQL = renderTemplate(processedTemplate, initialValues);
+
+                // 应用语法高亮
+                sqlPreview.innerHTML = highlightSQL(renderedSQL);
+
+                // 更新状态
+                statusInfo.textContent = '模板渲染成功';
+
+                // 更新变量数量
+                updateVariableCount();
+
+            } catch (error) {
+                console.error('模板渲染错误:', error);
+                statusInfo.textContent = '模板渲染失败';
+                sqlPreview.textContent = '渲染错误: ' + error.message;
+
+                // 通知 VS Code
+                if (vscode) {
+                    vscode.postMessage({
+                        command: 'showError',
+                        message: 'Template rendering failed: ' + error.message
+                    });
+                }
+            }
+        }
+
+        // 更新变量数量显示
+        function updateVariableCount() {
+            const variableCount = document.getElementById('variableCount');
+            const setVars = Object.keys(initialValues).filter(key => {
+                const value = initialValues[key];
+                return value !== null && value !== undefined && value !== '';
+            }).length;
+
+            variableCount.textContent = \`已设置 \${setVars}/\${variables.length} 个变量\`;
+        }
+
+        // 重置为默认值
+        function resetToDefaults() {
+            variables.forEach(variable => {
+                const safeName = variable.name.replace(/[^a-zA-Z0-9_]/g, '_');
+                const typeSelect = document.getElementById('type_' + safeName);
+                const valueInput = document.getElementById('value_' + safeName);
+                const emptyCheckbox = document.getElementById('empty_' + safeName);
+
+                if (!typeSelect || !valueInput || !emptyCheckbox) return;
+
+                // 重置类型
+                typeSelect.value = variable.type;
+
+                // 清除空值
+                emptyCheckbox.checked = false;
+                valueInput.disabled = false;
+
+                // 重置值
+                initialValues[variable.name] = variable.defaultValue;
+                valueInput.value = formatValueForInput(variable.defaultValue, variable.type);
+            });
+
+            refreshTemplate();
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard() {
+            const sqlPreview = document.getElementById('sqlPreview');
+            const text = sqlPreview.textContent || sqlPreview.innerText;
+
+            if (!text.trim() || text === '-- 请配置变量值生成 SQL...') {
+                if (vscode) {
+                    vscode.postMessage({
+                        command: 'showError',
+                        message: 'No content to copy'
+                    });
+                }
                 return;
             }
 
-            suggestionsDiv.innerHTML = relevantSuggestions.slice(0, 5).map(suggestion =>
-                \`<div class="suggestion-item" onclick="selectSuggestion(\${index}, '\${suggestion}')">\${suggestion}</div>\`
-            ).join('');
-
-            suggestionsDiv.style.display = 'block';
-        }
-
-        // 隐藏建议
-        function hideSuggestions(index) {
-            const suggestionsDiv = document.getElementById(\`suggestions-\${index}\`);
-            if (suggestionsDiv) {
-                suggestionsDiv.style.display = 'none';
-            }
-        }
-
-        // 选择建议
-        function selectSuggestion(index, value) {
-            const input = document.querySelector(\`[data-variable-index="\${index}"]\`);
-            if (input) {
-                input.value = value;
-                const variable = variables[index];
-                currentValues[variable.name] = value;
-                hideSuggestions(index);
-                refreshPreview();
-            }
-        }
-
-        // 更改格式
-        function changeFormat(index, format) {
-            const variable = variables[index];
-            const currentValue = currentValues[variable.name] || defaultValues[variable.name];
-
-            // 根据格式转换值
-            const convertedValue = convertFormat(currentValue, format, variable.inference);
-
-            currentValues[variable.name] = convertedValue;
-
-            // 更新输入框
-            const input = document.querySelector(\`[data-variable-index="\${index}"]\`);
-            if (input) {
-                input.value = convertedValue;
-            }
-
-            refreshPreview();
-        }
-
-        // 格式转换
-        function convertFormat(value, format, inference) {
-            if (value === '' || value === null || value === undefined) {
-                return '';
-            }
-
-            const type = inference.type;
-
-            switch (type) {
-                case 'number':
-                case 'integer':
-                    const num = parseFloat(value);
-                    if (isNaN(num)) return value;
-
-                    switch (format) {
-                        case 'Hexadecimal':
-                            return '0x' + Math.round(num).toString(16).toUpperCase();
-                        case 'Binary':
-                            return '0b' + Math.round(num).toString(2);
-                        case 'Octal':
-                            return '0o' + Math.round(num).toString(8);
-                        case 'Scientific':
-                            return num.toExponential(6);
-                        case 'Integer':
-                            return Math.round(num).toString();
-                        default:
-                            return num.toString();
-                    }
-
-                case 'date':
-                    let date;
-                    if (typeof value === 'number' || /^\d+$/.test(value)) {
-                        date = new Date(parseInt(value) * 1000);
-                    } else {
-                        date = new Date(value);
-                    }
-                    if (isNaN(date.getTime())) return value;
-
-                    switch (format) {
-                        case 'MM/DD/YYYY':
-                            return (date.getMonth() + 1).toString().padStart(2, '0') + '/' +
-                                   date.getDate().toString().padStart(2, '0') + '/' +
-                                   date.getFullYear();
-                        case 'DD/MM/YYYY':
-                            return date.getDate().toString().padStart(2, '0') + '/' +
-                                   (date.getMonth() + 1).toString().padStart(2, '0') + '/' +
-                                   date.getFullYear();
-                        case 'YYYY/MM/DD':
-                            return date.getFullYear() + '/' +
-                                   (date.getMonth() + 1).toString().padStart(2, '0') + '/' +
-                                   date.getDate().toString().padStart(2, '0');
-                        case 'Unix Timestamp':
-                            return Math.floor(date.getTime() / 1000).toString();
-                        default:
-                            return date.toISOString().split('T')[0];
-                    }
-
-                case 'time':
-                    switch (format) {
-                        case 'HH:mm':
-                            return value.length > 5 ? value.substring(0, 5) : value;
-                        case 'HH:mm:ss.SSS':
-                            const timeParts = value.split(':');
-                            if (timeParts.length === 3) {
-                                return value + '.' + Math.floor(Math.random() * 1000).toString().padStart(3, '0');
-                            }
-                            return value + '.000';
-                        case '12-hour':
-                            const [hours, minutes, seconds] = value.split(':').map(Number);
-                            const hour = hours || 0;
-                            const ampm = hour >= 12 ? 'PM' : 'AM';
-                            const displayHour = hour % 12 || 12;
-                            const mins = minutes || 0;
-                            return \`\${displayHour}:\${mins.toString().padStart(2, '0')} \${ampm}\`;
-                        case 'Unix Time':
-                            // 假设是今天的秒数
-                            const now = new Date();
-                            const [h, m, s] = value.split(':').map(Number);
-                            const timeDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h || 0, m || 0, s || 0);
-                            return Math.floor(timeDate.getTime() / 1000).toString();
-                        default:
-                            return value;
-                    }
-
-                case 'datetime':
-                    let datetime;
-                    if (typeof value === 'number' || /^\d+$/.test(value)) {
-                        datetime = new Date(parseInt(value) * 1000);
-                    } else {
-                        datetime = new Date(value);
-                    }
-                    if (isNaN(datetime.getTime())) return value;
-
-                    switch (format) {
-                        case 'ISO 8601':
-                            return datetime.toISOString();
-                        case 'RFC 2822':
-                            return datetime.toUTCString();
-                        case 'Unix Timestamp':
-                            return Math.floor(datetime.getTime() / 1000).toString();
-                        default:
-                            return datetime.getFullYear() + '-' +
-                                   (datetime.getMonth() + 1).toString().padStart(2, '0') + '-' +
-                                   datetime.getDate().toString().padStart(2, '0') + ' ' +
-                                   datetime.getHours().toString().padStart(2, '0') + ':' +
-                                   datetime.getMinutes().toString().padStart(2, '0') + ':' +
-                                   datetime.getSeconds().toString().padStart(2, '0');
-                    }
-
-                case 'boolean':
-                    const boolValue = typeof value === 'boolean' ? value :
-                        ['true', '1', 'yes', 'on', 'enabled', 't', 'y'].includes(String(value).toLowerCase());
-
-                    switch (format) {
-                        case '1/0':
-                            return boolValue ? '1' : '0';
-                        case 'yes/no':
-                            return boolValue ? 'yes' : 'no';
-                        case 'on/off':
-                            return boolValue ? 'on' : 'off';
-                        case 'enabled/disabled':
-                            return boolValue ? 'enabled' : 'disabled';
-                        default:
-                            return boolValue ? 'true' : 'false';
-                    }
-
-                case 'string':
-                    switch (format) {
-                        case 'Email':
-                            if (!value.includes('@')) {
-                                return value + '@example.com';
-                            }
-                            return value;
-                        case 'URL':
-                            if (!value.startsWith('http') && !value.startsWith('www')) {
-                                return 'https://' + value;
-                            }
-                            if (value.startsWith('www')) {
-                                return 'https://' + value;
-                            }
-                            return value;
-                        case 'Phone':
-                            // 移除非数字字符
-                            const digits = value.replace(/\D/g, '');
-                            if (digits.length === 11) {
-                                return digits.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3');
-                            }
-                            return value;
-                        case 'JSON String':
-                            try {
-                                const parsed = JSON.parse(value);
-                                return JSON.stringify(parsed, null, 2);
-                            } catch {
-                                return JSON.stringify(value, null, 2);
-                            }
-                        case 'SQL String':
-                            return value.replace(/'/g, "''");
-                        default:
-                            return value;
-                    }
-
-                default:
-                    return value;
-            }
-        }
-
-        // 获取变量值
-        function getVariableValues() {
-            const values = {};
-            variables.forEach(variable => {
-                const value = currentValues[variable.name] || defaultValues[variable.name] || '';
-                values[variable.name] = value;
-            });
-            return values;
-        }
-
-        // 格式化SQL值
-        function formatSQLValue(value, type) {
-            if (value === '' || value === null || value === undefined) {
-                return 'NULL';
-            }
-
-            switch (type) {
-                case 'string':
-                case 'email':
-                case 'url':
-                case 'date':
-                case 'time':
-                case 'datetime':
-                    return "'" + String(value).replace(/'/g, "''") + "'";
-                case 'number':
-                case 'integer':
-                    return String(value);
-                case 'boolean':
-                    const lowerValue = String(value).toLowerCase();
-                    return ['true', '1', 'yes', 'on', 'enabled'].includes(lowerValue) ? 'TRUE' : 'FALSE';
-                case 'null':
-                    return 'NULL';
-                default:
-                    return "'" + String(value).replace(/'/g, "''") + "'";
-            }
-        }
-
-        // 智能处理条件语句
-        function processConditions(template, values) {
-            // 模拟Python风格的条件处理
-            let result = template;
-            const conditionInfo = [];
-
-            // 检测条件块
-            const ifBlocks = template.match(/\\{%\\s*if\\s+([^%]+?)\\s*%\\}([\\s\\S]*?)\\{%\\s*endif\\s*%\\}/g);
-
-            if (ifBlocks) {
-                ifBlocks.forEach((block, index) => {
-                    const conditionMatch = block.match(/\\{%\\s*if\\s+([^%]+?)\\s*%\\}([\\s\\S]*?)\\{%\\s*endif\\s*%\\}/);
-                    if (conditionMatch) {
-                        const condition = conditionMatch[1].trim();
-                        const content = conditionMatch[2];
-
-                        // 评估条件
-                        const decision = evaluateCondition(condition, values);
-
-                        conditionInfo.push({
-                            condition: condition,
-                            decision: decision.keep ? 'keep' : 'remove',
-                            reason: decision.reason
-                        });
-
-                        if (decision.keep) {
-                            // 保留内容，移除条件标签
-                            const cleanContent = content
-                                .replace(/\\{%\\s*else\\s*%\\}[\\s\\S]*?/gm, '')
-                                .replace(/\\{%\\s*elif\\s+[^%]+?\\s*%\\}[\\s\\S]*?/gm, '');
-                            result = result.replace(block, cleanContent.trim());
-                        } else {
-                            // 移除整个块
-                            result = result.replace(block, '');
-                        }
-                    }
+            if (vscode) {
+                vscode.postMessage({
+                    command: 'copyToClipboard',
+                    text: text
                 });
             }
-
-            return { processed: result.trim(), info: conditionInfo };
         }
 
-        // 评估条件
-        function evaluateCondition(condition, values) {
-            const lowerCondition = condition.toLowerCase().trim();
-
-            // 检查变量是否存在
-            const varMatch = condition.match(/^\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\s*$/);
-            if (varMatch) {
-                const varName = varMatch[1];
-                const exists = values.hasOwnProperty(varName) && values[varName] !== '' && values[varName] !== null;
-                return {
-                    keep: exists,
-                    reason: exists ? \`变量 \${varName} 存在且有值\` : \`变量 \${varName} 为空或不存在\`
-                };
-            }
-
-            // 检查真值条件
-            const truthyPatterns = [
-                /\\b(is_|has_|can_|should_|enabled|active|visible|required)/,
-                /\\s+!=\\s+['""]*\\s*['""]*$/,
-                /\\s+>\\s+\\s*0\\s*$/
-            ];
-
-            for (const pattern of truthyPatterns) {
-                if (pattern.test(condition)) {
-                    return {
-                        keep: true,
-                        reason: '条件可能为真，保留块'
-                    };
-                }
-            }
-
-            // 检查空值条件
-            const falsyPatterns = [
-                /\\s+is\\s+(None|null|undefined)\\s*$/i,
-                /\\s+==\\s+['""]*\\s*['""]*$/,
-                /\\s+==\\s+(None|null|undefined)\\s*/i
-            ];
-
-            for (const pattern of falsyPatterns) {
-                if (pattern.test(condition)) {
-                    return {
-                        keep: false,
-                        reason: '条件检查空值，移除块'
-                    };
-                }
-            }
-
-            // 默认保留（保守策略）
-            return {
-                keep: true,
-                reason: '无法确定条件，保守保留'
-            };
-        }
-
-        // 生成预览SQL
-        function generatePreviewSQL() {
-            const values = getVariableValues();
-            let sql = templateContent;
-
-            // 首先处理条件语句
-            const conditionResult = processConditions(sql, values);
-            sql = conditionResult.processed;
-
-            // 然后替换变量
-            variables.forEach(variable => {
-                const inference = variable.inference;
-                const value = values[variable.name];
-                const formattedValue = formatSQLValue(value, inference.type);
-                const regex = new RegExp(\`\\\\{\\\\{\\\\s*\${variable.name}\\\\s*\\\\}\\\\}\`, 'g');
-                sql = sql.replace(regex, formattedValue);
-            });
-
-            return { sql, conditionInfo: conditionResult.info };
-        }
-
-        // 刷新预览
-        function refreshPreview() {
-            const previewContent = document.getElementById('previewContent');
-            const conditionInfoDiv = document.getElementById('conditionInfo');
-
+        // 调用 VS Code API
+        function acquireVsCodeApi() {
             try {
-                const { sql, conditionInfo } = generatePreviewSQL();
-                previewContent.textContent = sql;
-                previewContent.className = 'preview-content';
-
-                // 显示条件处理信息
-                if (conditionInfo.length > 0) {
-                    conditionInfoDiv.innerHTML = '<div class="condition-info"><strong>条件处理结果:</strong>' +
-                        conditionInfo.map(info =>
-                            \`<div class="condition-item condition-\${info.decision}">\${info.condition} → \${info.reason}</div>\`
-                        ).join('') + '</div>';
-                } else {
-                    conditionInfoDiv.innerHTML = '';
-                }
-            } catch (error) {
-                previewContent.innerHTML = \`<div class="error">生成预览失败: \${error.message}</div>\`;
-                conditionInfoDiv.innerHTML = '';
+                return acquireVsCodeApi();
+            } catch (e) {
+                return null;
             }
         }
 
-        // 自动配置
-        function autoConfigure() {
-            variables.forEach((variable, index) => {
-                const inference = variable.inference;
-                if (inference.suggestions.length > 0) {
-                    // 选择第一个建议
-                    const suggestion = inference.suggestions[0];
-                    currentValues[variable.name] = suggestion;
-
-                    // 更新输入框
-                    const input = document.querySelector(\`[data-variable-index="\${index}"]\`);
-                    if (input) {
-                        input.value = suggestion;
-                    }
-                }
-            });
-
-            refreshPreview();
-            vscode.postMessage({ command: 'autoConfigCompleted' });
-        }
-
-        // 更改变量类型
-        function changeVariableType(index, newType) {
-            const variable = variables[index];
-            const oldValue = currentValues[variable.name] || defaultValues[variable.name] || '';
-
-            // 更新变量的推断类型
-            variable.inference.type = newType;
-
-            // 根据新类型转换值
-            const convertedValue = convertByType(oldValue, newType);
-            currentValues[variable.name] = convertedValue;
-
-            // 更新输入框
-            const input = document.querySelector(\`[data-variable-index="\${index}"]\`);
-            if (input) {
-                input.value = convertedValue;
-            }
-
-            // 更新类型按钮状态
-            const controls = input.closest('.variable-controls');
-            if (controls) {
-                const typeButtons = controls.querySelectorAll('.type-btn');
-                typeButtons.forEach(btn => {
-                    btn.classList.remove('active');
-                    if (btn.getAttribute('onclick').includes(newType)) {
-                        btn.classList.add('active');
-                    }
-                });
-            }
-
-            // 更新格式选择器
-            const formatSelect = controls?.querySelector('.format-selector');
-            if (formatSelect) {
-                formatSelect.innerHTML = getFormatOptions(variable.inference);
-                formatSelect.value = getBestFormatForValue(convertedValue, variable.inference);
-            }
-
-            refreshPreview();
-        }
-
-        // 根据类型转换值
-        function convertByType(value, type) {
-            if (value === '' || value === null || value === undefined) {
-                return '';
-            }
-
-            switch (type) {
-                case 'string':
-                case 'email':
-                case 'url':
-                    return String(value);
-                case 'integer':
-                    const intVal = parseInt(value);
-                    return isNaN(intVal) ? '0' : String(intVal);
-                case 'number':
-                    const numVal = parseFloat(value);
-                    return isNaN(numVal) ? '0.0' : String(numVal);
-                case 'boolean':
-                    const lowerVal = String(value).toLowerCase();
-                    return ['true', '1', 'yes', 'on', 'enabled'].includes(lowerVal) ? 'true' : 'false';
-                case 'date':
-                    return '2024-01-01';
-                case 'time':
-                    return '12:00:00';
-                case 'datetime':
-                    return '2024-01-01 12:00:00';
-                case 'uuid':
-                    return '550e8400-e29b-41d4-a716-446655440000';
-                default:
-                    return String(value);
-            }
-        }
-
-        // 提交
-        function submit() {
-            const values = getVariableValues();
-            const { sql } = generatePreviewSQL();
-
-            vscode.postMessage({
-                command: 'submit',
-                values: values,
-                sql: sql
-            });
-        }
-
-        // 取消
-        function cancel() {
-            vscode.postMessage({ command: 'cancel' });
-        }
-
-        // 复制SQL
-        function copySQL() {
-            const { sql } = generatePreviewSQL();
-            vscode.postMessage({
-                command: 'copyToClipboard',
-                sql: sql
-            });
-        }
-
-        // 页面加载完成后初始化
-        document.addEventListener('DOMContentLoaded', init);
+        const vscode = acquireVsCodeApi();
     </script>
 </body>
-</html>
-        `;
+</html>`;
     }
 
-    private generateDefaultValues(variables: Jinja2Variable[]): Record<string, any> {
-        const values: Record<string, any> = {};
-        for (const variable of variables) {
-            values[variable.name] = this.getSmartDefaultValue(variable);
+    private sanitizeJsonString(value: any): string {
+        if (value === null || value === undefined) {
+            return 'null';
         }
-        return values;
-    }
-
-    private getSmartDefaultValue(variable: Jinja2Variable): any {
-        const lowerName = variable.name.toLowerCase();
-
-        switch (variable.type) {
-            case 'string':
-                if (lowerName.includes('name')) {return 'demo_name';}
-                if (lowerName.includes('email')) {return 'demo@example.com';}
-                if (lowerName.includes('id')) {return 'demo_id';}
-                if (lowerName.includes('status')) {return 'active';}
-                if (lowerName.includes('date') || lowerName.includes('time')) {return '2024-01-01';}
-                return 'demo_value';
-
-            case 'number':
-            case 'integer':
-                if (lowerName.includes('limit')) {return 10;}
-                if (lowerName.includes('offset')) {return 0;}
-                if (lowerName.includes('age')) {return 25;}
-                if (lowerName.includes('count')) {return 1;}
-                if (lowerName.includes('id')) {return 123;}
-                return 42;
-
-            case 'boolean':
-                if (lowerName.includes('is_') || lowerName.includes('has_') || lowerName.includes('can_')) {
-                    return true;
-                }
-                return false;
-
-            case 'date':
-                return '2024-01-01';
-
-            case 'time':
-                return '14:30:00';
-
-            case 'datetime':
-                return '2024-01-01 14:30:00';
-
-            case 'json':
-                return '{"key": "value"}';
-
-            case 'uuid':
-                return '550e8400-e29b-41d4-a716-446655440000';
-
-            case 'email':
-                return 'demo@example.com';
-
-            case 'url':
-                return 'https://example.com';
-
-            case 'null':
-                return null;
-
-            default:
-                return 'demo_value';
+        if (typeof value === 'string') {
+            return JSON.stringify(value);
         }
+        return JSON.stringify(String(value));
     }
+}
 
-    private async showSQLPreview(sql: string): Promise<void> {
-        const document = await vscode.workspace.openTextDocument({
-            content: sql,
-            language: 'sql'
-        });
-        await vscode.window.showTextDocument(document, { preview: true, viewColumn: vscode.ViewColumn.Active });
+function getNonce(): string {
+    let text = '';
+    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    for (let i = 0; i < 32; i++) {
+        text += possible.charAt(Math.floor(Math.random() * possible.length));
     }
+    return text;
 }

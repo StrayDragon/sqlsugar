@@ -83,16 +83,6 @@
           "group": "1_modification"
         },
         {
-          "command": "sqlsugar.copyJinja2Template",
-          "when": "editorHasSelection",
-          "group": "1_modification"
-        },
-        {
-          "command": "sqlsugar.copyJinja2TemplateQuick",
-          "when": "editorHasSelection",
-          "group": "1_modification"
-        },
-        {
           "command": "sqlsugar.copyJinja2TemplateWebview",
           "when": "editorHasSelection",
           "group": "1_modification"
@@ -173,13 +163,30 @@
           "default": true,
           "description": "Enable wl-copy fallback for clipboard operations on Wayland"
         },
+        "sqlsugar.sqlSyntaxHighlightTheme": {
+          "type": "string",
+          "enum": ["vscode-dark", "vscode-light", "github-dark", "github-light", "monokai", "solarized-dark", "solarized-light", "dracula"],
+          "default": "vscode-dark",
+          "description": "SQL syntax highlighting theme for WebView"
+        },
+        "sqlsugar.sqlSyntaxHighlightFontSize": {
+          "type": "number",
+          "default": 14,
+          "minimum": 10,
+          "maximum": 20,
+          "description": "Font size for SQL syntax highlighting"
+        },
         "sqlsugar.jinja2TypeInference.customRules": {
           "type": "array",
           "default": [],
           "description": "Custom type inference rules for Jinja2 variables",
           "items": {
             "type": "object",
-            "required": ["name", "pattern", "type"],
+            "required": [
+              "name",
+              "pattern",
+              "type"
+            ],
             "properties": {
               "name": {
                 "type": "string",
@@ -191,7 +198,19 @@
               },
               "type": {
                 "type": "string",
-                "enum": ["string", "number", "integer", "boolean", "date", "time", "datetime", "json", "uuid", "email", "url"],
+                "enum": [
+                  "string",
+                  "number",
+                  "integer",
+                  "boolean",
+                  "date",
+                  "time",
+                  "datetime",
+                  "json",
+                  "uuid",
+                  "email",
+                  "url"
+                ],
                 "description": "Variable type"
               },
               "confidence": {
@@ -236,6 +255,7 @@
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
+    "nunjucks": "^3.2.4",
     "vscode-languageclient": "^9.0.1"
   },
   "repository": {
@@ -247,6 +267,7 @@
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
+    "@types/nunjucks": "^3.2.6",
     "@types/vscode": "^1.98.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",

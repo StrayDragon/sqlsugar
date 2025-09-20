@@ -1,7 +1,7 @@
 {
   "name": "sqlsugar",
   "displayName": "sqlsugar",
-  "description": "edit inline sql literal in multi language with sqls lsp support",
+  "description": "SQLSugar enables inline SQL editing across multiple programming languages with sqls LSP support and advanced features like Jinja2 template processing and terminal SQL extraction.",
   "version": "0.0.1",
   "publisher": "l8ng",
   "engines": {
@@ -251,7 +251,7 @@
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test --timeout=600000"
+    "test": "vscode-test --timeout=600000 --config .vscode-test.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",

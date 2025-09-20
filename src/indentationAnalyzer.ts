@@ -204,7 +204,7 @@ export class IndentationPatternAnalyzer {
     }
 
     private detectIndentLevels(lineIndents: string[]): string[] {
-        const uniqueIndents = [...new Set(lineIndents.filter(indent => indent.length > 0))];
+        const uniqueIndents = Array.from(new Set(lineIndents.filter(indent => indent.length > 0)));
         return uniqueIndents.sort((a, b) => a.length - b.length);
     }
 

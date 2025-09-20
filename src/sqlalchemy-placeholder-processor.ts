@@ -37,8 +37,8 @@ export class SQLAlchemyPlaceholderProcessor {
         return {
             hasJinja2: jinja2Vars.length > 0,
             hasSQLAlchemy: sqlalchemyVars.length > 0,
-            jinja2Vars: [...new Set(jinja2Vars)],
-            sqlalchemyVars: [...new Set(sqlalchemyVars)]
+            jinja2Vars: Array.from(new Set(jinja2Vars)),
+            sqlalchemyVars: Array.from(new Set(sqlalchemyVars))
         };
     }
 
@@ -58,7 +58,7 @@ export class SQLAlchemyPlaceholderProcessor {
             }
         }
 
-        return [...new Set(variables)];
+        return Array.from(new Set(variables));
     }
 
     /**
@@ -105,7 +105,7 @@ export class SQLAlchemyPlaceholderProcessor {
 
         return {
             convertedSQL,
-            usedPlaceholders: [...new Set(usedPlaceholders)],
+            usedPlaceholders: Array.from(new Set(usedPlaceholders)),
             placeholderMap
         };
     }
@@ -232,7 +232,7 @@ export class SQLAlchemyPlaceholderProcessor {
         allVars: string[];
     } {
         const detection = this.detectPlaceholderTypes(sql);
-        const allVars = [...new Set([...detection.jinja2Vars, ...detection.sqlalchemyVars])];
+        const allVars = Array.from(new Set(detection.jinja2Vars.concat(detection.sqlalchemyVars)));
 
         return {
             jinja2Vars: detection.jinja2Vars,

@@ -1,5 +1,7 @@
+import srctypes
+
 # Python example with Jinja2 template SQL
-query = """
+query: srctypes.sql = """
 SELECT * FROM orders
 WHERE user_id = {{ user.id }}
   AND total > {{ min_amount|float }}

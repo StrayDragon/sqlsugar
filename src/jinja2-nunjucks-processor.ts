@@ -29,6 +29,9 @@ export class Jinja2NunjucksProcessor {
 
         // 添加自定义全局函数
         this.addCustomGlobals();
+
+        // 设置过滤器容错处理
+        this.setupFilterFallback();
     }
 
     public static getInstance(): Jinja2NunjucksProcessor {
@@ -71,6 +74,181 @@ export class Jinja2NunjucksProcessor {
                 return values.map(v => this.env.getFilter('sql_quote')(v)).join(', ');
             }
             return this.env.getFilter('sql_quote')(values);
+        });
+
+        // 常用类型转换过滤器
+        this.env.addFilter('float', (value: any) => {
+            return parseFloat(value);
+        });
+
+        this.env.addFilter('int', (value: any, base: number = 10) => {
+            return parseInt(value, base);
+        });
+
+        this.env.addFilter('string', (value: any) => {
+            return String(value);
+        });
+
+        this.env.addFilter('bool', (value: any) => {
+            if (typeof value === 'boolean') {return value;}
+            if (typeof value === 'string') {
+                const lower = value.toLowerCase();
+                return lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on';
+            }
+            return Boolean(value);
+        });
+
+        // 默认值过滤器
+        this.env.addFilter('default', (value: any, defaultValue: any, boolean: boolean = false) => {
+            if (boolean) {
+                return value ? value : defaultValue;
+            }
+            return value !== undefined && value !== null ? value : defaultValue;
+        });
+
+        // 字符串过滤器
+        this.env.addFilter('striptags', (value: string) => {
+            return value.replace(/<[^>]*>/g, '');
+        });
+
+        this.env.addFilter('truncate', (value: string, length: number = 255, killwords: boolean = false, end: string = '...') => {
+            if (value.length <= length) {return value;}
+            const truncated = value.substring(0, length - end.length);
+            return truncated + end;
+        });
+
+        this.env.addFilter('wordwrap', (value: string, width: number = 79, break_long_words: boolean = false, wrapstring: string = '\n') => {
+            const words = value.split(' ');
+            const lines: string[] = [];
+            let currentLine = '';
+
+            for (const word of words) {
+                if (currentLine.length + word.length + 1 <= width) {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                } else {
+                    if (currentLine) {lines.push(currentLine);}
+                    currentLine = word;
+                }
+            }
+            if (currentLine) {lines.push(currentLine);}
+
+            return lines.join(wrapstring);
+        });
+
+        this.env.addFilter('urlencode', (value: string) => {
+            return encodeURIComponent(value);
+        });
+
+        // 数学和统计过滤器
+        this.env.addFilter('abs', (value: number) => {
+            return Math.abs(Number(value));
+        });
+
+        this.env.addFilter('round', (value: number, precision: number = 0, method: string = 'common') => {
+            const num = Number(value);
+            if (precision === 0) {
+                return Math.round(num);
+            }
+            const factor = Math.pow(10, precision);
+            return Math.round(num * factor) / factor;
+        });
+
+        this.env.addFilter('sum', (value: any[], attribute?: string) => {
+            if (attribute) {
+                return value.reduce((sum, item) => sum + Number(item[attribute]), 0);
+            }
+            return value.reduce((sum, item) => sum + Number(item), 0);
+        });
+
+        this.env.addFilter('min', (value: any[], attribute?: string) => {
+            if (attribute) {
+                return Math.min(...value.map(item => Number(item[attribute])));
+            }
+            return Math.min(...value.map(Number));
+        });
+
+        this.env.addFilter('max', (value: any[], attribute?: string) => {
+            if (attribute) {
+                return Math.max(...value.map(item => Number(item[attribute])));
+            }
+            return Math.max(...value.map(Number));
+        });
+
+        // 列表过滤器
+        this.env.addFilter('unique', (value: any[]) => {
+            return [...new Set(value)];
+        });
+
+        this.env.addFilter('reverse', (value: any[]) => {
+            return [...value].reverse();
+        });
+
+        this.env.addFilter('first', (value: any[]) => {
+            return value[0];
+        });
+
+        this.env.addFilter('last', (value: any[]) => {
+            return value[value.length - 1];
+        });
+
+        this.env.addFilter('length', (value: any) => {
+            if (Array.isArray(value)) {return value.length;}
+            if (typeof value === 'string') {return value.length;}
+            if (typeof value === 'object' && value !== null) {return Object.keys(value).length;}
+            return 0;
+        });
+
+        this.env.addFilter('slice', (value: any[], start: number, end?: number) => {
+            return value.slice(start, end);
+        });
+
+        // 字典过滤器
+        this.env.addFilter('dictsort', (value: Record<string, any>, case_sensitive: boolean = false, by: 'key' | 'value' = 'key') => {
+            const entries = Object.entries(value);
+            entries.sort((a, b) => {
+                let aValue: any, bValue: any;
+                if (by === 'key') {
+                    aValue = a[0];
+                    bValue = b[0];
+                } else {
+                    aValue = a[1];
+                    bValue = b[1];
+                }
+
+                if (!case_sensitive && typeof aValue === 'string' && typeof bValue === 'string') {
+                    return aValue.toLowerCase().localeCompare(bValue.toLowerCase());
+                }
+
+                if (aValue < bValue) {return -1;}
+                if (aValue > bValue) {return 1;}
+                return 0;
+            });
+            return entries;
+        });
+
+        // JSON过滤器
+        this.env.addFilter('tojson', (value: any, indent: number = 0) => {
+            return JSON.stringify(value, null, indent);
+        });
+
+        // 测试过滤器
+        this.env.addFilter('equalto', (value: any, other: any) => {
+            return value === other;
+        });
+
+        // 实用过滤器
+        this.env.addFilter('filesizeformat', (value: number, binary: boolean = false) => {
+            const base = binary ? 1024 : 1000;
+            const units = binary ?
+                ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB'] :
+                ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
+
+            let bytes = Number(value);
+            if (bytes < base) {return bytes + ' ' + units[0];}
+
+            const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(base)), units.length - 1);
+            const size = bytes / Math.pow(base, exp);
+            return size.toFixed(1) + ' ' + units[exp];
         });
     }
 
@@ -153,7 +331,9 @@ export class Jinja2NunjucksProcessor {
             }
         }
 
-        return [...new Set(variables)];
+        // 安全地去重 - 避免使用 spread syntax
+        const uniqueVariables = Array.from(new Set(variables));
+        return uniqueVariables;
     }
 
     /**
@@ -303,14 +483,61 @@ export class Jinja2NunjucksProcessor {
     }
 
     /**
+     * 设置过滤器容错处理
+     */
+    private setupFilterFallback(): void {
+        // 为常见的未实现过滤器提供默认实现
+        // 使用 try-catch 来检测过滤器是否存在
+        const unknownFilters = [
+            'tojson', 'filesizeformat', 'equalto'
+        ];
+
+        unknownFilters.forEach(filterName => {
+            try {
+                this.env.getFilter(filterName);
+            } catch (error) {
+                // 如果过滤器不存在，添加一个默认实现
+                this.env.addFilter(filterName, (value: any, ...args: any[]) => {
+                    console.warn(`Unknown filter "${filterName}" ignored, returning original value`);
+                    return value;
+                });
+            }
+        });
+    }
+
+    /**
      * 获取支持的过滤器列表
      */
     public getSupportedFilters(): string[] {
         return [
+            // SQL相关过滤器
             'sql_quote', 'sql_identifier', 'sql_date', 'sql_datetime', 'sql_in',
+
+            // 类型转换过滤器
+            'int', 'float', 'string', 'bool',
+
+            // 字符串过滤器 (Nunjucks内置)
             'title', 'upper', 'lower', 'capitalize', 'trim', 'default',
+            'striptags', 'truncate', 'wordwrap', 'urlencode',
+
+            // 数学和统计过滤器
+            'abs', 'round', 'sum', 'min', 'max',
+
+            // 列表过滤器
             'length', 'join', 'replace', 'split', 'slice', 'first', 'last',
-            'sort', 'reverse', 'sum', 'min', 'max', 'abs', 'round', 'int', 'float'
+            'unique', 'reverse', 'sort',
+
+            // 字典过滤器
+            'dictsort',
+
+            // JSON过滤器
+            'tojson',
+
+            // 测试过滤器
+            'equalto',
+
+            // 实用过滤器
+            'filesizeformat'
         ];
     }
 

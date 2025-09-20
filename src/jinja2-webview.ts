@@ -615,7 +615,7 @@ export class Jinja2WebviewEditor {
         const quickTimeOptions = [
             { label: '当前时间 (00:00:00)', value: 'current_time' },
             { label: '准确时间 (系统时间)', value: 'exact_time' },
-            { label: '字符串 \'00:00:00\'', value: 'string_000000' }
+            { label: "字符串 '00:00:00'", value: 'string_000000' }
         ];
 
         // 获取快捷日期值

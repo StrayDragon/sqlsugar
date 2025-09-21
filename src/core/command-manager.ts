@@ -116,24 +116,45 @@ export class CommandManager {
 
     /**
      * 处理复制终端SQL命令
+     * 根据上下文处理编辑器选中的文本或终端选中的文本
      */
     private async handleCopyTerminalSQL(): Promise<void> {
         try {
-            const selectedText = await this.terminalMonitor.getSelectedText();
+            let selectedText: string | null = null;
+            let sourceType: 'editor' | 'terminal' = 'terminal';
+
+            // 检查是否在编辑器上下文中
+            const activeEditor = vscode.window.activeTextEditor;
+            if (activeEditor && !activeEditor.selection.isEmpty) {
+                // 在编辑器上下文中，直接获取选中的文本
+                const selection = activeEditor.selection;
+                selectedText = activeEditor.document.getText(selection);
+                sourceType = 'editor';
+            } else {
+                // 在终端上下文中，从终端获取选中的文本
+                selectedText = await this.terminalMonitor.getSelectedText();
+            }
+
             if (!selectedText) {
-                vscode.window.showInformationMessage('No terminal text selected');
+                const message = sourceType === 'editor'
+                    ? 'No text selected in editor'
+                    : 'No terminal text selected';
+                vscode.window.showInformationMessage(message);
                 return;
             }
 
             const result = SQLLogParser.processSelectedText(selectedText);
             if (result && result.injectedSQL) {
                 await this.clipboardManager.copyText(result.injectedSQL);
-                vscode.window.showInformationMessage('SQL copied to clipboard with injected parameters');
+                const message = sourceType === 'editor'
+                    ? 'SQL copied to clipboard with injected parameters (from editor)'
+                    : 'SQL copied to clipboard with injected parameters (from terminal)';
+                vscode.window.showInformationMessage(message);
             } else {
                 vscode.window.showErrorMessage('Failed to process SQL');
             }
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to copy terminal SQL: ${error}`);
+            vscode.window.showErrorMessage(`Failed to copy SQL: ${error}`);
         }
     }
 

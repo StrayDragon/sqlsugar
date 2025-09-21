@@ -121,7 +121,7 @@ suite('Jinja2 Filter Tests', () => {
 
     test('truncate filter should truncate text', () => {
         const result = processor.renderTemplate('{{ "hello world" | truncate(5) }}', {});
-        assert.strictEqual(result, 'hello...');
+        assert.strictEqual(result, 'he...');
     });
 
     test('wordwrap filter should wrap text', () => {

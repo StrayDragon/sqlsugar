@@ -16,11 +16,12 @@ export function activate(context: vscode.ExtensionContext) {
     try {
         // 创建扩展核心实例
         extensionCore = ExtensionCore.getInstance(context);
+        console.log('ExtensionCore instance created successfully');
 
         // 注册开发者命令
         registerDeveloperCommands(context);
 
-        vscode.window.showInformationMessage('SQLSugar extension activated successfully');
+        console.log('SQLSugar extension activated successfully');
 
     } catch (error) {
         console.error('Failed to activate SQLSugar extension:', error);

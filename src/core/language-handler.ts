@@ -201,9 +201,15 @@ export class LanguageHandler {
             } else if (hasDoubleQuote && !hasSingleQuote) {
                 return 'triple-single';
             } else {
-                // 如果两种引号都有，选择更少出现的
+                // 如果两种引号都有或都没有，选择更少出现的
                 const singleCount = (content.match(/'/g) || []).length;
                 const doubleCount = (content.match(/"/g) || []).length;
+
+                // 如果没有冲突，优先保持原始引号类型
+                if (singleCount === 0 && doubleCount === 0) {
+                    return originalQuote === 'single' ? 'triple-single' : 'triple-double';
+                }
+
                 return singleCount < doubleCount ? 'triple-single' : 'triple-double';
             }
         }
@@ -254,8 +260,21 @@ export class LanguageHandler {
      */
     public stripQuotes(text: string): string {
         const trimmed = text.trim();
+        const prefix = this.extractPrefix(trimmed);
 
-        // 处理三引号
+        // 处理带前缀的三引号
+        if (prefix) {
+            const tripleDouble = prefix + '"""';
+            const tripleSingle = prefix + "'''";
+            if (trimmed.startsWith(tripleDouble) && trimmed.endsWith('"""')) {
+                return trimmed.slice(tripleDouble.length, -3);
+            }
+            if (trimmed.startsWith(tripleSingle) && trimmed.endsWith("'''")) {
+                return trimmed.slice(tripleSingle.length, -3);
+            }
+        }
+
+        // 处理普通三引号
         if (trimmed.startsWith('"""') && trimmed.endsWith('"""')) {
             return trimmed.slice(3, -3);
         }
@@ -263,7 +282,19 @@ export class LanguageHandler {
             return trimmed.slice(3, -3);
         }
 
-        // 处理单引号和双引号
+        // 处理带前缀的单引号和双引号
+        if (prefix) {
+            const singleQuote = prefix + "'";
+            const doubleQuote = prefix + '"';
+            if (trimmed.startsWith(doubleQuote) && trimmed.endsWith('"')) {
+                return trimmed.slice(doubleQuote.length, -1);
+            }
+            if (trimmed.startsWith(singleQuote) && trimmed.endsWith("'")) {
+                return trimmed.slice(singleQuote.length, -1);
+            }
+        }
+
+        // 处理普通的单引号和双引号
         if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
             return trimmed.slice(1, -1);
         }

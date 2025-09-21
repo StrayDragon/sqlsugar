@@ -33,9 +33,18 @@ export class CommandManager {
         ];
 
         commands.forEach(({ name, callback }) => {
-            this.context.subscriptions.push(
-                vscode.commands.registerCommand(`sqlsugar.${name}`, callback)
-            );
+            try {
+                this.context.subscriptions.push(
+                    vscode.commands.registerCommand(`sqlsugar.${name}`, callback)
+                );
+            } catch (error) {
+                // Ignore duplicate command registration errors in test environment
+                if (error instanceof Error && error.message.includes('already exists')) {
+                    console.warn(`Command sqlsugar.${name} already registered, skipping`);
+                } else {
+                    throw error;
+                }
+            }
         });
     }
 
@@ -43,8 +52,10 @@ export class CommandManager {
      * 处理内联SQL编辑命令
      */
     private async handleEditInlineSQL(): Promise<void> {
+        console.log('handleEditInlineSQL called');
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
+            console.log('No active editor found');
             vscode.window.showErrorMessage('No active editor');
             return;
         }
@@ -53,6 +64,7 @@ export class CommandManager {
         const selectedText = editor.document.getText(selection);
 
         if (!selectedText) {
+            console.log('No selected text');
             vscode.window.showInformationMessage('Please select SQL text to edit');
             return;
         }
@@ -74,15 +86,14 @@ export class CommandManager {
 
             // 获取扩展核心实例并创建临时文件
             const { ExtensionCore } = require('./extension-core');
-            const extensionCore = ExtensionCore.getInstance(this.context);
+            const extensionCore = ExtensionCore.getInstance();  // Use existing instance
             const tempUri = await extensionCore.createTempSQLFile(editor, selection, selectedText);
 
             // 打开临时文件
             const doc = await vscode.workspace.openTextDocument(tempUri);
             await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
-
-            vscode.window.showInformationMessage('SQL file created. Use Ctrl+S to sync changes back.');
         } catch (error) {
+            console.error('Error in handleEditInlineSQL:', error);
             vscode.window.showErrorMessage(`Failed to edit inline SQL: ${error}`);
         }
     }

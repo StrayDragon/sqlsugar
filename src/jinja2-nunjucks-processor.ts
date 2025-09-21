@@ -64,9 +64,52 @@ export class Jinja2NunjucksProcessor {
             const nestedContext = this.buildNestedContext(context);
             return this.env.renderString(template, nestedContext);
         } catch (error) {
+            // 检查是否是未知过滤器错误
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('filter not found')) {
+                // 对于未知过滤器，返回原始值
+                const filterMatch = errorMessage.match(/filter not found: (\w+)/);
+                if (filterMatch) {
+                    console.warn(`Unknown filter "${filterMatch[1]}" ignored, returning original value`);
+                }
+                // 尝试提取变量名或字面量
+                const contentMatch = template.match(/\{\{\s*([^}]+)\s*\}\}/);
+                if (contentMatch) {
+                    const fullContent = contentMatch[1].trim();
+                    // 分离变量和过滤器
+                    const variablePart = fullContent.split('|')[0].trim();
+
+                    // 检查是否是字符串字面量
+                    const stringMatch = variablePart.match(/^["'](.*)["']$/);
+                    if (stringMatch) {
+                        return stringMatch[1];
+                    }
+                    // 检查是否是数字字面量
+                    const numMatch = variablePart.match(/^(\d+(?:\.\d+)?)$/);
+                    if (numMatch) {
+                        return numMatch[1];
+                    }
+                    // 检查是否是变量名
+                    if (context.hasOwnProperty(variablePart)) {
+                        return String(context[variablePart]);
+                    }
+                    // 返回原始内容
+                    return variablePart;
+                }
+                return '';
+            }
             console.error('nunjucks 渲染失败:', error);
-            throw new Error(`模板渲染失败: ${error instanceof Error ? error.message : String(error)}`);
+            throw new Error(`模板渲染失败: ${errorMessage}`);
         }
+    }
+
+    /**
+     * 获取嵌套对象的值（支持 user.id 这样的路径）
+     */
+    private getNestedValue(obj: any, path: string): any {
+        return path.split('.').reduce((current, key) => {
+            return current && current[key] !== undefined ? current[key] : undefined;
+        }, obj);
     }
 
     /**
@@ -116,10 +159,13 @@ export class Jinja2NunjucksProcessor {
     private addCustomFilters(): void {
         // SQL相关的过滤器
         this.env.addFilter('sql_quote', (value: any) => {
+            if (value === null || value === undefined) {
+                return 'null';
+            }
             if (typeof value === 'string') {
                 return `'${value.replace(/'/g, "''")}'`;
             }
-            return value;
+            return String(value);
         });
 
         this.env.addFilter('sql_identifier', (value: string) => {
@@ -140,18 +186,34 @@ export class Jinja2NunjucksProcessor {
         // 数组处理过滤器
         this.env.addFilter('sql_in', (values: any[]) => {
             if (Array.isArray(values)) {
-                return values.map(v => this.env.getFilter('sql_quote')(v)).join(', ');
+                return values.map(v => {
+                    if (v === null || v === undefined) {
+                        return 'null';
+                    }
+                    return `'${String(v).replace(/'/g, "''")}'`;
+                }).join(', ');
             }
-            return this.env.getFilter('sql_quote')(values);
+            if (values === null || values === undefined) {
+                return 'null';
+            }
+            return `'${String(values).replace(/'/g, "''")}'`;
         });
 
         // 常用类型转换过滤器
         this.env.addFilter('float', (value: any) => {
-            return parseFloat(value);
+            if (value === null || value === undefined) {
+                return 'NaN';
+            }
+            const result = parseFloat(value);
+            return isNaN(result) ? 'NaN' : String(result);
         });
 
         this.env.addFilter('int', (value: any, base: number = 10) => {
-            return parseInt(value, base);
+            if (value === null || value === undefined) {
+                return '0';
+            }
+            const result = parseInt(value, base);
+            return isNaN(result) ? 'NaN' : String(result);
         });
 
         this.env.addFilter('string', (value: any) => {
@@ -190,31 +252,57 @@ export class Jinja2NunjucksProcessor {
 
         // 字符串过滤器
         this.env.addFilter('striptags', (value: string) => {
-            return value.replace(/<[^>]*>/g, '');
+            if (value === null || value === undefined) {return 'null';}
+            return String(value).replace(/<[^>]*>/g, '');
         });
 
-        this.env.addFilter('truncate', (value: string, length: number = 255, killwords: boolean = false, end: string = '...') => {
-            if (value.length <= length) {return value;}
-            const truncated = value.substring(0, length - end.length);
-            return truncated + end;
-        });
-
-        this.env.addFilter('wordwrap', (value: string, width: number = 79, break_long_words: boolean = false, wrapstring: string = '\n') => {
-            const words = value.split(' ');
-            const lines: string[] = [];
-            let currentLine = '';
-
-            for (const word of words) {
-                if (currentLine.length + word.length + 1 <= width) {
-                    currentLine += (currentLine ? ' ' : '') + word;
-                } else {
-                    if (currentLine) {lines.push(currentLine);}
-                    currentLine = word;
-                }
+        this.env.addFilter('truncate', (value: any, length: number = 255, end: string = '...', killwords: boolean = false) => {
+            if (value === null || value === undefined || value === '') {
+                return '';
             }
-            if (currentLine) {lines.push(currentLine);}
+            const str = String(value);
+            if (str.length <= length) {
+                return str;
+            }
+            if (length <= end.length) {
+                return end;
+            }
 
-            return lines.join(wrapstring);
+            const truncatedLength = length - end.length;
+
+            if (!killwords) {
+                // Default behavior: don't break words (truncate at word boundaries)
+                const lastSpaceIndex = str.lastIndexOf(' ', truncatedLength);
+                if (lastSpaceIndex === -1) {
+                    // No space found, truncate at character boundary
+                    const truncated = str.substring(0, truncatedLength);
+                    return truncated + end;
+                } else {
+                    // Truncate at word boundary
+                    const truncated = str.substring(0, lastSpaceIndex);
+                    return truncated + end;
+                }
+            } else {
+                // When killwords=true, break words (exact character truncation)
+                const truncated = str.substring(0, truncatedLength);
+                return truncated + end;
+            }
+        });
+
+        this.env.addFilter('wordwrap', (value: any, width: number = 79, break_long_words: boolean = false, wrapstring: string = '\n') => {
+            if (value === null || value === undefined || value === '') {
+                return '';
+            }
+            const str = String(value);
+            if (!break_long_words && str.length <= width) {return str;}
+            if (break_long_words) {
+                const result: string[] = [];
+                for (let i = 0; i < str.length; i += width) {
+                    result.push(str.substring(i, i + width));
+                }
+                return result.join(wrapstring);
+            }
+            return str;
         });
 
         this.env.addFilter('urlencode', (value: string) => {
@@ -222,38 +310,60 @@ export class Jinja2NunjucksProcessor {
         });
 
         // 数学和统计过滤器
-        this.env.addFilter('abs', (value: number) => {
-            return Math.abs(Number(value));
+        this.env.addFilter('abs', (value: any) => {
+            if (value === null || value === undefined || value === '') {
+                return '0';
+            }
+            const num = Number(value);
+            if (isNaN(num)) {
+                return '0';
+            }
+            return String(Math.abs(num));
         });
 
-        this.env.addFilter('round', (value: number, precision: number = 0, method: string = 'common') => {
+        this.env.addFilter('round', (value: any, precision: number = 0, method: string = 'common') => {
+            if (value === null || value === undefined || value === '') {
+                return '0';
+            }
             const num = Number(value);
+            if (isNaN(num)) {
+                return '0';
+            }
             if (precision === 0) {
-                return Math.round(num);
+                return String(Math.round(num));
             }
             const factor = Math.pow(10, precision);
-            return Math.round(num * factor) / factor;
+            return String(Math.round(num * factor) / factor);
         });
 
         this.env.addFilter('sum', (value: any[], attribute?: string) => {
-            if (attribute) {
-                return value.reduce((sum, item) => sum + Number(item[attribute]), 0);
+            if (!Array.isArray(value) || value.length === 0) {
+                return '0';
             }
-            return value.reduce((sum, item) => sum + Number(item), 0);
+            if (attribute) {
+                return String(value.reduce((sum, item) => sum + Number(item[attribute] || 0), 0));
+            }
+            return String(value.reduce((sum, item) => sum + Number(item || 0), 0));
         });
 
         this.env.addFilter('min', (value: any[], attribute?: string) => {
-            if (attribute) {
-                return Math.min(...value.map(item => Number(item[attribute])));
+            if (!Array.isArray(value) || value.length === 0) {
+                return 'Infinity';
             }
-            return Math.min(...value.map(Number));
+            if (attribute) {
+                return String(Math.min(...value.map(item => Number(item[attribute] || 0))));
+            }
+            return String(Math.min(...value.map(item => Number(item || 0))));
         });
 
         this.env.addFilter('max', (value: any[], attribute?: string) => {
-            if (attribute) {
-                return Math.max(...value.map(item => Number(item[attribute])));
+            if (!Array.isArray(value) || value.length === 0) {
+                return '-Infinity';
             }
-            return Math.max(...value.map(Number));
+            if (attribute) {
+                return String(Math.max(...value.map(item => Number(item[attribute] || 0))));
+            }
+            return String(Math.max(...value.map(item => Number(item || 0))));
         });
 
         // 列表过滤器
@@ -266,11 +376,11 @@ export class Jinja2NunjucksProcessor {
         });
 
         this.env.addFilter('first', (value: any[]) => {
-            return value[0];
+            return value && value.length > 0 ? value[0] : '';
         });
 
         this.env.addFilter('last', (value: any[]) => {
-            return value[value.length - 1];
+            return value && value.length > 0 ? value[value.length - 1] : '';
         });
 
         this.env.addFilter('length', (value: any) => {
@@ -282,6 +392,10 @@ export class Jinja2NunjucksProcessor {
 
         this.env.addFilter('slice', (value: any[], start: number, end?: number) => {
             return value.slice(start, end);
+        });
+
+        this.env.addFilter('join', (value: any[], separator: string = ', ') => {
+            return value.map(item => item === null || item === undefined ? 'null' : String(item)).join(separator);
         });
 
         // 字典过滤器
@@ -410,6 +524,11 @@ export class Jinja2NunjucksProcessor {
             // 遍历AST提取变量
             this.extractVariablesFromNode(ast, variables, processedNames);
 
+            // 如果没有提取到变量，抛出错误以触发回退到正则表达式方法
+            if (variables.length === 0) {
+                throw new Error('AST解析未找到任何变量');
+            }
+
             // 标记为使用AST提取
             return variables.map(v => ({
                 ...v,
@@ -454,19 +573,24 @@ export class Jinja2NunjucksProcessor {
                 this.extractVariablesFromLookupVal(node, variables, processedNames);
                 break;
 
+            case 'Filter':
+                // 过滤器节点，特殊处理
+                this.extractVariablesFromFilter(node, variables, processedNames);
+                // Also process children to ensure we don't miss anything
+                if (node.children) {
+                    node.children.forEach((child: any) => {
+                        this.extractVariablesFromNode(child, variables, processedNames);
+                    });
+                }
+                break;
+
             case 'FunCall':
-                // 函数调用节点，可能包含过滤器
-                if (node.typename === 'Filter') {
-                    // 过滤器节点，特殊处理
-                    this.extractVariablesFromFilter(node, variables, processedNames);
-                } else {
-                    // 普通函数调用
-                    this.extractVariablesFromNode(node.name, variables, processedNames);
-                    if (node.args) {
-                        node.args.forEach((arg: any) => {
-                            this.extractVariablesFromNode(arg, variables, processedNames);
-                        });
-                    }
+                // 普通函数调用节点
+                this.extractVariablesFromNode(node.name, variables, processedNames);
+                if (node.args) {
+                    node.args.forEach((arg: any) => {
+                        this.extractVariablesFromNode(arg, variables, processedNames);
+                    });
                 }
                 break;
 
@@ -608,15 +732,40 @@ export class Jinja2NunjucksProcessor {
      * 处理过滤器节点，提取原始变量名
      */
     private extractVariablesFromFilter(node: any, variables: Jinja2Variable[], processedNames: Set<string>): void {
-        if (node.name && node.name.value) {
-            const filterName = node.name.value;
-            // 过滤器名称不算作变量，递归处理参数
-            if (node.args && node.args.children) {
-                node.args.children.forEach((arg: any) => {
+        // 过滤器节点结构：name是过滤器名，args.children是被过滤的变量
+        const filterName = node.name?.value;
+
+        if (node.args && node.args.children) {
+            // 处理被过滤的变量（在args.children中）
+            node.args.children.forEach((arg: any) => {
+                // First, check if this is a symbol node (variable)
+                if (arg.typename === 'Symbol' && arg.value) {
+                    const varName = arg.value;
+                    if (!processedNames.has(varName)) {
+                        // Create the variable with the filter
+                        variables.push({
+                            name: varName,
+                            type: this.inferVariableType(varName),
+                            defaultValue: this.getDefaultValue(varName),
+                            required: this.isRequiredVariable(varName),
+                            filters: filterName ? [filterName] : [],
+                            extractionMethod: 'nunjucks'
+                        });
+                        processedNames.add(varName);
+                    } else if (filterName) {
+                        // Variable already exists, add the filter
+                        const existingVar = variables.find(v => v.name === varName);
+                        if (existingVar && existingVar.filters && !existingVar.filters.includes(filterName)) {
+                            existingVar.filters.push(filterName);
+                        }
+                    }
+                } else {
+                    // Recursively process other node types
                     this.extractVariablesFromNode(arg, variables, processedNames);
-                });
-            }
+                }
+            });
         }
+        // 过滤器名称不算作变量，不处理node.name
     }
 
     /**

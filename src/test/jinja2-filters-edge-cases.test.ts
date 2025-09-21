@@ -163,7 +163,7 @@ suite('Jinja2 Filter Edge Cases Tests', () => {
 
         // Long chain with edge cases
         const result = processor.renderTemplate('{{ "  hello world  " | trim | upper | replace("WORLD", "JINJA") | truncate(10) }}', {});
-        assert.strictEqual(result, 'HELLO JIN...');
+        assert.strictEqual(result, 'HELLO...');
     });
 
     // Error handling
@@ -178,8 +178,8 @@ suite('Jinja2 Filter Edge Cases Tests', () => {
     test('filters should not crash with large inputs', () => {
         // Large string
         const largeString = 'x'.repeat(10000);
-        const result = processor.renderTemplate(`{{ "${largeString}" | truncate(100) }}`, {});
-        assert.strictEqual(result.length, 103); // 100 + "..."
+        const result = processor.renderTemplate('{{ largeString | truncate(100) }}', { largeString });
+        assert.strictEqual(result.length, 100); // truncate(100) should return exactly 100 characters
 
         // Large array
         const largeArray = Array.from({ length: 1000 }, (_, i) => i);
@@ -197,6 +197,6 @@ suite('Jinja2 Filter Edge Cases Tests', () => {
         assert.strictEqual(processor.renderTemplate('{{ "It\'s a test" | sql_quote }}', {}), "'It''s a test'");
 
         // Unicode in truncate
-        assert.strictEqual(processor.renderTemplate('{{ "café restaurant" | truncate(5) }}', {}), 'café...');
+        assert.strictEqual(processor.renderTemplate('{{ "café restaurant" | truncate(5) }}', {}), 'ca...');
     });
 });

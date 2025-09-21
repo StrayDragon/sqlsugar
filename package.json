@@ -211,7 +211,7 @@
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "vscode-test --timeout=600000 --config .vscode-test.js"
+    "test": "node run-test.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",

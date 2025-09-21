@@ -60,20 +60,11 @@ export class TerminalMonitor {
 
 	/**
 	 * 检查 terminalDataWriteEvent API 是否可用
+	 * 注意：此功能已移除，始终返回 false 以使用基于剪贴板的选择
 	 */
 	private isTerminalDataWriteEventAvailable(): boolean {
-		try {
-			// 检查是否在开发模式下运行或者API是否可用
-			if (typeof (vscode.window as any).onDidWriteTerminalData === 'function') {
-				// 尝试访问API，如果不可用会抛出异常
-				(vscode.window as any).onDidWriteTerminalData;
-				return true;
-			}
-			return false;
-		} catch (error) {
-			console.log('Terminal data write event API not available, will use clipboard fallback:', error instanceof Error ? error.message : String(error));
-			return false;
-		}
+		console.log('Terminal data write event API has been removed. Using clipboard-based selection only.');
+		return false;
 	}
 
 	/**

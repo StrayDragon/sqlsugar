@@ -320,3 +320,4 @@ The extension includes several developer-facing commands:
 - Parameter injection includes proper SQL escaping to prevent injection vulnerabilities
 - The extension gracefully handles missing clipboard tools by providing fallback options
 - Multi-line parameter parsing supports complex nested structures with proper escape sequence handling
+- 在 WebView 的字符串模板中必须使用纯 JavaScript 语法，不能依赖 TypeScript 编译器

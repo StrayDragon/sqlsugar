@@ -7,9 +7,7 @@
   "engines": {
     "vscode": "^1.98.0"
   },
-  "enabledApiProposals": [
-    "terminalDataWriteEvent"
-  ],
+  "enabledApiProposals": [],
   "categories": [
     "Other"
   ],

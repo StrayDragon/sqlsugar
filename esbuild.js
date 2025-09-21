@@ -1,7 +1,66 @@
 const esbuild = require("esbuild");
+const fs = require("fs");
+const path = require("path");
 
 const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
+
+/**
+ * 复制artifacts和debug目录到dist目录
+ */
+function copyArtifactsAndDebugDirectories() {
+    // 复制artifacts目录
+    const artifactsDir = path.join(__dirname, 'artifacts');
+    const distArtifactsDir = path.join(__dirname, 'dist', 'artifacts');
+
+    if (fs.existsSync(artifactsDir)) {
+        if (!fs.existsSync(distArtifactsDir)) {
+            fs.mkdirSync(distArtifactsDir, { recursive: true });
+        }
+
+        copyDirectoryRecursive(artifactsDir, distArtifactsDir);
+        console.log(`Copied artifacts directory: ${artifactsDir} -> ${distArtifactsDir}`);
+    }
+
+    // 复制debug目录（保持向后兼容）
+    const debugDir = path.join(__dirname, 'debug');
+    const distDebugDir = path.join(__dirname, 'dist', 'debug');
+
+    if (fs.existsSync(debugDir)) {
+        if (!fs.existsSync(distDebugDir)) {
+            fs.mkdirSync(distDebugDir, { recursive: true });
+        }
+
+        const files = fs.readdirSync(debugDir);
+        for (const file of files) {
+            const srcPath = path.join(debugDir, file);
+            const destPath = path.join(distDebugDir, file);
+            fs.copyFileSync(srcPath, destPath);
+            console.log(`Copied: ${srcPath} -> ${destPath}`);
+        }
+    }
+}
+
+/**
+ * 递归复制目录
+ */
+function copyDirectoryRecursive(src, dest) {
+    const files = fs.readdirSync(src);
+
+    for (const file of files) {
+        const srcPath = path.join(src, file);
+        const destPath = path.join(dest, file);
+
+        if (fs.statSync(srcPath).isDirectory()) {
+            if (!fs.existsSync(destPath)) {
+                fs.mkdirSync(destPath, { recursive: true });
+            }
+            copyDirectoryRecursive(srcPath, destPath);
+        } else {
+            fs.copyFileSync(srcPath, destPath);
+        }
+    }
+}
 
 /**
  * @type {import('esbuild').Plugin}
@@ -47,6 +106,8 @@ async function main() {
 	} else {
 		await ctx.rebuild();
 		await ctx.dispose();
+		// 复制artifacts和debug目录到dist目录
+		copyArtifactsAndDebugDirectories();
 	}
 }
 

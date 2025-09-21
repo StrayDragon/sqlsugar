@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { SQLLogParser } from '../sql-log-parser';
 import { TerminalMonitor } from '../terminal-monitor';
 import { ClipboardManager } from '../clipboard-manager';
@@ -229,8 +230,53 @@ export class CommandManager {
      */
     private async handleGenerateTestLogs(): Promise<void> {
         try {
-            // TODO: 实现测试日志生成逻辑
-            vscode.window.showInformationMessage('Test log generation feature coming soon');
+            // 获取Python脚本路径 - 使用多种可能的路径
+            const possiblePaths = [
+                path.join(this.context.extensionPath, 'artifacts', 'scripts', 'generate_sqlalchemy_logs.py'),
+                path.join(this.context.extensionPath, 'debug', 'generate_sqlalchemy_logs.py'),
+                path.join(this.context.extensionPath, 'dist', 'artifacts', 'scripts', 'generate_sqlalchemy_logs.py'),
+                path.join(this.context.extensionPath, 'dist', 'debug', 'generate_sqlalchemy_logs.py'),
+                path.join(process.cwd(), 'artifacts', 'scripts', 'generate_sqlalchemy_logs.py'),
+                path.join(process.cwd(), 'debug', 'generate_sqlalchemy_logs.py')
+            ];
+
+            const fs = require('fs');
+            let scriptPath = null;
+            for (const possiblePath of possiblePaths) {
+                if (fs.existsSync(possiblePath)) {
+                    scriptPath = possiblePath;
+                    break;
+                }
+            }
+
+            if (!scriptPath) {
+                vscode.window.showErrorMessage('Test log generation script not found. Please ensure the extension is properly built.');
+                return;
+            }
+
+            // 获取当前活动终端或创建新终端
+            let terminal = vscode.window.activeTerminal;
+            if (!terminal) {
+                // 如果没有活动终端，创建一个新终端
+                terminal = vscode.window.createTerminal('SQLAlchemy Test Logs');
+                vscode.window.showInformationMessage('Created new terminal for test log generation');
+            }
+
+            // 确保终端可见并获取焦点
+            terminal.show(true); // true 表示获取焦点
+
+            // 等待一小段时间确保终端准备好接收命令
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // 在终端中运行Python脚本 - 使用uv或python3
+            const command = process.platform === 'win32' ?
+                `uv run "${scriptPath}" || python "${scriptPath}"` :
+                `uv run "${scriptPath}" || python3 "${scriptPath}"`;
+
+            // 发送命令到终端
+            terminal.sendText(command);
+
+            vscode.window.showInformationMessage('SQLAlchemy test log generation started in terminal. Please wait for completion...');
         } catch (error) {
             vscode.window.showErrorMessage(`Failed to generate test logs: ${error}`);
         }

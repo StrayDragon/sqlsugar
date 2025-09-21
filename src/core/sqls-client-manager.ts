@@ -69,7 +69,16 @@ export class SQLsClientManager {
             await this.client.start();
             vscode.window.showInformationMessage('SQLs language server started');
         } catch (error) {
-            vscode.window.showErrorMessage(`Failed to start SQLs client: ${error}`);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('ENOENT') && errorMessage.includes('sqls')) {
+                vscode.window.showErrorMessage(
+                    'SQLs language server not found. Please install sqls:\n' +
+                    '• Go: go install github.com/lighttiger2505/sqls@latest\n' +
+                    '• Or configure the path in settings: sqlsugar.sqlsPath'
+                );
+            } else {
+                vscode.window.showErrorMessage(`Failed to start SQLs client: ${errorMessage}`);
+            }
         }
     }
 

@@ -58,7 +58,7 @@ export class Jinja2VariableInput {
      */
     private static async inputValue(
         variableName: string,
-        type: 'string' | 'number' | 'date',
+        type: 'string' | 'number' | 'date' | 'boolean',
         defaultValue?: any
     ): Promise<any | undefined> {
         const placeholder = this.formatDefaultValue(type, defaultValue);
@@ -109,6 +109,20 @@ export class Jinja2VariableInput {
                 });
                 return dateResult;
 
+            case 'boolean':
+                const booleanOptions = [
+                    { label: '✅ True', value: true },
+                    { label: '❌ False', value: false }
+                ];
+                const booleanResult = await vscode.window.showQuickPick(
+                    booleanOptions,
+                    {
+                        placeHolder: `Select boolean value for "${variableName}"`,
+                        title: `Select Boolean Value for "${variableName}"`
+                    }
+                );
+                return booleanResult?.value;
+
             default:
                 return undefined;
         }
@@ -117,7 +131,7 @@ export class Jinja2VariableInput {
     /**
      * 格式化默认值显示
      */
-    private static formatDefaultValue(type: 'string' | 'number' | 'date', defaultValue?: any): string {
+    private static formatDefaultValue(type: 'string' | 'number' | 'date' | 'boolean', defaultValue?: any): string {
         if (defaultValue === undefined) {
             switch (type) {
                 case 'string':
@@ -126,6 +140,8 @@ export class Jinja2VariableInput {
                     return '42';
                 case 'date':
                     return new Date().toISOString().split('T')[0];
+                case 'boolean':
+                    return 'true';
             }
         }
         return String(defaultValue);
@@ -134,7 +150,7 @@ export class Jinja2VariableInput {
     /**
      * 获取输入提示
      */
-    private static getInputPrompt(type: 'string' | 'number' | 'date'): string {
+    private static getInputPrompt(type: 'string' | 'number' | 'date' | 'boolean'): string {
         switch (type) {
             case 'string':
                 return 'Enter any text value';
@@ -142,6 +158,8 @@ export class Jinja2VariableInput {
                 return 'Enter a number (integer or decimal)';
             case 'date':
                 return 'Enter date in YYYY-MM-DD format';
+            case 'boolean':
+                return 'Select true or false';
         }
     }
 
@@ -228,11 +246,12 @@ export class Jinja2VariableInput {
     /**
      * 显示类型选择器
      */
-    private static async showTypePicker(currentType: 'string' | 'number' | 'date'): Promise<'string' | 'number' | 'date' | undefined> {
+    private static async showTypePicker(currentType: 'string' | 'number' | 'date' | 'boolean'): Promise<'string' | 'number' | 'date' | 'boolean' | undefined> {
         const typeOptions = [
             { label: '📝 String', value: 'string' as const, description: 'Text value' },
             { label: '🔢 Number', value: 'number' as const, description: 'Numeric value' },
-            { label: '📅 Date', value: 'date' as const, description: 'Date value (YYYY-MM-DD)' }
+            { label: '📅 Date', value: 'date' as const, description: 'Date value (YYYY-MM-DD)' },
+            { label: '✅ Boolean', value: 'boolean' as const, description: 'True/False value' }
         ];
 
         const selected = await vscode.window.showQuickPick(
@@ -249,12 +268,14 @@ export class Jinja2VariableInput {
     /**
      * 获取类型的默认值
      */
-    private static getDefaultValueForType(type: 'string' | 'number' | 'date'): any {
+    private static getDefaultValueForType(type: 'string' | 'number' | 'date' | 'boolean'): any {
         switch (type) {
             case 'number':
                 return 42;
             case 'date':
                 return new Date().toISOString().split('T')[0];
+            case 'boolean':
+                return true;
             default:
                 return 'demo_value';
         }

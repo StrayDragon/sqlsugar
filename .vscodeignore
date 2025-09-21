@@ -30,9 +30,17 @@ test-*.js
 **/__pycache__/**
 *.log
 
+# Artifacts directory (contains scripts needed by the extension)
+!artifacts/**
+
 # Development configuration
 .claude/**
 .github/**
+
+# Standalone projects (contain their own node_modules)
+standalone-jinja-editor/**
+test-*.js
+debug-*.js
 
 # Temporary and cache files
 *.tmp

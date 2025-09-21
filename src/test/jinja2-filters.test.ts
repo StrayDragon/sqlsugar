@@ -215,4 +215,56 @@ suite('Jinja2 Filter Tests', () => {
         assert.ok(filters.includes('float'));
         assert.ok(filters.includes('sql_quote'));
     });
+
+    // Test the bug fix: variable extraction should not mistake filter names as variables
+    test('extractVariables should correctly parse filter expressions', () => {
+        const template = `
+            SELECT * FROM orders
+            WHERE user_id = {{ user.id }}
+              AND total > {{ min_amount|float }}
+              AND status IN ('{{ status }}')
+              {% if include_deleted %}AND is_deleted = FALSE{% endif %}
+            ORDER BY created_at DESC
+            LIMIT {{ max_results }}
+        `;
+
+        const variables = processor.extractVariables(template);
+
+        // Should extract: user.id, min_amount, status, include_deleted, max_results
+        // Should NOT extract: float, limit, etc. as they are filters
+
+        const variableNames = variables.map(v => v.name);
+        assert.ok(variableNames.includes('user.id'), 'Should extract user.id');
+        assert.ok(variableNames.includes('min_amount'), 'Should extract min_amount');
+        assert.ok(variableNames.includes('status'), 'Should extract status');
+        assert.ok(variableNames.includes('include_deleted'), 'Should extract include_deleted');
+        assert.ok(variableNames.includes('max_results'), 'Should extract max_results');
+
+        // Verify that min_amount has the float filter
+        const minAmountVar = variables.find(v => v.name === 'min_amount');
+        assert.ok(minAmountVar, 'Should find min_amount variable');
+        assert.ok(minAmountVar.filters && minAmountVar.filters.includes('float'), 'min_amount should have float filter');
+
+        // Should NOT have filter names as variables
+        assert.ok(!variableNames.includes('float'), 'Should NOT extract float as variable');
+        assert.ok(!variableNames.includes('int'), 'Should NOT extract int as variable');
+        assert.ok(!variableNames.includes('string'), 'Should NOT extract string as variable');
+    });
+
+    // Test that filter names as variable names work correctly
+    test('variable names that match filter names should be extracted', () => {
+        const template = `
+            SELECT * FROM test
+            WHERE float_col = {{ float }}
+              AND int_col = {{ int }}
+              AND string_col = {{ string }}
+        `;
+
+        const variables = processor.extractVariables(template);
+
+        const variableNames = variables.map(v => v.name);
+        assert.ok(variableNames.includes('float'), 'Should extract float as variable when not used as filter');
+        assert.ok(variableNames.includes('int'), 'Should extract int as variable when not used as filter');
+        assert.ok(variableNames.includes('string'), 'Should extract string as variable when not used as filter');
+    });
 });

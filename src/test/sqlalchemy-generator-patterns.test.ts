@@ -1,5 +1,5 @@
 import * as assert from 'assert';
-import { SQLLogParser, ParsedSQL } from '../sql-log-parser';
+import { SQLLogParser } from '../sql-log-parser';
 
 suite('SQLAlchemy Generator Pattern Tests', () => {
 

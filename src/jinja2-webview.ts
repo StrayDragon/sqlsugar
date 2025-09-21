@@ -148,7 +148,8 @@ export class Jinja2WebviewEditor {
             name: v.name,
             defaultValue: v.defaultValue,
             description: v.description || '',
-            type: v.type
+            type: v.type,
+            filters: v.filters || []
         })));
 
         return `<!DOCTYPE html>
@@ -156,7 +157,7 @@ export class Jinja2WebviewEditor {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' https://cdn.jsdelivr.net; style-src ${webview.cspSource} 'unsafe-inline';">
     <title>Jinja2 Template Editor - ${templatePreview}</title>
     <style>
         :root {
@@ -583,6 +584,9 @@ export class Jinja2WebviewEditor {
         </div>
     </div>
 
+    <!-- 引入 nunjucks 库 -->
+    <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js" nonce="${nonce}"></script>
+
     <script nonce="${nonce}">
         // 从 VS Code 传递的数据
         const template = ${JSON.stringify(template)};
@@ -616,6 +620,60 @@ export class Jinja2WebviewEditor {
             { label: '当前时间 (00:00:00)', value: 'current_time' },
             { label: '准确时间 (系统时间)', value: 'exact_time' },
             { label: "字符串 '00:00:00'", value: 'string_000000' }
+        ];
+
+        // 支持的过滤器列表
+        const supportedFilters = [
+            {
+                group: '类型转换',
+                filters: [
+                    { name: 'float', description: '转换为浮点数' },
+                    { name: 'int', description: '转换为整数' },
+                    { name: 'string', description: '转换为字符串' },
+                    { name: 'bool', description: '转换为布尔值' }
+                ]
+            },
+            {
+                group: 'SQL相关',
+                filters: [
+                    { name: 'sql_quote', description: 'SQL引号转义' },
+                    { name: 'sql_identifier', description: 'SQL标识符引号' },
+                    { name: 'sql_date', description: 'SQL日期格式化' },
+                    { name: 'sql_datetime', description: 'SQL日期时间格式化' },
+                    { name: 'sql_in', description: 'SQL IN 子句格式化' }
+                ]
+            },
+            {
+                group: '数学运算',
+                filters: [
+                    { name: 'abs', description: '绝对值' },
+                    { name: 'round', description: '四舍五入' },
+                    { name: 'sum', description: '求和' },
+                    { name: 'min', description: '最小值' },
+                    { name: 'max', description: '最大值' }
+                ]
+            },
+            {
+                group: '字符串处理',
+                filters: [
+                    { name: 'length', description: '字符串长度' },
+                    { name: 'default', description: '默认值' },
+                    { name: 'striptags', description: '移除HTML标签' },
+                    { name: 'truncate', description: '截断字符串' },
+                    { name: 'wordwrap', description: '自动换行' },
+                    { name: 'urlencode', description: 'URL编码' }
+                ]
+            },
+            {
+                group: '列表处理',
+                filters: [
+                    { name: 'unique', description: '去重' },
+                    { name: 'reverse', description: '反转' },
+                    { name: 'first', description: '第一个元素' },
+                    { name: 'last', description: '最后一个元素' },
+                    { name: 'slice', description: '切片' }
+                ]
+            }
         ];
 
         // 获取快捷日期值
@@ -685,6 +743,308 @@ export class Jinja2WebviewEditor {
             document.getElementById('copyButton').addEventListener('click', copyToClipboard);
         });
 
+        // 获取变量的过滤器
+        function getVariableFilters(variableName) {
+            const variable = variables.find(v => v.name === variableName);
+            return variable ? variable.filters || [] : [];
+        }
+
+        // 设置变量的过滤器
+        function setVariableFilters(variableName, filters) {
+            const variable = variables.find(v => v.name === variableName);
+            if (variable) {
+                variable.filters = filters;
+                refreshTemplate();
+            }
+        }
+
+        // 生成过滤器选择器
+        function createFilterSelector(variableName) {
+            const container = document.createElement('div');
+            container.className = 'filter-selector';
+            container.style.marginTop = '10px';
+            container.style.padding = '10px';
+            container.style.backgroundColor = 'var(--vscode-textBlockQuote-background)';
+            container.style.borderRadius = '4px';
+            container.style.border = '1px solid var(--vscode-textBlockQuote-border)';
+
+            const currentFilters = getVariableFilters(variableName);
+            const hasFilters = currentFilters.length > 0;
+
+            // 折叠/展开控制
+            const headerDiv = document.createElement('div');
+            headerDiv.style.display = 'flex';
+            headerDiv.style.justifyContent = 'space-between';
+            headerDiv.style.alignItems = 'center';
+            headerDiv.style.cursor = 'pointer';
+            headerDiv.style.marginBottom = hasFilters ? '8px' : '0';
+
+            const title = document.createElement('div');
+            title.textContent = '过滤器 (Filters)';
+            title.style.fontWeight = 'bold';
+            title.style.fontSize = '0.9em';
+
+            const filterCount = document.createElement('span');
+            filterCount.textContent = currentFilters.length > 0 ? '(' + currentFilters.length + ')' : '';
+            filterCount.style.fontSize = '0.8em';
+            filterCount.style.color = 'var(--vscode-textLink-foreground)';
+            filterCount.style.marginLeft = '5px';
+
+            const collapseIcon = document.createElement('span');
+            collapseIcon.textContent = hasFilters ? '▼' : '▶';
+            collapseIcon.style.fontSize = '0.8em';
+            collapseIcon.style.transition = 'transform 0.2s';
+
+            const titleContainer = document.createElement('div');
+            titleContainer.appendChild(title);
+            titleContainer.appendChild(filterCount);
+
+            headerDiv.appendChild(titleContainer);
+            headerDiv.appendChild(collapseIcon);
+            container.appendChild(headerDiv);
+
+            // 默认折叠状态
+            const isCollapsed = !hasFilters;
+
+            // 过滤器内容区域
+            const filterGroups = document.createElement('div');
+            filterGroups.style.display = isCollapsed ? 'none' : 'flex';
+            filterGroups.style.flexDirection = 'column';
+            filterGroups.style.gap = '8px';
+
+            // 已选择的过滤器显示区域
+            const selectedFiltersDiv = document.createElement('div');
+            selectedFiltersDiv.style.marginBottom = '8px';
+            selectedFiltersDiv.style.padding = '8px';
+            selectedFiltersDiv.style.backgroundColor = 'var(--vscode-editor-background)';
+            selectedFiltersDiv.style.borderRadius = '3px';
+            selectedFiltersDiv.style.border = '1px solid var(--vscode-input-border)';
+            selectedFiltersDiv.style.display = currentFilters.length > 0 ? 'block' : 'none';
+
+            const selectedTitle = document.createElement('div');
+            selectedTitle.textContent = '已选择的过滤器 (按顺序处理):';
+            selectedTitle.style.fontSize = '0.8em';
+            selectedTitle.style.marginBottom = '5px';
+            selectedTitle.style.color = 'var(--vscode-textLink-foreground)';
+            selectedFiltersDiv.appendChild(selectedTitle);
+
+            const selectedFiltersList = document.createElement('div');
+            selectedFiltersList.style.display = 'flex';
+            selectedFiltersList.style.flexWrap = 'wrap';
+            selectedFiltersList.style.gap = '4px';
+            selectedFiltersList.id = 'selectedFilters_' + variableName.replace(/[^a-zA-Z0-9_]/g, '_');
+            selectedFiltersDiv.appendChild(selectedFiltersList);
+
+            filterGroups.appendChild(selectedFiltersDiv);
+
+            // 更新已选择过滤器显示
+            function updateSelectedFiltersDisplay() {
+                const currentFilters = getVariableFilters(variableName);
+                selectedFiltersList.innerHTML = '';
+
+                if (currentFilters.length === 0) {
+                    selectedFiltersDiv.style.display = 'none';
+                } else {
+                    selectedFiltersDiv.style.display = 'block';
+
+                    currentFilters.forEach((filterName, index) => {
+                        const filterChip = document.createElement('div');
+                        filterChip.style.display = 'flex';
+                        filterChip.style.alignItems = 'center';
+                        filterChip.style.gap = '4px';
+                        filterChip.style.padding = '2px 6px';
+                        filterChip.style.backgroundColor = 'var(--vscode-button-background)';
+                        filterChip.style.color = 'var(--vscode-button-foreground)';
+                        filterChip.style.borderRadius = '3px';
+                        filterChip.style.fontSize = '0.75em';
+
+                        const filterText = document.createElement('span');
+                        filterText.textContent = filterName;
+                        filterChip.appendChild(filterText);
+
+                        // 顺序控制按钮
+                        if (currentFilters.length > 1) {
+                            if (index > 0) {
+                                const upBtn = document.createElement('button');
+                                upBtn.textContent = '↑';
+                                upBtn.style.padding = '1px 4px';
+                                upBtn.style.fontSize = '0.7em';
+                                upBtn.style.border = 'none';
+                                upBtn.style.borderRadius = '2px';
+                                upBtn.style.cursor = 'pointer';
+                                upBtn.onclick = () => moveFilterUp(variableName, index);
+                                filterChip.appendChild(upBtn);
+                            }
+
+                            if (index < currentFilters.length - 1) {
+                                const downBtn = document.createElement('button');
+                                downBtn.textContent = '↓';
+                                downBtn.style.padding = '1px 4px';
+                                downBtn.style.fontSize = '0.7em';
+                                downBtn.style.border = 'none';
+                                downBtn.style.borderRadius = '2px';
+                                downBtn.style.cursor = 'pointer';
+                                downBtn.onclick = () => moveFilterDown(variableName, index);
+                                filterChip.appendChild(downBtn);
+                            }
+                        }
+
+                        // 删除按钮
+                        const removeBtn = document.createElement('button');
+                        removeBtn.textContent = '×';
+                        removeBtn.style.padding = '1px 4px';
+                        removeBtn.style.fontSize = '0.7em';
+                        removeBtn.style.border = 'none';
+                        removeBtn.style.borderRadius = '2px';
+                        removeBtn.style.cursor = 'pointer';
+                        removeBtn.style.marginLeft = '4px';
+                        removeBtn.onclick = () => removeFilter(variableName, filterName);
+                        filterChip.appendChild(removeBtn);
+
+                        selectedFiltersList.appendChild(filterChip);
+                    });
+                }
+
+                // 更新计数
+                filterCount.textContent = currentFilters.length > 0 ? '(' + currentFilters.length + ')' : '';
+                collapseIcon.textContent = currentFilters.length > 0 ? '▼' : '▶';
+            }
+
+            // 移动过滤器顺序
+            function moveFilterUp(variableName, index) {
+                const currentFilters = getVariableFilters(variableName);
+                if (index > 0) {
+                    const newFilters = [...currentFilters];
+                    [newFilters[index - 1], newFilters[index]] = [newFilters[index], newFilters[index - 1]];
+                    setVariableFilters(variableName, newFilters);
+                    updateSelectedFiltersDisplay();
+                    refreshTemplate();
+                }
+            }
+
+            function moveFilterDown(variableName, index) {
+                const currentFilters = getVariableFilters(variableName);
+                if (index < currentFilters.length - 1) {
+                    const newFilters = [...currentFilters];
+                    [newFilters[index], newFilters[index + 1]] = [newFilters[index + 1], newFilters[index]];
+                    setVariableFilters(variableName, newFilters);
+                    updateSelectedFiltersDisplay();
+                    refreshTemplate();
+                }
+            }
+
+            function removeFilter(variableName, filterName) {
+                const currentFilters = getVariableFilters(variableName);
+                const newFilters = currentFilters.filter(f => f !== filterName);
+                setVariableFilters(variableName, newFilters);
+                updateSelectedFiltersDisplay();
+                refreshTemplate();
+            }
+
+            // 折叠/展开功能
+            headerDiv.addEventListener('click', () => {
+                const isHidden = filterGroups.style.display === 'none';
+                filterGroups.style.display = isHidden ? 'flex' : 'none';
+                collapseIcon.textContent = isHidden ? '▼' : '▶';
+            });
+
+            // 生成过滤器选择按钮
+            supportedFilters.forEach(group => {
+                const groupDiv = document.createElement('div');
+
+                const groupTitle = document.createElement('div');
+                groupTitle.textContent = group.group;
+                groupTitle.style.fontSize = '0.8em';
+                groupTitle.style.color = 'var(--vscode-textLink-foreground)';
+                groupTitle.style.marginBottom = '4px';
+                groupDiv.appendChild(groupTitle);
+
+                const filtersDiv = document.createElement('div');
+                filtersDiv.style.display = 'flex';
+                filtersDiv.style.flexWrap = 'wrap';
+                filtersDiv.style.gap = '4px';
+
+                group.filters.forEach(filter => {
+                    const filterButton = document.createElement('button');
+                    filterButton.className = 'filter-btn';
+                    filterButton.textContent = filter.name;
+                    filterButton.title = filter.description;
+                    filterButton.style.padding = '2px 8px';
+                    filterButton.style.fontSize = '0.75em';
+                    filterButton.style.borderRadius = '3px';
+                    filterButton.style.border = '1px solid var(--vscode-input-border)';
+                    filterButton.style.backgroundColor = 'var(--vscode-button-secondaryBackground)';
+                    filterButton.style.color = 'var(--vscode-button-secondaryForeground)';
+                    filterButton.style.cursor = 'pointer';
+
+                    // 检查是否已选择
+                    const currentFilters = getVariableFilters(variableName);
+                    if (currentFilters.includes(filter.name)) {
+                        filterButton.style.backgroundColor = 'var(--vscode-button-background)';
+                        filterButton.style.color = 'var(--vscode-button-foreground)';
+                    }
+
+                    filterButton.addEventListener('click', () => {
+                        const currentFilters = getVariableFilters(variableName);
+                        let newFilters;
+
+                        if (currentFilters.includes(filter.name)) {
+                            newFilters = currentFilters.filter(f => f !== filter.name);
+                        } else {
+                            newFilters = [...currentFilters, filter.name];
+                        }
+
+                        setVariableFilters(variableName, newFilters);
+                        updateSelectedFiltersDisplay();
+                        updateFilterButtonStyles();
+                    });
+
+                    filtersDiv.appendChild(filterButton);
+                });
+
+                groupDiv.appendChild(filtersDiv);
+                filterGroups.appendChild(groupDiv);
+            });
+
+            container.appendChild(filterGroups);
+
+            // 添加样式
+            const style = document.createElement('style');
+            style.textContent = \`
+                .filter-btn:hover {
+                    background-color: var(--vscode-button-secondaryHoverBackground) !important;
+                    color: var(--vscode-button-secondaryForeground) !important;
+                }
+                .filter-btn.selected {
+                    background-color: var(--vscode-button-background) !important;
+                    color: var(--vscode-button-foreground) !important;
+                }
+            \`;
+            container.appendChild(style);
+
+            // 更新按钮样式的函数
+            window.updateFilterButtonStyles = function() {
+                const currentFilters = getVariableFilters(variableName);
+                const buttons = container.querySelectorAll('.filter-btn');
+                buttons.forEach(button => {
+                    if (currentFilters.includes(button.textContent)) {
+                        button.classList.add('selected');
+                        button.style.backgroundColor = 'var(--vscode-button-background)';
+                        button.style.color = 'var(--vscode-button-foreground)';
+                    } else {
+                        button.classList.remove('selected');
+                        button.style.backgroundColor = 'var(--vscode-button-secondaryBackground)';
+                        button.style.color = 'var(--vscode-button-secondaryForeground)';
+                    }
+                });
+            };
+
+            // 初始化显示
+            updateSelectedFiltersDisplay();
+
+            return container;
+        }
+
         // 显示模板
         function displayTemplate() {
             const templateElement = document.getElementById('templateOriginal');
@@ -715,8 +1075,22 @@ export class Jinja2WebviewEditor {
                 typeSpan.className = 'variable-type-badge';
                 typeSpan.textContent = typeLabel;
 
-                headerDiv.appendChild(nameSpan);
-                headerDiv.appendChild(typeSpan);
+                // 显示当前选择的过滤器
+                if (variable.filters && variable.filters.length > 0) {
+                    const filterBadge = document.createElement('span');
+                    filterBadge.className = 'variable-type-badge';
+                    filterBadge.style.backgroundColor = 'var(--vscode-badge-background)';
+                    filterBadge.style.color = 'var(--vscode-badge-foreground)';
+                    filterBadge.textContent = variable.filters.join('|');
+                    filterBadge.style.marginLeft = '5px';
+                    headerDiv.appendChild(nameSpan);
+                    headerDiv.appendChild(typeSpan);
+                    headerDiv.appendChild(filterBadge);
+                } else {
+                    headerDiv.appendChild(nameSpan);
+                    headerDiv.appendChild(typeSpan);
+                }
+
                 div.appendChild(headerDiv);
 
                 if (variable.description) {
@@ -840,11 +1214,23 @@ export class Jinja2WebviewEditor {
 
                 div.appendChild(quickOptionsDiv);
 
+                // 添加过滤器选择器
+                const filterSelector = createFilterSelector(variable.name);
+                div.appendChild(filterSelector);
+
                 // 添加事件监听器
+                valueInput.addEventListener('input', () => updateVariable(variable.name));
                 valueInput.addEventListener('change', () => updateVariable(variable.name));
                 emptyCheckbox.addEventListener('change', () => toggleEmptyValue(variable.name));
 
                 container.appendChild(div);
+            });
+
+            // 初始化布尔选择框
+            variables.forEach(variable => {
+                if (variable.type === 'boolean') {
+                    replaceWithBooleanSelect(variable.name);
+                }
             });
 
             updateVariableCount();
@@ -900,6 +1286,16 @@ export class Jinja2WebviewEditor {
                     const valueInput = document.getElementById('value_' + safeName);
                     if (valueInput) {
                         valueInput.value = formatValueForInput(getDefaultForType(newType), newType);
+
+                        // 如果是布尔类型，替换为选择框
+                        if (newType === 'boolean') {
+                            replaceWithBooleanSelect(variableName);
+                        } else {
+                            // 确保是文本输入框
+                            if (valueInput.tagName === 'SELECT') {
+                                replaceWithTextInput(variableName);
+                            }
+                        }
                     }
 
                     // 清除空值复选框
@@ -995,7 +1391,11 @@ export class Jinja2WebviewEditor {
                 case 'date':
                     return inputValue;
                 case 'boolean':
-                    return inputValue.toLowerCase() === 'true' || inputValue === '1';
+                    const lowerBoolValue = inputValue.toLowerCase();
+                    if (lowerBoolValue === 'false' || lowerBoolValue === '0' || lowerBoolValue === '' || lowerBoolValue === 'null') {
+                        return false;
+                    }
+                    return lowerBoolValue === 'true' || lowerBoolValue === '1';
                 case 'null':
                     return null;
                 default:
@@ -1003,45 +1403,197 @@ export class Jinja2WebviewEditor {
             }
         }
 
+        // 替换为布尔选择框
+        function replaceWithBooleanSelect(variableName) {
+            const safeName = variableName.replace(/[^a-zA-Z0-9_]/g, '_');
+            const valueInput = document.getElementById('value_' + safeName);
+            if (!valueInput) return;
+
+            // 创建选择框
+            const select = document.createElement('select');
+            select.id = 'value_' + safeName;
+            select.className = 'value-input boolean-select';
+
+            // 添加选项
+            const trueOption = document.createElement('option');
+            trueOption.value = 'true';
+            trueOption.textContent = 'True (真)';
+
+            const falseOption = document.createElement('option');
+            falseOption.value = 'false';
+            falseOption.textContent = 'False (假)';
+
+            select.appendChild(trueOption);
+            select.appendChild(falseOption);
+
+            // 保持当前值
+            const currentValue = initialValues[variableName];
+            select.value = String(currentValue === false ? 'false' : (currentValue === true ? 'true' : currentValue));
+
+            // 复制事件监听器
+            select.addEventListener('input', () => updateVariable(variableName));
+            select.addEventListener('change', () => updateVariable(variableName));
+
+            // 替换输入框
+            valueInput.parentNode.replaceChild(select, valueInput);
+        }
+
+        // 替换为文本输入框
+        function replaceWithTextInput(variableName) {
+            const safeName = variableName.replace(/[^a-zA-Z0-9_]/g, '_');
+            const select = document.getElementById('value_' + safeName);
+            if (!select || select.tagName !== 'SELECT') return;
+
+            // 创建文本输入框
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.id = 'value_' + safeName;
+            input.className = 'value-input';
+            input.placeholder = '输入 ' + variableName + ' 的值';
+
+            // 保持当前值
+            input.value = formatValueForInput(initialValues[variableName], 'string');
+
+            // 复制事件监听器
+            input.addEventListener('input', () => updateVariable(variableName));
+            input.addEventListener('change', () => updateVariable(variableName));
+
+            // 替换选择框
+            select.parentNode.replaceChild(input, select);
+        }
+
         // SQL 语法高亮
         function highlightSQL(sql) {
             return sql
                 // 关键字
-                .replace(/\\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|OUTER|ON|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|EXISTS|TRUE|FALSE)\\b/g, '<span class="sql-keyword">$1</span>')
+                .replace(/\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|OUTER|ON|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|EXISTS|TRUE|FALSE)\b/g, '<span class="sql-keyword">$1</span>')
                 // 字符串
-                .replace(/'([^']|(\\\\'))*'/g, '<span class="sql-string">$&</span>')
+                .replace(/'([^']|(\\'))*'/g, '<span class="sql-string">$&</span>')
                 // 数字
-                .replace(/\\b\\d+(\\.\\d+)?\\b/g, '<span class="sql-number">$&</span>')
+                .replace(/\b\d+(\.\d+)?\b/g, '<span class="sql-number">$&</span>')
                 // 函数
-                .replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, '<span class="sql-function">$1</span>(')
+                    .replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, '<span class="sql-function">$1</span>(')
                 // 占位符
-                .replace(/:(\\w+)\\b/g, '<span class="sql-placeholder">$&</span>')
+                .replace(/:(\w+)\b/g, '<span class="sql-placeholder">$&</span>')
                 // 注释
                 .replace(/(--.*)$/gm, '<span class="sql-comment">$1</span>');
         }
 
-        // 渲染模板
-        function renderTemplate(templateText, context) {
-            // 简单的 Jinja2 模板渲染
-            let result = templateText;
+        // 构建嵌套上下文对象
+        function buildNestedContext(flatContext) {
+            const nested = {};
 
-            // 处理变量 {{ variable }}
-            result = result.replace(/\\{\\{\\s*([^}]+)\\s*\\}\\}/g, (match, expr) => {
-                const trimmedExpr = expr.trim();
+            Object.keys(flatContext).forEach(key => {
+                // 检查是否是嵌套属性（包含点号）
+                if (key.includes('.')) {
+                    const parts = key.split('.');
+                    let current = nested;
 
-                // 处理简单的变量访问
-                if (!trimmedExpr.includes('.') && !trimmedExpr.includes('|')) {
-                    const value = context[trimmedExpr];
+                    // 遍历路径，创建嵌套结构
+                    for (let i = 0; i < parts.length - 1; i++) {
+                        const part = parts[i];
+                        if (!current[part]) {
+                            current[part] = {};
+                        }
+                        current = current[part];
+                    }
+
+                    // 设置最终值
+                    const lastPart = parts[parts.length - 1];
+                    current[lastPart] = flatContext[key];
+                } else {
+                    // 直接属性
+                    nested[key] = flatContext[key];
+                }
+            });
+
+            return nested;
+        }
+
+        // 渲染模板 - 直接使用 nunjucks
+        function renderTemplate(templateText, context, variablesList = null) {
+            try {
+                // 直接使用 nunjucks 渲染模板
+                // 创建一个临时的 nunjucks 环境来处理模板渲染
+                const tempEnv = new nunjucks.Environment(null, {
+                    autoescape: false,
+                    throwOnUndefined: false
+                });
+
+                // 启用 Jinja2 兼容模式（确保与 Python Jinja2 的兼容性）
+                nunjucks.installJinjaCompat();
+
+                // 添加常用的 SQL 相关过滤器，确保与 Python Jinja2 兼容
+                tempEnv.addFilter('float', (value) => {
+                    const num = parseFloat(value);
+                    return isNaN(num) ? 0 : num;
+                });
+
+                tempEnv.addFilter('int', (value) => {
+                    const num = parseInt(value, 10);
+                    return isNaN(num) ? 0 : num;
+                });
+
+                tempEnv.addFilter('default', (value, defaultValue) => {
+                    return value !== null && value !== undefined && value !== '' ? value : defaultValue;
+                });
+
+                // 添加常用的 length 过滤器
+                tempEnv.addFilter('length', (value) => {
+                    if (Array.isArray(value)) {
+                        return value.length;
+                    }
+                    if (typeof value === 'string') {
+                        return value.length;
+                    }
+                    if (typeof value === 'object' && value !== null) {
+                        return Object.keys(value).length;
+                    }
+                    return 0;
+                });
+
+                // 处理上下文，确保数据类型正确传递给 nunjucks
+                // 将扁平的变量名转换为嵌套对象结构
+                const processedContext = buildNestedContext(context);
+
+                // 为所有未定义的变量提供合理的默认值
+                Object.keys(processedContext).forEach(key => {
+                    if (processedContext[key] === null || processedContext[key] === undefined) {
+                        // 根据变量名推断默认值类型
+                        const varName = key.toLowerCase();
+                        if (varName.includes('id') || varName.includes('count') || varName.includes('amount') || varName.includes('limit')) {
+                            processedContext[key] = 42; // 数字默认值
+                        } else if (varName.startsWith('is_') || varName.startsWith('has_') || varName.includes('include') || varName.includes('deleted')) {
+                            processedContext[key] = false; // 布尔默认值
+                        } else if (varName.includes('date') || varName.includes('time')) {
+                            processedContext[key] = '2024-01-01'; // 日期默认值
+                        } else {
+                            processedContext[key] = 'demo_' + key; // 字符串默认值
+                        }
+                    }
+                });
+
+                // 确保布尔值的正确类型转换
+                Object.keys(processedContext).forEach(key => {
+                    const value = processedContext[key];
+                    if (typeof value === 'string') {
+                        const lowerValue = value.toLowerCase();
+                        if (lowerValue === 'true' || lowerValue === 'false') {
+                            processedContext[key] = lowerValue === 'true';
+                        }
+                    }
+                });
+
+                // 使用 nunjucks 渲染模板 - 这是核心功能
+                let result = tempEnv.renderString(templateText, processedContext);
+
+                // 后处理：处理 SQLAlchemy 占位符 :value
+                result = result.replace(/:(\w+)\b/g, (match, placeholder) => {
+                    const value = processedContext[placeholder];
                     if (value === null || value === undefined) {
                         return 'NULL';
                     }
 
-                    // 处理 SQLAlchemy 占位符
-                    if (String(value).startsWith(':')) {
-                        return String(value);
-                    }
-
-                    // 根据类型格式化
                     if (typeof value === 'string') {
                         return "'" + value.replace(/'/g, "''") + "'";
                     }
@@ -1051,17 +1603,71 @@ export class Jinja2WebviewEditor {
                     if (value instanceof Date) {
                         return "'" + value.toISOString().replace('T', ' ').replace('Z', '') + "'";
                     }
+
                     return String(value);
+                });
+
+                return result;
+            } catch (error) {
+                console.error('nunjucks 渲染失败:', error);
+                console.error('模板:', templateText);
+                console.error('上下文:', context);
+                // 如果 nunjucks 渲染失败，回退到简单渲染
+                return fallbackRenderTemplate(templateText, context);
+            }
+        }
+
+        // 备选的简单渲染方法
+        function fallbackRenderTemplate(templateText, context) {
+            let result = templateText;
+
+            // 处理变量 {{ variable }} (简单替换)
+            result = result.replace(/\{\{\s*([^}|]+)\s*(?:\|[^}]*)?\s*\}\}/g, (match, varPart) => {
+                const varName = varPart.trim();
+                let value = context[varName];
+
+                if (value === null || value === undefined) {
+                    return 'demo_' + varName;
                 }
 
-                // 更复杂的表达式，返回占位符
-                return '<' + trimmedExpr + '>';
+                // 智能类型格式化
+                let shouldQuote = true;
+
+                if (varName.includes('id') || varName.includes('count') ||
+                    varName.includes('limit') || varName.includes('offset') ||
+                    varName.includes('max') || varName.includes('min')) {
+                    shouldQuote = false;
+                    const numValue = parseFloat(value);
+                    if (!isNaN(numValue)) {
+                        value = numValue;
+                    }
+                } else if (varName.startsWith('is_') || varName.startsWith('has_')) {
+                    shouldQuote = false;
+                    value = Boolean(value);
+                } else if (typeof value === 'number' || typeof value === 'boolean') {
+                    shouldQuote = false;
+                }
+
+                if (!shouldQuote) {
+                    if (typeof value === 'boolean') {
+                        return value ? 'TRUE' : 'FALSE';
+                    }
+                    return String(value);
+                } else {
+                    const templateHasQuotes = templateText.includes("'{{ " + varName + " }}'") ||
+                                            templateText.includes('"{{ ' + varName + ' }}"');
+
+                    if (templateHasQuotes) {
+                        return value.replace(/'/g, "''");
+                    } else {
+                        return "'" + value.replace(/'/g, "''") + "'";
+                    }
+                }
             });
 
             // 处理 if 语句
-            result = result.replace(/\\{%\\s*if\\s+([^}]+)\\s*%\\}([\\s\\S]*?)\\{%\\s*endif\\s*%\\}/g, (match, condition, content) => {
+            result = result.replace(/\{%\s*if\s+([^}]+)\s*%\}([\s\S]*?)\{%\s*endif\s*%\}/g, (match, condition, content) => {
                 try {
-                    // 简单的条件评估
                     const conditionResult = evaluateCondition(condition, context);
                     return conditionResult ? content : '';
                 } catch (e) {
@@ -1069,23 +1675,134 @@ export class Jinja2WebviewEditor {
                 }
             });
 
-            // 处理 SQLAlchemy 占位符 :value
-            result = result.replace(/:(\\w+)\\b/g, (match, placeholder) => {
-                const value = context[placeholder];
-                if (value === null || value === undefined) {
-                    return 'NULL';
-                }
+            return result;
+        }
 
-                if (typeof value === 'string') {
-                    return "'" + value.replace(/'/g, "''") + "'";
+        // 解析变量表达式
+        function parseVariableExpression(expr) {
+            const parts = expr.split('|').map(part => part.trim());
+            const variableName = parts[0];
+            const filters = parts.slice(1).map(filterPart => {
+                // 处理带参数的过滤器
+                const filterMatch = filterPart.match(/^([a-zA-Z_][a-zA-Z0-9_]*)(?:\([^)]*\))?/);
+                return filterMatch ? filterMatch[1] : filterPart;
+            });
+            return { variableName, filters };
+        }
+
+        // 应用过滤器
+        function applyFilters(value, filters) {
+            let result = value;
+
+            filters.forEach(filterName => {
+                switch (filterName) {
+                    case 'float':
+                        result = parseFloat(result);
+                        break;
+                    case 'int':
+                        result = parseInt(result, 10);
+                        break;
+                    case 'string':
+                        result = String(result);
+                        break;
+                    case 'bool':
+                        if (typeof result === 'string') {
+                            const lower = result.toLowerCase();
+                            result = lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on';
+                        } else {
+                            result = Boolean(result);
+                        }
+                        break;
+                    case 'abs':
+                        result = Math.abs(Number(result));
+                        break;
+                    case 'round':
+                        result = Math.round(Number(result));
+                        break;
+                    case 'length':
+                        result = String(result).length;
+                        break;
+                    case 'default':
+                        // 简单的默认值处理
+                        if (result === null || result === undefined || result === '') {
+                            result = 'default_value';
+                        }
+                        break;
+                    case 'striptags':
+                        result = String(result).replace(/<[^>]*>/g, '');
+                        break;
+                    case 'truncate':
+                        result = String(result).substring(0, 255) + '...';
+                        break;
+                    case 'unique':
+                        if (Array.isArray(result)) {
+                            result = [...new Set(result)];
+                        }
+                        break;
+                    case 'reverse':
+                        if (Array.isArray(result)) {
+                            result = [...result].reverse();
+                        } else if (typeof result === 'string') {
+                            result = result.split('').reverse().join('');
+                        }
+                        break;
+                    case 'first':
+                        if (Array.isArray(result)) {
+                            result = result[0];
+                        }
+                        break;
+                    case 'last':
+                        if (Array.isArray(result)) {
+                            result = result[result.length - 1];
+                        }
+                        break;
+                    case 'slice':
+                        if (Array.isArray(result)) {
+                            result = result.slice(0, 10);
+                        }
+                        break;
+                    case 'urlencode':
+                        result = encodeURIComponent(String(result));
+                        break;
+                    case 'sql_quote':
+                        if (typeof result === 'string') {
+                            result = "'" + result.replace(/'/g, "''") + "'";
+                        }
+                        break;
+                    case 'sql_identifier':
+                        if (typeof result === 'string') {
+                            result = '"' + result.replace(/"/g, '""') + '"';
+                        }
+                        break;
+                    case 'sql_date':
+                        if (result instanceof Date) {
+                            result = result.toISOString().split('T')[0];
+                        } else {
+                            const date = new Date(result);
+                            result = date.toISOString().split('T')[0];
+                        }
+                        break;
+                    case 'sql_datetime':
+                        if (result instanceof Date) {
+                            result = result.toISOString().replace('T', ' ').replace('Z', '');
+                        } else {
+                            const date = new Date(result);
+                            result = date.toISOString().replace('T', ' ').replace('Z', '');
+                        }
+                        break;
+                    case 'sql_in':
+                        if (Array.isArray(result)) {
+                            result = result.map(item => {
+                                if (typeof item === 'string') {
+                                    return "'" + item.replace(/'/g, "''") + "'";
+                                }
+                                return String(item);
+                            }).join(', ');
+                        } else {
+                            result = "'" + String(result).replace(/'/g, "''") + "'";
+                        }
+                        break;
                 }
-                if (typeof value === 'boolean') {
-                    return value ? 'TRUE' : 'FALSE';
-                }
-                if (value instanceof Date) {
-                    return "'" + value.toISOString().replace('T', ' ').replace('Z', '') + "'";
-                }
-                return String(value);
             });
 
             return result;
@@ -1097,7 +1814,30 @@ export class Jinja2WebviewEditor {
             if (condition.trim()) {
                 const varName = condition.trim();
                 const value = context[varName];
-                return value !== null && value !== undefined && value !== false && value !== 0 && value !== '';
+
+                // 处理布尔值（包括字符串形式的布尔值）
+                if (typeof value === 'boolean') {
+                    return value;
+                }
+
+                // 处理字符串形式的布尔值
+                if (typeof value === 'string') {
+                    const lowerValue = value.toLowerCase();
+                    if (lowerValue === 'false' || lowerValue === '0' || lowerValue === '' || lowerValue === 'null') {
+                        return false;
+                    }
+                    if (lowerValue === 'true' || lowerValue === '1') {
+                        return true;
+                    }
+                }
+
+                // 处理数字0
+                if (typeof value === 'number') {
+                    return value !== 0;
+                }
+
+                // 默认条件检查
+                return value !== null && value !== undefined && value !== 0 && value !== '';
             }
             return false;
         }
@@ -1113,14 +1853,14 @@ export class Jinja2WebviewEditor {
                 const sqlalchemyVars = [];
 
                 // 查找所有 SQLAlchemy 占位符
-                const sqlalchemyRegex = /:(\\w+)\\b/g;
+                const sqlalchemyRegex = /:(\w+)\b/g;
                 let match;
                 while ((match = sqlalchemyRegex.exec(template)) !== null) {
                     sqlalchemyVars.push(match[1]);
                 }
 
-                // 渲染模板
-                const renderedSQL = renderTemplate(processedTemplate, initialValues);
+                // 渲染模板（包含过滤器信息）
+                const renderedSQL = renderTemplate(processedTemplate, initialValues, variables);
 
                 // 应用语法高亮
                 sqlPreview.innerHTML = highlightSQL(renderedSQL);

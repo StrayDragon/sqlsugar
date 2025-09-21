@@ -13,7 +13,6 @@
   ],
   "activationEvents": [
     "onCommand:sqlsugar.editInlineSQL",
-    "onCommand:sqlsugar.copyTerminalSQL",
     "onCommand:sqlsugar.copyJinja2Template"
   ],
   "main": "./dist/extension.js",
@@ -28,20 +27,8 @@
         "title": "SQLSugar: Switch Database Connection"
       },
       {
-        "command": "sqlsugar.copyTerminalSQL",
-        "title": "SQLSugar: Copy SQL (Injected)"
-      },
-      {
-        "command": "sqlsugar.generateTestLogs",
-        "title": "SQLSugar: Generate Test SQLAlchemy Logs"
-      },
-      {
         "command": "sqlsugar.toggleDebugMode",
         "title": "SQLSugar: Toggle Debug Mode"
-      },
-      {
-        "command": "sqlsugar.testClipboard",
-        "title": "SQLSugar: Test Clipboard Content"
       },
       {
         "command": "sqlsugar.copyJinja2Template",
@@ -76,19 +63,8 @@
           "group": "1_modification"
         },
         {
-          "command": "sqlsugar.copyTerminalSQL",
-          "when": "editorHasSelection",
-          "group": "1_modification"
-        },
-        {
           "command": "sqlsugar.copyJinja2TemplateWebview",
           "when": "editorHasSelection",
-          "group": "1_modification"
-        }
-      ],
-      "terminal/context": [
-        {
-          "command": "sqlsugar.copyTerminalSQL",
           "group": "1_modification"
         }
       ],
@@ -97,16 +73,7 @@
           "command": "sqlsugar.switchConnection"
         },
         {
-          "command": "sqlsugar.copyTerminalSQL"
-        },
-        {
-          "command": "sqlsugar.generateTestLogs"
-        },
-        {
           "command": "sqlsugar.toggleDebugMode"
-        },
-        {
-          "command": "sqlsugar.testClipboard"
         },
         {
           "command": "sqlsugar.copyJinja2Template"
@@ -155,11 +122,6 @@
           "type": "boolean",
           "default": false,
           "description": "Show preview of original and injected SQL after copying"
-        },
-        "sqlsugar.enableWlCopyFallback": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable wl-copy fallback for clipboard operations on Wayland"
         },
         "sqlsugar.sqlSyntaxHighlightTheme": {
           "type": "string",

@@ -45,15 +45,10 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 
 **Additional Components**:
 - `src/indentationAnalyzer.ts` - Handles Python multi-line SQL indentation preservation with sophisticated pattern analysis
-- `src/sql-log-parser.ts` - Parses SQLAlchemy logs from terminal output and extracts SQL with parameters using regex patterns
-- `src/terminal-monitor.ts` - Monitors terminal output for SQL log detection using VS Code terminal API
-- `src/clipboard-manager.ts` - Handles clipboard operations with cross-platform fallback support
 - `src/jinja2-processor.ts` - Detects and processes Jinja2 template SQL, generating demo SQL with realistic values
 - `src/test/extension.test.ts` - Comprehensive test suite with 1500+ lines
-- `src/test/sql-log-parser.test.ts` - Tests for SQL log parsing functionality
 - `src/test/indentationAnalyzer.test.ts` - Tests for indentation pattern detection
 - `src/test/connection-switching.test.ts` - Tests for database connection management
-- `src/test/sqlalchemy-generator-patterns.test.ts` - Tests for SQLAlchemy log pattern recognition
 - `src/test/jinja2-processor.test.ts` - Tests for Jinja2 template detection and demo SQL generation
 
 **Key Features**:
@@ -170,35 +165,6 @@ The `sqlsConfigPath` supports variable substitution:
 - `${env:VAR_NAME}` - Resolves to environment variable values
 - Example: `${workspaceFolder}/docker/sqls-config.yml` or `${env:HOME}/.config/sqls/config.yml`
 
-### Terminal SQL Extraction
-
-The extension now supports extracting SQL from terminal output containing SQLAlchemy logs. This feature can:
-
-**Parse various SQLAlchemy log formats**:
-- Standard format: `INFO sqlalchemy.engine.Engine: INSERT INTO users (name) VALUES (?)`
-- Debug format: `DEBUG sqlalchemy.engine.Engine: SELECT * FROM users WHERE id = ?`
-- Generic SQL detection with placeholders
-
-**Handle multiple parameter formats**:
-- Tuple format: `('Alice', 25, True)`
-- Dictionary format: `{'user_id': 123, 'name': 'Bob'}`
-- List format: `[1, 2, 3]`
-
-**Smart parameter injection**:
-- Automatic type conversion (strings, numbers, booleans, null values)
-- Proper SQL literal formatting with escaping
-- Support for complex nested structures
-
-**Usage**:
-1. Select SQLAlchemy log output in the terminal
-2. Run the "SQLSugar: Copy SQL (Injected)" command
-3. The extension will extract SQL, inject parameters, and copy to clipboard
-
-**Supported platforms**:
-- Linux: xclip, wl-copy, xsel
-- macOS: pbcopy
-- Windows: clip
-- VS Code native clipboard API
 
 ### File Structure
 
@@ -206,13 +172,9 @@ The extension now supports extracting SQL from terminal output containing SQLAlc
 src/
 ├── extension.ts          # Main extension logic
 ├── indentationAnalyzer.ts # Python indentation handling
-├── sql-log-parser.ts     # SQLAlchemy log parsing
-├── terminal-monitor.ts   # Terminal output monitoring
-├── clipboard-manager.ts  # Clipboard operations
 ├── jinja2-processor.ts   # Jinja2 template detection and demo SQL generation
 └── test/
     ├── extension.test.ts    # Extension tests
-    ├── sql-log-parser.test.ts # SQL log parser tests
     └── jinja2-processor.test.ts # Jinja2 template tests
 
 dist/                    # Built extension (generated)
@@ -222,7 +184,6 @@ docs/                    # Documentation and planning
 
 docker/                  # Docker setup for testing (sqls config examples)
 debug/                   # Debug tools and test data
-├── generate_sqlalchemy_logs.py # SQLAlchemy log generator
 └── test-jinja2-simple.js    # Manual Jinja2 processor test
 examples/                # Example usage files
 ├── jinja2-example.sql    # Jinja2 template SQL example
@@ -247,15 +208,6 @@ examples/                # Example usage files
 - `applyIndentation()` - Preserves Python multi-line string indentation
 - `extractIndentInfo()` - Analyzes original indentation patterns
 
-### Terminal SQL Extraction Functions
-- `SQLLogParser.processSelectedText()` - Main entry point for parsing terminal text
-- `SQLLogParser.parseTerminalText()` - Parses multi-line terminal output
-- `SQLLogParser.injectParameters()` - Injects parameters into SQL with proper formatting
-- `SQLLogParser.parseTupleParameters()` - Parses tuple-style parameters like `(1, 'Alice', True)`
-- `SQLLogParser.parseDictParameters()` - Parses dictionary parameters like `{'name': 'Alice'}`
-- `SQLLogParser.parseSingleValue()` - Converts string values to appropriate JavaScript types
-- `TerminalMonitor.getSelectedText()` - Gets selected text from terminal or clipboard
-- `ClipboardManager.copyText()` - Copies text with platform-specific fallbacks
 
 ### Jinja2 Template Processing Functions
 - `Jinja2TemplateProcessor.analyzeTemplate()` - Main entry point for analyzing Jinja2 templates
@@ -276,13 +228,7 @@ examples/                # Example usage files
 - Test quote preservation and upgrading behavior
 - Test indentation preservation for Python multi-line strings
 - Test database connection switching functionality
-- Test terminal SQL extraction with various parameter formats
-- Use the `sqlsugar.generateTestLogs` command to generate comprehensive SQLAlchemy test logs
-- Test parameter injection with different data types (strings, numbers, booleans, nulls, dates)
-- Verify clipboard operations work across different platforms
-- Test edge cases like malformed parameters, escaped characters, and multi-line parameters
 - Use `sqlsugar.toggleDebugMode` to enable debug logging for troubleshooting
-- Use `sqlsugar.testClipboard` to test clipboard functionality across platforms
 
 ### Jinja2 Template Testing
 - Test Jinja2 template detection with various syntax patterns (variables, conditionals, loops)
@@ -297,8 +243,6 @@ examples/                # Example usage files
 The extension includes several developer-facing commands:
 - `sqlsugar._devGetMetrics` - Shows resource usage metrics (active disposables, temp files, command invocations)
 - `sqlsugar.toggleDebugMode` - Enables/disables debug logging for troubleshooting
-- `sqlsugar.generateTestLogs` - Generates comprehensive SQLAlchemy test logs
-- `sqlsugar.testClipboard` - Tests clipboard functionality and shows platform-specific tools
 - `sqlsugar.copyJinja2Template` - Processes Jinja2 template SQL and generates demo SQL
 
 ### SQL Integration

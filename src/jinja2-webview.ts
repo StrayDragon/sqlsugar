@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { Jinja2Variable } from './jinja2-nunjucks-processor';
 
 /**
@@ -46,6 +47,19 @@ export class Jinja2WebviewEditor {
         });
     }
 
+    /**
+     * 获取扩展上下文路径
+     */
+    private getContextPath(): string {
+        // 在开发环境和生产环境中获取不同的路径
+        const isDevelopment = process.env.VSCODE_DEBUG_MODE === 'true';
+        if (isDevelopment) {
+            return __dirname; // 开发环境：指向源码目录
+        } else {
+            return path.join(__dirname, '..'); // 生产环境：指向打包后的目录
+        }
+    }
+
     private show(template: string, variables: Jinja2Variable[], title: string): void {
         // 创建或显示 webview 面板
         if (this.panel) {
@@ -61,7 +75,9 @@ export class Jinja2WebviewEditor {
             {
                 enableScripts: true,
                 retainContextWhenHidden: true,
-                localResourceRoots: [],
+                localResourceRoots: [
+                    vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources')
+                ],
                 enableCommandUris: false
             }
         );
@@ -136,6 +152,9 @@ export class Jinja2WebviewEditor {
         const theme = vscode.workspace.getConfiguration('sqlsugar').get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
         const fontSize = vscode.workspace.getConfiguration('sqlsugar').get<number>('sqlSyntaxHighlightFontSize', 14);
 
+        // 获取本地资源URI
+        const localNunjucksUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources', 'nunjucks.min.js'));
+
         // 构建变量初始值 - 使用安全的方式创建对象
         const initialValuesObj: Record<string, any> = {};
         variables.forEach(v => {
@@ -157,7 +176,7 @@ export class Jinja2WebviewEditor {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' https://cdn.jsdelivr.net; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' ${localNunjucksUri} https://cdn.jsdelivr.net; style-src ${webview.cspSource} 'unsafe-inline';">
     <title>Jinja2 Template Editor - ${templatePreview}</title>
     <style>
         :root {
@@ -584,8 +603,8 @@ export class Jinja2WebviewEditor {
         </div>
     </div>
 
-    <!-- 引入 nunjucks 库 -->
-    <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js" nonce="${nonce}"></script>
+    <!-- 引入 nunjucks 库 - 优先使用本地资源，fallback到CDN -->
+    <script src="${localNunjucksUri}" nonce="${nonce}" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js'"></script>
 
     <script nonce="${nonce}">
         // 从 VS Code 传递的数据

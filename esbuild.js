@@ -6,7 +6,7 @@ const production = process.argv.includes('--production');
 const watch = process.argv.includes('--watch');
 
 /**
- * 复制artifacts和debug目录到dist目录
+ * 复制artifacts、debug和resources目录到dist目录
  */
 function copyArtifactsAndDebugDirectories() {
     // 复制artifacts目录
@@ -38,6 +38,19 @@ function copyArtifactsAndDebugDirectories() {
             fs.copyFileSync(srcPath, destPath);
             console.log(`Copied: ${srcPath} -> ${destPath}`);
         }
+    }
+
+    // 复制resources目录（包含静态资源）
+    const resourcesDir = path.join(__dirname, 'resources');
+    const distResourcesDir = path.join(__dirname, 'dist', 'resources');
+
+    if (fs.existsSync(resourcesDir)) {
+        if (!fs.existsSync(distResourcesDir)) {
+            fs.mkdirSync(distResourcesDir, { recursive: true });
+        }
+
+        copyDirectoryRecursive(resourcesDir, distResourcesDir);
+        console.log(`Copied resources directory: ${resourcesDir} -> ${distResourcesDir}`);
     }
 }
 

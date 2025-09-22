@@ -1273,7 +1273,8 @@ def format_query(table_name):
 
 		// Verify f-string prefix and indentation are preserved
 		const finalContent = (await vscode.workspace.openTextDocument(testFilePath)).getText();
-		console.log('Final content (f-string indentation):', JSON.stringify(finalContent, null, 2));
+		console.log('Final content (f-string indentation):', finalContent);
+		console.log('Looking for AND pattern with extra indentation:', finalContent.includes('                  AND u.age >= :min_age'));
 
 		// Check that f-string prefix and indentation are preserved
 		assert.ok(finalContent.includes('f"""'), 'f-string prefix should be preserved');
@@ -1378,6 +1379,20 @@ class UserRepository:
 		assert.ok(finalContent.includes('                       p.bio,'), 'Profile fields should preserve extra indentation');
 		assert.ok(finalContent.includes('                FROM users u'), 'FROM should preserve base indentation');
 		assert.ok(finalContent.includes('                WHERE u.active = TRUE'), 'WHERE should preserve base indentation');
+
+		// Debug: Log what we actually got
+		console.log('DEBUG finalContent around AND condition:');
+		const andLineMatch = finalContent.match(/(\s+AND u\.age >= :min_age)/);
+		if (andLineMatch) {
+			console.log('Found AND line with indentation:', JSON.stringify(andLineMatch[0]));
+			console.log('Indentation length:', andLineMatch[1].length);
+			console.log('Expected 18 spaces, got:', andLineMatch[1].length);
+		} else {
+			console.log('AND line not found, looking for any AND lines:');
+			const allAndLines = finalContent.match(/^.*AND.*$/gm);
+			console.log('All AND lines:', allAndLines);
+		}
+
 		assert.ok(finalContent.includes('                  AND u.age >= :min_age'), 'AND condition should preserve extra indentation');
 		assert.ok(finalContent.includes('                  AND u.created_at >= \'2024-01-01\''), 'New AND should preserve extra indentation');
 		assert.ok(finalContent.includes('                ORDER BY u.created_at DESC'), 'ORDER BY should preserve base indentation');

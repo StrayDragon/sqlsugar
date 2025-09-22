@@ -1,4 +1,3 @@
--- Example Jinja2 template SQL
 SELECT * FROM users
 WHERE name = '{{ user_name }}'
   AND age > {{ user_age }}

@@ -37,6 +37,9 @@ test-*.js
 .claude/**
 .github/**
 
+# Resources directory (source files, will be copied to dist)
+resources/**
+
 # Standalone projects (contain their own node_modules)
 standalone-jinja-editor/**
 test-*.js

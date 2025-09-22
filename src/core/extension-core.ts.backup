@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { LanguageHandler, LanguageType, QuoteType } from './language-handler';
 import { SQLsClientManager, DatabaseConnection } from './sqls-client-manager';
 import { CommandManager } from './command-manager';
+import { IndentationPatternAnalyzer } from '../indentationAnalyzer';
 import { PreciseIndentSyncManager } from './precise-indent-sync';
 
 /**
@@ -40,6 +41,7 @@ export class ExtensionCore {
     private languageHandler: LanguageHandler;
     private sqlsClientManager: SQLsClientManager;
     private commandManager: CommandManager;
+    private indentationAnalyzer: IndentationPatternAnalyzer;
     private preciseIndentSync: PreciseIndentSyncManager;
 
     // 临时文件管理
@@ -51,6 +53,7 @@ export class ExtensionCore {
         this.languageHandler = new LanguageHandler();
         this.sqlsClientManager = new SQLsClientManager(context);
         this.commandManager = new CommandManager(context);
+        this.indentationAnalyzer = new IndentationPatternAnalyzer();
         this.preciseIndentSync = new PreciseIndentSyncManager();
 
         this.devMetrics = {
@@ -143,12 +146,15 @@ export class ExtensionCore {
         originalSelection: vscode.Selection,
         originalQuotedSQL: string
     ): Promise<vscode.Uri> {
+        console.log('createTempSQLFile called with:', originalQuotedSQL);
         const language = this.languageHandler.detectLanguage(originalEditor.document);
         const quoteType = this.languageHandler.detectQuoteType(originalQuotedSQL);
         const sqlContent = this.languageHandler.stripQuotes(originalQuotedSQL);
+        console.log('Stripped content:', sqlContent);
 
         // 转换ORM占位符为sqls兼容格式
         const { convertedSQL, hasPlaceholders } = this.convertPlaceholdersToTemp(sqlContent);
+        console.log('Converted SQL:', convertedSQL, 'Has placeholders:', hasPlaceholders);
 
         // 创建临时文件
         let workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
@@ -278,19 +284,12 @@ export class ExtensionCore {
                 );
             }
 
-            // 对于markdown和generic语言，使用完全不同的同步策略
-            let wrappedContent: string;
-            if (tempFileInfo.language === 'markdown' || tempFileInfo.language === 'generic') {
-                // 直接使用原始的引号结构，不进行任何处理
-                wrappedContent = this.languageHandler.reconstructMarkdownContent(tempFileInfo.originalQuotedSQL, finalSQL);
-            } else {
-                // 获取原始的引号类型和前缀
-                const originalQuote = this.languageHandler.detectQuoteType(tempFileInfo.originalQuotedSQL);
-                const prefix = this.languageHandler.extractPrefix(tempFileInfo.originalQuotedSQL);
+            // 获取原始的引号类型和前缀
+            const originalQuote = this.languageHandler.detectQuoteType(tempFileInfo.originalQuotedSQL);
+            const prefix = this.languageHandler.extractPrefix(tempFileInfo.originalQuotedSQL);
 
-                // 智能包装内容（根据内容升级引号类型）
-                wrappedContent = this.languageHandler.wrapLikeIntelligent(tempFileInfo.originalQuotedSQL, finalSQL, tempFileInfo.language);
-            }
+            // 智能包装内容（根据内容升级引号类型）
+            const wrappedContent = this.languageHandler.wrapLikeIntelligent(tempFileInfo.originalQuotedSQL, finalSQL, tempFileInfo.language);
 
             // 验证选择范围仍然有效
             const currentDocument = tempFileInfo.originalEditor.document;
@@ -403,16 +402,285 @@ export class ExtensionCore {
         return sql.replace(tempPlaceholderRegex, ':$1');
     }
 
-    // 注释：旧的复杂缩进分析代码已被精确缩进同步器取代（2025-09-22）
-    // 删除了约280行复杂的缩进模式分析代码，包括：
-    // - applyIndentationPattern()
-    // - classifyLineType()
-    // - isContinuationLine()
-    // - getHierarchicalIndent()
-    // - getContinuationIndent()
-    // - getConsistentIndent()
-    // 相关功能已迁移到 src/core/precise-indent-sync.ts
-    // 这显著简化了代码并提高了缩进保持的准确性
+    /**
+     * 应用缩进模式到SQL内容
+     */
+    private applyIndentationPattern(sql: string, pattern: any): string {
+        console.log('DEBUG applyIndentationPattern:', {
+            patternType: pattern.type,
+            baseIndent: JSON.stringify(pattern.baseIndent),
+            lineTypesCount: pattern.lineTypes?.size || 0,
+            sqlLines: sql.split('\n').length
+        });
+
+        const lines = sql.split('\n');
+        const result: string[] = [];
+
+        lines.forEach((line, index) => {
+            const trimmed = line.trim();
+            if (!trimmed) {
+                // 保留空行但移除缩进
+                result.push('');
+                return;
+            }
+
+            // 根据行类型确定缩进
+            const lineType = this.classifyLineType(trimmed, lines, index);
+            console.log('DEBUG applyIndentationPattern line:', {
+                index,
+                trimmed,
+                lineType,
+                isAND: trimmed.startsWith('AND '),
+                isOR: trimmed.startsWith('OR ')
+            });
+            const indent = this.getIndentationForLine(lineType, pattern, lines, index);
+
+            result.push(indent + trimmed);
+        });
+
+        return result.join('\n');
+    }
+
+    /**
+     * 分类行类型
+     */
+    private classifyLineType(trimmedLine: string, lines: string[], index: number): string {
+        const firstWord = trimmedLine.split(/\s+/)[0].toUpperCase();
+        const sqlKeywords = new Set([
+            'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
+            'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'UNION', 'INSERT', 'UPDATE', 'DELETE',
+            'WITH'
+        ]);
+
+        if (sqlKeywords.has(firstWord)) {
+            return 'keyword';
+        } else if (trimmedLine.startsWith('--')) {
+            return 'comment';
+        } else if (this.isContinuationLine(lines, index)) {
+            return 'continuation';
+        } else {
+            return 'content';
+        }
+    }
+
+    /**
+     * 检查是否为延续行
+     */
+    private isContinuationLine(lines: string[], index: number): boolean {
+        if (index === 0) {
+            return false;
+        }
+
+        const prevLine = lines[index - 1].trim();
+        const currentLine = lines[index].trim();
+
+        return prevLine.endsWith(',') ||
+               prevLine.endsWith('+') ||
+               prevLine.endsWith('||') ||
+               (prevLine.length > 0 && !prevLine.endsWith(';') &&
+                currentLine.length > 0 && !this.isKeywordLine(currentLine));
+    }
+
+    /**
+     * 检查是否为关键字行
+     */
+    private isKeywordLine(line: string): boolean {
+        const firstWord = line.split(/\s+/)[0].toUpperCase();
+        const sqlKeywords = new Set([
+            'SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER',
+            'GROUP', 'ORDER', 'HAVING', 'LIMIT', 'UNION', 'INSERT', 'UPDATE', 'DELETE',
+            'WITH'
+        ]);
+        return sqlKeywords.has(firstWord);
+    }
+
+    /**
+     * 获取行的缩进
+     */
+    private getIndentationForLine(lineType: string, pattern: any, lines: string[], index: number): string {
+        // 基于原始模式类型确定缩进
+        switch (pattern.type) {
+            case 'uniform':
+                return pattern.baseIndent;
+
+            case 'hierarchical':
+                return this.getHierarchicalIndent(lineType, pattern, lines, index);
+
+            case 'keyword-aligned':
+                return this.getKeywordAlignedIndent(lineType, pattern);
+
+            case 'continuation':
+                return this.getContinuationIndent(lineType, pattern, lines, index);
+
+            case 'mixed':
+            case 'none':
+            default:
+                // 对于混合或无模式，尝试保持原始缩进
+                return this.getConsistentIndent(lineType, pattern, lines, index);
+        }
+    }
+
+    /**
+     * 获取分层缩进
+     */
+    private getHierarchicalIndent(lineType: string, pattern: any, lines: string[], index: number): string {
+        switch (lineType) {
+            case 'WHERE':
+                return pattern.baseIndent + '  ';
+            case 'AND':
+            case 'OR':
+                // First check keyword alignments for existing AND/OR patterns
+                const keywordAlignments = pattern.keywordAlignments as Map<string, number> || new Map();
+                const whereIndent = keywordAlignments.get('WHERE') || pattern.baseIndent.length;
+                const andIndent = keywordAlignments.get('AND');
+
+                console.log('DEBUG getHierarchicalIndent for AND/OR:', {
+                    lineType,
+                    whereIndent,
+                    andIndent,
+                    baseIndentLength: pattern.baseIndent.length,
+                    willUseKeywordAlignments: andIndent !== undefined && andIndent > whereIndent
+                });
+
+                if (andIndent !== undefined && andIndent > whereIndent) {
+                    console.log('DEBUG using keyword alignments for AND/OR, returning', andIndent, 'spaces');
+                    return ' '.repeat(andIndent);
+                }
+
+                // Also check for AND/OR patterns in the line content
+                const lineTypes = pattern.lineTypes as Map<number, string> || new Map();
+                const lineIndents = pattern.lineIndents as Map<number, string> || new Map();
+
+                for (const [i, type] of lineTypes.entries()) {
+                    const line = lines[i] || '';
+                    const trimmed = line.trim();
+
+                    // Check for AND/OR patterns that might have extra indentation
+                    if ((type === 'content' || type === 'keyword' || type === 'continuation') &&
+                        (trimmed.startsWith('AND ') || trimmed.startsWith('OR '))) {
+                        const indent = lineIndents.get(i);
+                        if (indent && indent.length > pattern.baseIndent.length) {
+                            return indent;
+                        }
+                    }
+                }
+
+                // Fallback: use 2 extra spaces (common pattern)
+                return pattern.baseIndent + '  ';
+            case 'JOIN':
+            case 'LEFT':
+            case 'RIGHT':
+            case 'INNER':
+            case 'OUTER':
+                return pattern.baseIndent;
+            case 'SELECT':
+            case 'FROM':
+            case 'GROUP BY':
+            case 'ORDER BY':
+            case 'HAVING':
+                return pattern.baseIndent;
+            case 'continuation':
+                return pattern.levels[1] || pattern.baseIndent + '    ';
+            default:
+                return pattern.baseIndent;
+        }
+    }
+
+    /**
+     * 获取关键字对齐缩进
+     */
+    private getKeywordAlignedIndent(lineType: string, pattern: any): string {
+        const keywordAlignments = pattern.keywordAlignments;
+
+        switch (lineType) {
+            case 'WHERE':
+                return ' '.repeat(keywordAlignments.get('WHERE') || pattern.baseIndent.length + 2);
+            case 'AND':
+            case 'OR':
+                return ' '.repeat((keywordAlignments.get('WHERE') || pattern.baseIndent.length) + 2);
+            case 'FROM':
+                return ' '.repeat(keywordAlignments.get('FROM') || pattern.baseIndent.length);
+            case 'JOIN':
+                return ' '.repeat(keywordAlignments.get('FROM') || pattern.baseIndent.length);
+            default:
+                return pattern.baseIndent;
+        }
+    }
+
+    /**
+     * 获取延续缩进
+     */
+    private getContinuationIndent(lineType: string, pattern: any, lines: string[] = [], index: number = 0): string {
+        if (lineType === 'continuation') {
+            return ' '.repeat(pattern.continuationIndent);
+        }
+
+        // Handle AND/OR conditions in continuation patterns
+        if (lineType === 'AND' || lineType === 'OR') {
+            // First check keyword alignments for existing AND/OR patterns
+            const keywordAlignments = pattern.keywordAlignments as Map<string, number> || new Map();
+            const whereIndent = keywordAlignments.get('WHERE') || pattern.baseIndent.length;
+            const andIndent = keywordAlignments.get('AND');
+
+            console.log('DEBUG getContinuationIndent for AND/OR:', {
+                lineType,
+                whereIndent,
+                andIndent,
+                baseIndentLength: pattern.baseIndent.length,
+                willUseKeywordAlignments: andIndent !== undefined && andIndent > whereIndent
+            });
+
+            if (andIndent !== undefined && andIndent > whereIndent) {
+                console.log('DEBUG using keyword alignments for AND/OR, returning', andIndent, 'spaces');
+                return ' '.repeat(andIndent);
+            }
+
+            // Also check for AND/OR patterns in the line content
+            const lineTypes = pattern.lineTypes as Map<number, string> || new Map();
+            const lineIndents = pattern.lineIndents as Map<number, string> || new Map();
+
+            for (const [i, type] of lineTypes.entries()) {
+                const line = lines[i] || '';
+                const trimmed = line.trim();
+
+                // Check for AND/OR patterns that might have extra indentation
+                if ((type === 'content' || type === 'keyword' || type === 'continuation') &&
+                    (trimmed.startsWith('AND ') || trimmed.startsWith('OR '))) {
+                    const indent = lineIndents.get(i);
+                    if (indent && indent.length > pattern.baseIndent.length) {
+                        console.log('DEBUG found existing AND/OR pattern in line content, returning', JSON.stringify(indent));
+                        return indent;
+                    }
+                }
+            }
+
+            // Fallback: use 2 extra spaces (common pattern)
+            console.log('DEBUG using fallback for AND/OR, returning baseIndent + 2 spaces');
+            return pattern.baseIndent + '  ';
+        }
+
+        return pattern.baseIndent;
+    }
+
+    /**
+     * 获取一致的缩进
+     */
+    private getConsistentIndent(lineType: string, pattern: any, lines: string[], index: number): string {
+        // 尝试找到最一致的缩进模式
+        if (lineType === 'continuation') {
+            // 对于延续行，查找最长的缩进
+            const maxIndent = Math.max(...pattern.levels.map((level: string) => level.length));
+            return ' '.repeat(maxIndent);
+        }
+
+        // 对于关键字行，使用基础缩进
+        if (lineType === 'keyword') {
+            return pattern.baseIndent;
+        }
+
+        // 对于其他行，使用第二级缩进（如果有的话）
+        return pattern.levels[1] || pattern.baseIndent + '    ';
+    }
 
     /**
      * 清理临时文件

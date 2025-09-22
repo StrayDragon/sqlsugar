@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 /**
  * 支持的编程语言类型
  */
-export type LanguageType = 'python' | 'javascript' | 'typescript' | 'generic';
+export type LanguageType = 'python' | 'javascript' | 'typescript' | 'markdown' | 'generic';
 
 /**
  * 引号类型
@@ -102,6 +102,34 @@ export class LanguageHandler {
                     condition: (content) => content.includes("'")
                 }
             ]
+        },
+        {
+            id: 'markdown',
+            fileExtensions: ['.md'],
+            languageIds: ['markdown'],
+            quoteUpgradeRules: [
+                // Markdown通常包含代码示例，应该保持原有的引号类型
+                {
+                    from: 'triple-single',
+                    to: 'triple-single',
+                    condition: (content) => content.includes('\n')
+                },
+                {
+                    from: 'triple-double',
+                    to: 'triple-double',
+                    condition: (content) => content.includes('\n')
+                },
+                {
+                    from: 'single',
+                    to: 'single',
+                    condition: (content) => true // 保持单引号
+                },
+                {
+                    from: 'double',
+                    to: 'double',
+                    condition: (content) => true // 保持双引号
+                }
+            ]
         }
     ];
 
@@ -176,6 +204,8 @@ export class LanguageHandler {
             case 'javascript':
             case 'typescript':
                 return this.selectJavaScriptQuote(originalQuote, content);
+            case 'markdown':
+                return this.selectMarkdownQuote(originalQuote, content);
             default:
                 return this.selectGenericQuote(originalQuote, content);
         }
@@ -228,20 +258,20 @@ export class LanguageHandler {
     }
 
     /**
-     * 通用语言引号选择
+     * Markdown语言引号选择 - 保持原始引号结构
+     */
+    private selectMarkdownQuote(originalQuote: QuoteType, content: string): QuoteType {
+        // 对于markdown文件，严格保持原始引号类型
+        // 这样可以避免重复包装引号的问题
+        return originalQuote;
+    }
+
+    /**
+     * 通用语言引号选择 - 不进行任何引号处理，保持原始内容
      */
     private selectGenericQuote(originalQuote: QuoteType, content: string): QuoteType {
-        // 简单策略：根据内容选择引号类型
-        const hasSingleQuote = content.includes("'");
-        const hasDoubleQuote = content.includes('"');
-
-        if (hasSingleQuote && !hasDoubleQuote) {
-            return 'double';
-        } else if (hasDoubleQuote && !hasSingleQuote) {
-            return 'single';
-        } else {
-            return 'double'; // 默认双引号
-        }
+        // 对于通用语言，完全保持原始引号类型，不做任何自动转换
+        return originalQuote;
     }
 
     /**
@@ -343,11 +373,48 @@ export class LanguageHandler {
         content: string,
         language: LanguageType
     ): string {
+        // 对于markdown和generic语言，重新构建原始引号结构
+        if (language === 'markdown' || language === 'generic') {
+            return this.reconstructOriginalQuoteStructure(original, content);
+        }
+
         const originalQuote = this.detectQuoteType(original);
         const prefix = this.extractPrefix(original);
         const selectedQuote = this.selectQuoteType(language, originalQuote, content);
 
         return this.wrapWithQuoteType(content, selectedQuote, prefix);
+    }
+
+    /**
+     * 重新构建原始引号结构（用于非markdown文件）
+     */
+    private reconstructOriginalQuoteStructure(original: string, content: string): string {
+        const prefix = this.extractPrefix(original);
+        const trimmedOriginal = original.trim();
+
+        // 检查三引号
+        if (trimmedOriginal.startsWith("'''") && trimmedOriginal.endsWith("'''")) {
+            return "'''" + content + "'''";
+        } else if (trimmedOriginal.startsWith('"""') && trimmedOriginal.endsWith('"""')) {
+            return '"""' + content + '"""';
+        } else if (trimmedOriginal.startsWith('`') && trimmedOriginal.endsWith('`')) {
+            return '`' + content + '`';
+        } else if (trimmedOriginal.startsWith('"') && trimmedOriginal.endsWith('"')) {
+            return '"' + content + '"';
+        } else if (trimmedOriginal.startsWith("'") && trimmedOriginal.endsWith("'")) {
+            return "'" + content + "'";
+        } else {
+            // 如果无法识别引号模式，直接返回内容
+            return content;
+        }
+    }
+
+    /**
+     * 重新构建Markdown内容 - 直接返回原内容
+     */
+    public reconstructMarkdownContent(original: string, content: string): string {
+        // 直接返回内容，不做任何引号处理
+        return content;
     }
 
     /**

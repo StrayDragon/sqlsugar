@@ -211,7 +211,7 @@
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "node run-test.js"
+    "test": "node out/test/runTest.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",

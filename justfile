@@ -44,9 +44,11 @@ unit-test:
 integration-test: compile-tests build
     @echo "🧪 Running integration tests..."
     # Use xvfb-run if available (for CI), otherwise run directly (for local dev)
-    @if command -v xvfb-run >/dev/null 2>&1; then \
+    @if test -n "${GITHUB_ACTIONS:-}" && command -v xvfb-run >/dev/null 2>&1; then \
+        echo "🔧 Running with xvfb-run (GitHub Actions)"; \
         DISPLAY=':99.0' xvfb-run -a pnpm run test; \
     else \
+        echo "🔧 Running directly (local development)"; \
         pnpm run test; \
     fi
     # Clean up temporary files

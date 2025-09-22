@@ -37,19 +37,32 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 ### Core Components
 
 **Extension Entry Point** (`src/extension.ts`):
-- Main extension logic with ~940 lines of code
-- Handles the `editInlineSQL` command
-- Manages sqls Language Server Protocol client
-- Contains intelligent quote handling for different programming languages
-- Includes database connection switching functionality
+- Lightweight entry point that delegates to `ExtensionCore`
+- Handles extension activation/deactivation lifecycle
+- Creates and manages the singleton `ExtensionCore` instance
 
-**Additional Components**:
-- `src/indentationAnalyzer.ts` - Handles Python multi-line SQL indentation preservation with sophisticated pattern analysis
-- `src/jinja2-processor.ts` - Detects and processes Jinja2 template SQL, generating demo SQL with realistic values
-- `src/test/extension.test.ts` - Comprehensive test suite with 1500+ lines
-- `src/test/indentationAnalyzer.test.ts` - Tests for indentation pattern detection
-- `src/test/connection-switching.test.ts` - Tests for database connection management
-- `src/test/jinja2-processor.test.ts` - Tests for Jinja2 template detection and demo SQL generation
+**Core Architecture** (`src/core/`):
+- `ExtensionCore` - Main coordinator managing the entire extension lifecycle
+- `CommandManager` - Handles all command registrations and executions
+- `LanguageHandler` - Manages language detection and quote handling
+- `SQLsClientManager` - Manages sqls Language Server Protocol client
+- `PreciseIndentSyncManager` - Handles precise indentation synchronization
+
+**Jinja2 Processing**:
+- `Jinja2NunjucksHandler` - Main Jinja2 template processing coordinator
+- `Jinja2WebviewEditor` - Visual Jinja2 editor with WebView interface
+- `Jinja2NunjucksProcessor` - Core Jinja2 template processing logic
+- `Jinja2ConditionProcessor` - Handles complex conditional logic in templates
+- `Jinja2VariableInput` - Manages variable input and type inference
+
+**Specialized Processors**:
+- `SQLAlchemyPlaceholderProcessor` - Handles SQLAlchemy parameter injection
+- `IndentationAnalyzer` - Python multi-line SQL indentation preservation
+
+**Test Suite** (`src/test/`):
+- Comprehensive test coverage with multiple test files
+- Integration tests for all major components
+- Specialized tests for Jinja2 processing, WebView functionality, and edge cases
 
 **Key Features**:
 - **Multi-language SQL string detection**: Supports Python, JavaScript, TypeScript
@@ -170,12 +183,27 @@ The `sqlsConfigPath` supports variable substitution:
 
 ```
 src/
-├── extension.ts          # Main extension logic
-├── indentationAnalyzer.ts # Python indentation handling
-├── jinja2-processor.ts   # Jinja2 template detection and demo SQL generation
+├── extension.ts                  # Entry point and lifecycle management
+├── core/                        # Core architecture components
+│   ├── extension-core.ts        # Main extension coordinator
+│   ├── command-manager.ts       # Command registration and handling
+│   ├── language-handler.ts      # Language detection and quote handling
+│   ├── sqls-client-manager.ts   # sqls LSP client management
+│   └── precise-indent-sync.ts   # Indentation synchronization
+├── jinja2-*.ts                  # Jinja2 template processing modules
+│   ├── jinja2-nunjucks-handler.ts    # Main Jinja2 coordinator
+│   ├── jinja2-webview.ts             # Visual editor interface
+│   ├── jinja2-nunjucks-processor.ts  # Core template processing
+│   ├── jinja2-condition-processor.ts # Conditional logic handling
+│   └── jinja2-variable-input.ts      # Variable extraction and typing
+├── sqlalchemy-placeholder-processor.ts  # SQLAlchemy parameter handling
+└── indentationAnalyzer.ts       # Python indentation analysis
 └── test/
-    ├── extension.test.ts    # Extension tests
-    └── jinja2-processor.test.ts # Jinja2 template tests
+    ├── extension.test.ts            # Core extension tests
+    ├── connection-switching.test.ts  # Database connection tests
+    ├── indentationAnalyzer.test.ts   # Indentation handling tests
+    ├── jinja2-*.test.ts              # Comprehensive Jinja2 tests
+    └── webview-logic.test.ts         # WebView interface tests
 
 dist/                    # Built extension (generated)
 docs/                    # Documentation and planning
@@ -184,37 +212,57 @@ docs/                    # Documentation and planning
 
 docker/                  # Docker setup for testing (sqls config examples)
 debug/                   # Debug tools and test data
-└── test-jinja2-simple.js    # Manual Jinja2 processor test
+└── test-*.js            # Manual testing utilities
 examples/                # Example usage files
 ├── jinja2-example.sql    # Jinja2 template SQL example
 └── python-example.py     # Python example with Jinja2 templates
+scripts/                 # Python scripts for advanced processing
+└── jinja2-simple-processor.py  # Python Jinja2 processor
 ```
 
 ## Development Guidelines
 
 ### Working with the Extension
-- The main command is `sqlsugar.editInlineSQL` which handles the core workflow
-- Test environment is detected via `process.env.VSCODE_TEST` for metrics tracking
-- Language detection uses VS Code's language ID first, then falls back to file extensions
-- Quote handling is complex and language-specific - test changes carefully
-- Database connections are loaded from sqls configuration files
+- **Architecture**: Uses singleton pattern with `ExtensionCore` as the main coordinator
+- **Main Workflow**: `sqlsugar.editInlineSQL` command creates temporary SQL files with LSP support
+- **Test Environment**: Detected via `process.env.VSCODE_TEST` for metrics tracking
+- **Language Detection**: Uses VS Code's language ID first, then falls back to file extensions
+- **Quote Handling**: Complex and language-specific - test changes carefully
+- **Database Connections**: Loaded from sqls YAML configuration files with status bar integration
+- **Component Communication**: Core components communicate through well-defined interfaces
+- **Resource Management**: All disposables are properly managed to prevent memory leaks
 
 ### Key Functions to Understand
-- `stripQuotes()` - Removes quotes from SQL strings while preserving prefixes
-- `wrapLikeIntelligent()` - Smart quote wrapping based on language and content
-- `convertPlaceholdersToTemp()` - Converts ORM placeholders for sqls compatibility
-- `detectLanguage()` - Determines programming language for quote handling
-- `selectQuoteType()` - Chooses appropriate quote type based on content
-- `applyIndentation()` - Preserves Python multi-line string indentation
-- `extractIndentInfo()` - Analyzes original indentation patterns
 
+**Core Extension Functions**:
+- `ExtensionCore.getInstance()` - Singleton pattern for accessing the extension core
+- `ExtensionCore.createTempSQLFile()` - Creates temporary SQL files for editing
+- `ExtensionCore.syncTempFileChanges()` - Syncs changes back to original source
+- `CommandManager.registerCommands()` - Registers all extension commands
 
-### Jinja2 Template Processing Functions
-- `Jinja2TemplateProcessor.analyzeTemplate()` - Main entry point for analyzing Jinja2 templates
-- `Jinja2TemplateProcessor.detectJinja2Syntax()` - Detects Jinja2 syntax in SQL templates
-- `Jinja2TemplateProcessor.extractVariables()` - Extracts variables from templates with type inference
-- `Jinja2TemplateProcessor.generateDemoSQL()` - Generates demo SQL with realistic values
-- `Jinja2TemplateProcessor.handleCopyJinja2Template()` - Command handler for template processing
+**Language and Quote Handling**:
+- `LanguageHandler.looksLikeSQL()` - Determines if selected text appears to be SQL
+- `LanguageHandler.detectLanguage()` - Determines programming language for quote handling
+- `LanguageHandler.selectQuoteType()` - Chooses appropriate quote type based on content
+- `LanguageHandler.stripQuotes()` - Removes quotes while preserving prefixes
+- `LanguageHandler.wrapLikeIntelligent()` - Smart quote wrapping based on language
+
+**Jinja2 Template Processing Functions**:
+- `Jinja2NunjucksHandler.getInstance()` - Singleton access to Jinja2 processor
+- `Jinja2NunjucksHandler.processTemplate()` - Main template processing entry point
+- `Jinja2WebviewEditor.showEditor()` - Opens visual Jinja2 editor interface
+- `Jinja2VariableInput.extractVariables()` - Extracts variables with type inference
+- `Jinja2ConditionProcessor.processConditions()` - Handles complex conditional logic
+
+**Database and LSP Integration**:
+- `SQLsClientManager.startClient()` - Starts sqls language server
+- `SQLsClientManager.switchConnection()` - Switches database connections
+- `SQLsClientManager.loadConnections()` - Loads connections from config files
+
+**Indentation and Synchronization**:
+- `PreciseIndentSyncManager.applyIndentation()` - Preserves Python multi-line indentation
+- `IndentationAnalyzer.extractIndentInfo()` - Analyzes original indentation patterns
+- `PreciseIndentSyncManager.syncChanges()` - Syncs changes with proper indentation
 
 ### Database Connection Management
 - Connections are loaded from sqls YAML configuration files
@@ -264,4 +312,6 @@ The extension includes several developer-facing commands:
 - Parameter injection includes proper SQL escaping to prevent injection vulnerabilities
 - The extension gracefully handles missing clipboard tools by providing fallback options
 - Multi-line parameter parsing supports complex nested structures with proper escape sequence handling
-- 在 WebView 的字符串模板中必须使用纯 JavaScript 语法，不能依赖 TypeScript 编译器
+- **WebView JavaScript**: In WebView string templates, use pure JavaScript syntax only, cannot rely on TypeScript compiler
+- **Error Handling**: Comprehensive error handling throughout with user-friendly messages
+- **Performance**: Optimized for large files and complex templates with lazy loading where appropriate

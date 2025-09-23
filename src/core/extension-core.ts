@@ -1,34 +1,13 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
-import { LanguageHandler, LanguageType, QuoteType } from './language-handler';
-import { SQLsClientManager, DatabaseConnection } from './sqls-client-manager';
+import { LanguageHandler } from './language-handler';
+import { SQLsClientManager } from './sqls-client-manager';
 import { CommandManager } from './command-manager';
 import { PreciseIndentSyncManager } from './precise-indent-sync';
-
-/**
- * 临时文件信息接口
- */
-interface TempFileInfo {
-    uri: vscode.Uri;
-    originalEditor: vscode.TextEditor;
-    originalSelection: vscode.Selection;
-    originalQuotedSQL: string;
-    lastSyncedContent: string;
-    quoteType: QuoteType;
-    language: LanguageType;
-    disposables: vscode.Disposable[];
-    isProcessing: boolean;
-}
-
-/**
- * 开发指标接口
- */
-interface DevMetrics {
-    activeDisposables: number;
-    activeTempFiles: number;
-    totalCommandInvocations: number;
-}
+import { TempFileManager } from './temp-file-manager';
+import { EventHandler } from './event-handler';
+import { MetricsCollector, DevMetrics } from './metrics-collector';
+import { DIContainer, getContainer } from './di-container';
+import { Result } from '../types/result';
 
 /**
  * SQLSugar核心扩展管理器
@@ -37,29 +16,50 @@ interface DevMetrics {
 export class ExtensionCore {
     private static instance: ExtensionCore | undefined;
     private context: vscode.ExtensionContext;
-    private languageHandler: LanguageHandler;
-    private sqlsClientManager: SQLsClientManager;
-    private commandManager: CommandManager;
-    private preciseIndentSync: PreciseIndentSyncManager;
-
-    // 临时文件管理
-    private tempFiles: Map<string, TempFileInfo> = new Map();
-    private devMetrics: DevMetrics;
+    private container: DIContainer;
+    private languageHandler!: LanguageHandler;
+    private sqlsClientManager!: SQLsClientManager;
+    private commandManager!: CommandManager;
+    private preciseIndentSync!: PreciseIndentSyncManager;
+    private tempFileManager!: TempFileManager;
+    private eventHandler!: EventHandler;
+    private metricsCollector!: MetricsCollector;
 
     private constructor(context: vscode.ExtensionContext) {
         this.context = context;
-        this.languageHandler = new LanguageHandler();
-        this.sqlsClientManager = new SQLsClientManager(context);
-        this.commandManager = new CommandManager(context);
-        this.preciseIndentSync = new PreciseIndentSyncManager();
+        this.container = getContainer();
 
-        this.devMetrics = {
-            activeDisposables: 0,
-            activeTempFiles: 0,
-            totalCommandInvocations: 0
-        };
-
+        // Initialize services using dependency injection
+        this.initializeServices();
+        this.registerServices();
         this.initialize();
+    }
+
+    /**
+     * 初始化所有服务
+     */
+    private initializeServices(): void {
+        this.languageHandler = new LanguageHandler();
+        this.preciseIndentSync = new PreciseIndentSyncManager();
+        this.sqlsClientManager = new SQLsClientManager(this.context);
+        this.commandManager = new CommandManager(this.context);
+        this.tempFileManager = new TempFileManager(this.languageHandler, this.preciseIndentSync);
+        this.eventHandler = new EventHandler(this.tempFileManager);
+        this.metricsCollector = new MetricsCollector();
+    }
+
+    /**
+     * 注册服务到DI容器
+     */
+    private registerServices(): void {
+        this.container.registerSingleton('languageHandler', () => this.languageHandler);
+        this.container.registerSingleton('sqlsClientManager', () => this.sqlsClientManager);
+        this.container.registerSingleton('commandManager', () => this.commandManager);
+        this.container.registerSingleton('preciseIndentSync', () => this.preciseIndentSync);
+        this.container.registerSingleton('tempFileManager', () => this.tempFileManager);
+        this.container.registerSingleton('eventHandler', () => this.eventHandler);
+        this.container.registerSingleton('metricsCollector', () => this.metricsCollector);
+        this.container.registerSingleton('extensionCore', () => this);
     }
 
     /**
@@ -82,6 +82,8 @@ export class ExtensionCore {
         if (ExtensionCore.instance) {
             ExtensionCore.instance.dispose();
             ExtensionCore.instance = undefined;
+            // Also reset the DI container
+            getContainer().clear();
         }
     }
 
@@ -103,36 +105,10 @@ export class ExtensionCore {
         });
 
         // 注册事件监听器
-        this.registerEventListeners();
+        this.eventHandler.registerEventListeners(this.context);
 
         // 注册开发者命令
-        this.registerDeveloperCommands();
-    }
-
-    /**
-     * 注册事件监听器
-     */
-    private registerEventListeners(): void {
-        // 监听文档关闭事件，清理临时文件
-        this.context.subscriptions.push(
-            vscode.workspace.onDidCloseTextDocument((doc) => {
-                this.cleanupTempFile(doc.uri);
-            })
-        );
-
-        // 监听窗口关闭事件
-        this.context.subscriptions.push(
-            vscode.window.onDidCloseTerminal((terminal) => {
-                // 清理与终端相关的资源
-            })
-        );
-    }
-
-    /**
-     * 注册开发者命令
-     */
-    private registerDeveloperCommands(): void {
-        // 获取指标命令已在CommandManager中注册
+        this.eventHandler.registerDeveloperCommands(this.context);
     }
 
     /**
@@ -142,312 +118,38 @@ export class ExtensionCore {
         originalEditor: vscode.TextEditor,
         originalSelection: vscode.Selection,
         originalQuotedSQL: string
-    ): Promise<vscode.Uri> {
-        const language = this.languageHandler.detectLanguage(originalEditor.document);
-        const quoteType = this.languageHandler.detectQuoteType(originalQuotedSQL);
-        const sqlContent = this.languageHandler.stripQuotes(originalQuotedSQL);
-
-        // 转换ORM占位符为sqls兼容格式
-        const { convertedSQL, hasPlaceholders } = this.convertPlaceholdersToTemp(sqlContent);
-
-        // 创建临时文件
-        let workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-        console.log('Initial workspacePath:', workspacePath);
-
-        // If no workspace folder is found, try to use the document's directory
-        if (!workspacePath && originalEditor.document.uri.scheme === 'file') {
-            workspacePath = path.dirname(originalEditor.document.uri.fsPath);
-            console.log('Using document directory:', workspacePath);
-        }
-
-        // If still no path, use current working directory as fallback
-        if (!workspacePath) {
-            workspacePath = process.cwd();
-            console.log('Using cwd as fallback:', workspacePath);
-        }
-
-        // Special handling for test environment: ensure we use the test workspace
-        if (process.env.VSCODE_TEST) {
-            // Check if the document is in a test workspace
-            const docDir = path.dirname(originalEditor.document.uri.fsPath);
-            if (docDir.includes('test-workspace')) {
-                workspacePath = docDir;
-                console.log('Test environment detected, using test workspace:', workspacePath);
-            }
-        }
-
-        const tempDir = path.join(workspacePath, '.vscode/sqlsugar/temp');
-        console.log('Temp directory will be:', tempDir);
-
-        if (!fs.existsSync(tempDir)) {
-            console.log('Temp directory does not exist, creating it...');
-            fs.mkdirSync(tempDir, { recursive: true });
-            console.log('Temp directory created successfully:', tempDir);
-        } else {
-            console.log('Temp directory already exists:', tempDir);
-        }
-
-        const tempFileName = `temp_sql_${Date.now()}.sql`;
-        const tempFilePath = path.join(tempDir, tempFileName);
-        const tempUri = vscode.Uri.file(tempFilePath);
-
-        // 写入临时文件内容
-        const fileContent = this.generateTempFileContent(convertedSQL, hasPlaceholders);
-        await vscode.workspace.fs.writeFile(tempUri, Buffer.from(fileContent, 'utf8'));
-
-        // 保存临时文件信息
-        const tempFileInfo: TempFileInfo = {
-            uri: tempUri,
+    ): Promise<Result<vscode.Uri, Error>> {
+        const startTime = Date.now();
+        const result = await this.tempFileManager.createTempSQLFile(
             originalEditor,
             originalSelection,
-            originalQuotedSQL,
-            lastSyncedContent: originalQuotedSQL, // 初始化为原始内容
-            quoteType,
-            language,
-            disposables: [],
-            isProcessing: false
-        };
+            originalQuotedSQL
+        );
 
-        this.tempFiles.set(tempUri.fsPath, tempFileInfo);
-        this.devMetrics.activeTempFiles++;
+        const operationTime = Date.now() - startTime;
+        this.metricsCollector.recordPerformance(operationTime, !result.ok);
 
-        // 初始化精确缩进同步器
-        const originalSQL = this.languageHandler.stripQuotes(originalQuotedSQL);
-        if (originalSQL.includes('\n')) {
-            this.preciseIndentSync.createTracker(
-                tempUri.fsPath,
-                originalSQL
-            );
-        }
-
-        // 注册临时文件保存监听器 - 只在用户主动保存时同步
-        const disposable = vscode.workspace.onDidSaveTextDocument((e) => {
-            console.log('Text document saved event:', e.uri.fsPath);
-            console.log('Temp file path:', tempUri.fsPath);
-            console.log('Matches:', e.uri.fsPath === tempUri.fsPath);
-
-            if (e.uri.fsPath === tempUri.fsPath) {
-                console.log('Temp file saved detected, triggering sync...');
-                this.handleTempFileChange(tempFileInfo);
-            }
-        });
-
-        tempFileInfo.disposables.push(disposable);
-
-        return tempUri;
+        return result;
     }
 
-    /**
-     * 生成临时文件内容
-     */
-    private generateTempFileContent(sql: string, hasPlaceholders: boolean): string {
-        // 直接返回SQL内容，不添加任何额外的提示信息
-        return sql;
-    }
-
-    /**
-     * 处理临时文件变化
-     */
-    private async handleTempFileChange(tempFileInfo: TempFileInfo): Promise<void> {
-        if (tempFileInfo.isProcessing) {
-            console.log('Sync already in progress, skipping');
-            return;
-        }
-
-        tempFileInfo.isProcessing = true;
-
-        try {
-            // 检查原始编辑器是否仍然打开
-            if (!tempFileInfo.originalEditor || tempFileInfo.originalEditor.document.isClosed) {
-                console.log('Original editor is closed, skipping sync');
-                return;
-            }
-
-            const doc = await vscode.workspace.openTextDocument(tempFileInfo.uri);
-            const modifiedSQL = doc.getText();
-
-            // 转换回ORM占位符格式
-            let finalSQL = this.convertPlaceholdersFromTemp(modifiedSQL);
-
-            // 对于Python多行SQL，使用精确缩进同步保留原始缩进
-            if (tempFileInfo.language === 'python' && finalSQL.includes('\n')) {
-                // 使用精确缩进同步器
-                finalSQL = this.preciseIndentSync.syncIndent(
-                    tempFileInfo.uri.fsPath,
-                    finalSQL
-                );
-            }
-
-            // 对于markdown和generic语言，使用完全不同的同步策略
-            let wrappedContent: string;
-            if (tempFileInfo.language === 'markdown' || tempFileInfo.language === 'generic') {
-                // 直接使用原始的引号结构，不进行任何处理
-                wrappedContent = this.languageHandler.reconstructMarkdownContent(tempFileInfo.originalQuotedSQL, finalSQL);
-            } else {
-                // 获取原始的引号类型和前缀
-                const originalQuote = this.languageHandler.detectQuoteType(tempFileInfo.originalQuotedSQL);
-                const prefix = this.languageHandler.extractPrefix(tempFileInfo.originalQuotedSQL);
-
-                // 智能包装内容（根据内容升级引号类型）
-                wrappedContent = this.languageHandler.wrapLikeIntelligent(tempFileInfo.originalQuotedSQL, finalSQL, tempFileInfo.language);
-            }
-
-            // 验证选择范围仍然有效
-            const currentDocument = tempFileInfo.originalEditor.document;
-            const currentSelection = tempFileInfo.originalSelection;
-
-            // 检查选择范围是否仍然有效
-            let targetSelection = currentSelection;
-            const currentSelectedText = currentDocument.getText(currentSelection);
-
-            // 如果当前选择的内容与上次同步的内容不匹配，尝试查找上次同步内容的位置
-            if (currentSelectedText !== tempFileInfo.lastSyncedContent) {
-                const fullText = currentDocument.getText();
-
-                // Try to find the last synced content by searching for unique patterns
-                // This avoids partial matches that cause duplication
-                const searchStr = tempFileInfo.lastSyncedContent;
-                let originalIndex = -1;
-
-                // Strategy 1: Look for exact match with word boundaries
-                const escapedOriginal = searchStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-                const exactRegex = new RegExp(`\\b${escapedOriginal}\\b`, 'm');
-                const exactMatch = fullText.match(exactRegex);
-
-                if (exactMatch && exactMatch.index !== undefined) {
-                    originalIndex = exactMatch.index;
-                } else {
-                    // Strategy 2: Use lastIndexOf to find the most recent occurrence
-                    // This helps avoid finding partial matches in newly added content
-                    originalIndex = fullText.lastIndexOf(searchStr);
-                }
-
-                // Validation: ensure the match is not a partial substring
-                if (originalIndex !== -1) {
-                    const beforeChar = originalIndex > 0 ? fullText[originalIndex - 1] : '';
-                    const afterChar = originalIndex + searchStr.length < fullText.length ?
-                                     fullText[originalIndex + searchStr.length] : '';
-
-                    // Check if it's a standalone match (not part of a larger string)
-                    const isValidMatch = (
-                        (beforeChar === '' || /\s/.test(beforeChar) || beforeChar === '=' || beforeChar === '(') &&
-                        (afterChar === '' || /\s/.test(afterChar) || afterChar === ';' || afterChar === ')')
-                    );
-
-                    if (!isValidMatch) {
-                        originalIndex = -1; // Reset if not a valid match
-                    }
-                }
-
-                if (originalIndex !== -1) {
-                    // 找到上次同步的内容，更新选择范围
-                    const startPos = currentDocument.positionAt(originalIndex);
-                    const endPos = currentDocument.positionAt(originalIndex + tempFileInfo.lastSyncedContent.length);
-                    targetSelection = new vscode.Selection(startPos, endPos);
-                }
-            }
-
-            // 再次检查编辑器是否仍然有效
-            if (tempFileInfo.originalEditor.document.isClosed) {
-                console.log('Original editor closed before edit, skipping sync');
-                return;
-            }
-
-            // 替换选中的内容
-            await tempFileInfo.originalEditor.edit(editBuilder => {
-                editBuilder.replace(targetSelection, wrappedContent);
-            });
-
-            // 更新上次同步的内容
-            tempFileInfo.lastSyncedContent = wrappedContent;
-        } catch (error) {
-            console.error('Sync error:', error);
-            vscode.window.showErrorMessage(`Failed to sync changes: ${error}`);
-        } finally {
-            tempFileInfo.isProcessing = false;
-        }
-    }
-
-    /**
-     * 转换ORM占位符为临时格式
-     */
-    private convertPlaceholdersToTemp(sql: string): { convertedSQL: string; hasPlaceholders: boolean } {
-        // 匹配ORM占位符，但不匹配PostgreSQL类型转换(::type)或时间格式(12:34:56)
-        const placeholderRegex = /:(?!\d+)\w+/g;
-        let hasPlaceholders = false;
-        let convertedSQL = sql;
-
-        if (placeholderRegex.test(sql)) {
-            hasPlaceholders = true;
-            convertedSQL = sql.replace(placeholderRegex, (match, offset, str) => {
-                // 检查前面是否是:: (PostgreSQL类型转换)
-                if (offset > 0 && str[offset - 1] === ':') {
-                    return match; // 不转换PostgreSQL类型转换
-                }
-                // 检查是否是时间格式中的冒号
-                if (offset > 0 && /\d/.test(str[offset - 1])) {
-                    return match; // 不转换时间格式中的冒号
-                }
-                return '__:' + match.substring(1); // 转换ORM占位符
-            });
-        }
-
-        return { convertedSQL, hasPlaceholders };
-    }
-
-    /**
-     * 转换临时占位符回ORM格式
-     */
-    private convertPlaceholdersFromTemp(sql: string): string {
-        const tempPlaceholderRegex = /__:(\w+)/g;
-        return sql.replace(tempPlaceholderRegex, ':$1');
-    }
-
-    // 注释：旧的复杂缩进分析代码已被精确缩进同步器取代（2025-09-22）
-    // 删除了约280行复杂的缩进模式分析代码，包括：
-    // - applyIndentationPattern()
-    // - classifyLineType()
-    // - isContinuationLine()
-    // - getHierarchicalIndent()
-    // - getContinuationIndent()
-    // - getConsistentIndent()
-    // 相关功能已迁移到 src/core/precise-indent-sync.ts
-    // 这显著简化了代码并提高了缩进保持的准确性
-
-    /**
-     * 清理临时文件
-     */
-    private cleanupTempFile(uri: vscode.Uri): void {
-        const tempInfo = this.tempFiles.get(uri.fsPath);
-        if (tempInfo) {
-            // 清理所有disposables
-            tempInfo.disposables.forEach(d => d.dispose());
-            this.tempFiles.delete(uri.fsPath);
-            this.devMetrics.activeTempFiles--;
-
-            // 清理精确缩进同步器
-            this.preciseIndentSync.cleanupTracker(uri.fsPath);
-
-            // 删除临时文件
-            const tempFileCleanup = vscode.workspace.getConfiguration('sqlsugar').get<boolean>('tempFileCleanup', true);
-            const cleanupOnClose = vscode.workspace.getConfiguration('sqlsugar').get<boolean>('cleanupOnClose', true);
-
-            // 在测试环境中禁用自动删除，确保测试可以找到临时文件
-            if (tempFileCleanup && cleanupOnClose && !process.env.VSCODE_TEST) {
-                vscode.workspace.fs.delete(uri).then(undefined, err => {
-                    console.error('Failed to delete temp file:', err);
-                });
-            } else if (process.env.VSCODE_TEST) {
-                console.log('Test environment detected, skipping automatic cleanup of temp file:', uri.fsPath);
-            }
-        }
-    }
+    // 所有临时文件管理逻辑已迁移到 TempFileManager 类
 
     /**
      * 获取开发指标
      */
     public getMetrics(): DevMetrics {
-        return { ...this.devMetrics };
+        const baseMetrics = this.metricsCollector.getMetrics();
+        // Update with current values
+        baseMetrics.activeDisposables = this.eventHandler.getDisposablesCount();
+        baseMetrics.activeTempFiles = this.tempFileManager.getActiveTempFilesCount();
+        return baseMetrics;
+    }
+
+    /**
+     * 记录命令调用
+     */
+    public recordCommandInvocation(command: string): void {
+        this.metricsCollector.recordCommandInvocation(command);
     }
 
     /**
@@ -455,25 +157,23 @@ export class ExtensionCore {
      */
     public dispose(): void {
         // 清理临时文件
-        this.tempFiles.forEach((tempInfo, path) => {
-            tempInfo.disposables.forEach(d => d.dispose());
-            try {
-                vscode.workspace.fs.delete(vscode.Uri.file(path));
-            } catch (error) {
-                console.error('Failed to delete temp file:', error);
-            }
-            // 清理精确缩进同步器
-            this.preciseIndentSync.cleanupTracker(path);
-        });
+        this.tempFileManager.dispose();
 
-        this.tempFiles.clear();
+        // 清理事件监听器
+        this.eventHandler.dispose();
 
-        // 清理其他资源
+        // 清理SQLs客户端
         this.sqlsClientManager.dispose();
 
-        // 更新指标
-        this.devMetrics.activeDisposables = 0;
-        this.devMetrics.activeTempFiles = 0;
+        // 清理精确缩进同步器
+        if (typeof this.preciseIndentSync.dispose === 'function') {
+            this.preciseIndentSync.dispose();
+        }
+
+        // 清理DI容器
+        this.container.dispose();
+
+        console.log('ExtensionCore disposed successfully');
     }
 
     // 公共访问方法
@@ -487,5 +187,13 @@ export class ExtensionCore {
 
     public getCommandManager(): CommandManager {
         return this.commandManager;
+    }
+
+    public getTempFileManager(): TempFileManager {
+        return this.tempFileManager;
+    }
+
+    public getMetricsCollector(): MetricsCollector {
+        return this.metricsCollector;
     }
 }

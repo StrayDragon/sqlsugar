@@ -125,7 +125,16 @@
         },
         "sqlsugar.sqlSyntaxHighlightTheme": {
           "type": "string",
-          "enum": ["vscode-dark", "vscode-light", "github-dark", "github-light", "monokai", "solarized-dark", "solarized-light", "dracula"],
+          "enum": [
+            "vscode-dark",
+            "vscode-light",
+            "github-dark",
+            "github-light",
+            "monokai",
+            "solarized-dark",
+            "solarized-light",
+            "dracula"
+          ],
           "default": "vscode-dark",
           "description": "SQL syntax highlighting theme for WebView"
         },
@@ -224,6 +233,7 @@
   },
   "icon": "icon.png",
   "devDependencies": {
+    "@antfu/eslint-config": "^5.4.1",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
@@ -236,6 +246,8 @@
     "@vscode/vsce": "^3.6.0",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
+    "eslint-plugin-perfectionist": "^4.15.0",
+    "eslint-plugin-sonarjs": "^3.0.5",
     "mocha": "^11.7.2",
     "npm-run-all": "^4.1.5",
     "typescript": "^5.9.2"

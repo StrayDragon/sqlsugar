@@ -9,10 +9,33 @@
 		"rootDir": "src",
 		"strict": true,   /* enable all strict type-checking options */
 		"downlevelIteration": true,  /* Enable full support for iterables in ES5 and ES3. */
-		/* Additional Checks */
-		// "noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
-		// "noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
-		// "noUnusedParameters": true,  /* Report errors on unused parameters. */
+		"noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
+		"noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
+		"noUnusedParameters": true,  /* Report errors on unused parameters. */
+		"exactOptionalPropertyTypes": true, /* Ensure optional property types are written exactly */
+		"noImplicitOverride": true, /* Ensure overriding methods in derived classes are marked with override modifier */
+		"noPropertyAccessFromIndexSignature": true, /* Enforces using indexed accessors for keys declared using an index signature */
+		"noUncheckedIndexedAccess": true, /* Add undefined to a type when accessed using an index signature */
+		"allowUnusedLabels": false, /* Disallow unused labels */
+		"allowUnreachableCode": false, /* Disallow unreachable code */
+		"noImplicitAny": true, /* Enable error reporting for expressions and declarations with an implied 'any' type */
+		"strictNullChecks": true, /* When strict null checks are enabled, null and undefined have their own distinct types */
+		"strictFunctionTypes": true, /* When assigning functions, check to ensure parameters and the return types are subtype-compatible */
+		"strictBindCallApply": true, /* Check that the arguments for 'bind', 'call', and 'apply' methods match the original function */
+		"strictPropertyInitialization": true, /* Ensure non-undefined class properties are initialized in the constructor */
+		"alwaysStrict": true, /* Parse in strict mode and emit "use strict" for each source file */
+		"resolveJsonModule": true, /* Include modules imported with '.json' extension */
+		"esModuleInterop": true, /* Enables emit interoperability between CommonJS and ES Modules */
+		"skipLibCheck": true, /* Skip type checking of declaration files */
+		"forceConsistentCasingInFileNames": true, /* Disallow inconsistently-cased references to the same file */
+		"declaration": true, /* Generate d.ts files from TypeScript and JavaScript files in your project */
+		"declarationMap": true, /* Generate sourcemaps for d.ts files */
+		"removeComments": false, /* Do not emit comments to output */
+		"emitDecoratorMetadata": true, /* Enables experimental support for emitting type metadata for decorators */
+		"experimentalDecorators": true, /* Enables experimental support for ES decorators */
+		"allowSyntheticDefaultImports": true, /* Allow default imports from modules with no default export */
+		"isolatedModules": true, /* Ensure that each file can be safely transpiled without relying on other imports */
+		"jsx": "react" /* Specify what JSX code is generated */
 	},
 	"include": [
 		"src/**/*"

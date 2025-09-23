@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { Jinja2NunjucksHandler } from '../jinja2-nunjucks-handler';
 import { Jinja2WebviewEditor } from '../jinja2-webview';
+import { ExtensionCore } from './extension-core';
 
 /**
  * SQLSugar命令管理器
@@ -10,10 +11,12 @@ import { Jinja2WebviewEditor } from '../jinja2-webview';
 export class CommandManager {
     private context: vscode.ExtensionContext;
     private jinja2Handler: Jinja2NunjucksHandler;
+    private extensionCore: ExtensionCore;
 
     constructor(context: vscode.ExtensionContext) {
         this.context = context;
         this.jinja2Handler = Jinja2NunjucksHandler.getInstance();
+        this.extensionCore = ExtensionCore.getInstance(context);
     }
 
     /**
@@ -35,7 +38,7 @@ export class CommandManager {
         commands.forEach(({ name, callback }) => {
             try {
                 this.context.subscriptions.push(
-                    vscode.commands.registerCommand(`sqlsugar.${name}`, callback)
+                    vscode.commands.registerCommand(`sqlsugar.${name}`, callback.bind(this))
                 );
             } catch (error) {
                 // Ignore duplicate command registration errors in test environment
@@ -52,6 +55,7 @@ export class CommandManager {
      * 处理内联SQL编辑命令
      */
     private async handleEditInlineSQL(): Promise<void> {
+        this.extensionCore.recordCommandInvocation('editInlineSQL');
         console.log('handleEditInlineSQL called');
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
@@ -84,10 +88,17 @@ export class CommandManager {
                 if (confirm !== 'Continue') { return; }
             }
 
-            // 获取扩展核心实例并创建临时文件
-            const { ExtensionCore } = require('./extension-core');
-            const extensionCore = ExtensionCore.getInstance();  // Use existing instance
-            const tempUri = await extensionCore.createTempSQLFile(editor, selection, selectedText);
+            // 创建临时文件
+            const result = await this.extensionCore.createTempSQLFile(editor, selection, selectedText);
+
+            if (!result.ok) {
+                throw result.error;
+            }
+
+            const tempUri = result.value;
+            if (!tempUri) {
+                throw new Error('Failed to create temporary file - no URI returned');
+            }
 
             // 打开临时文件
             const doc = await vscode.workspace.openTextDocument(tempUri);

@@ -1,6 +1,7 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+
 import { Result } from '../types/result';
 import { LanguageHandler, LanguageType, QuoteType } from './language-handler';
 import { PreciseIndentSyncManager } from './precise-indent-sync';
@@ -64,7 +65,7 @@ export class TempFileManager {
         quoteType,
         language,
         disposables: [],
-        isProcessing: false
+        isProcessing: false,
       };
 
       this.tempFiles.set(tempUri.fsPath, tempFileInfo);
@@ -129,7 +130,11 @@ export class TempFileManager {
   /**
    * 创建临时文件
    */
-  private async createTempFile(tempDir: string, sqlContent: string, hasPlaceholders: boolean): Promise<vscode.Uri> {
+  private async createTempFile(
+    tempDir: string,
+    sqlContent: string,
+    hasPlaceholders: boolean
+  ): Promise<vscode.Uri> {
     const tempFileName = `temp_sql_${Date.now()}.sql`;
     const tempFilePath = path.join(tempDir, tempFileName);
     const tempUri = vscode.Uri.file(tempFilePath);
@@ -143,7 +148,7 @@ export class TempFileManager {
   /**
    * 生成临时文件内容
    */
-  private generateTempFileContent(sql: string, hasPlaceholders: boolean): string {
+  private generateTempFileContent(sql: string, _hasPlaceholders: boolean): string {
     return sql;
   }
 
@@ -151,7 +156,7 @@ export class TempFileManager {
    * 注册保存监听器
    */
   private registerSaveListener(tempFileInfo: TempFileInfo): void {
-    const disposable = vscode.workspace.onDidSaveTextDocument((e) => {
+    const disposable = vscode.workspace.onDidSaveTextDocument(e => {
       if (e.uri.fsPath === tempFileInfo.uri.fsPath) {
         this.handleTempFileChange(tempFileInfo);
       }
@@ -252,21 +257,26 @@ export class TempFileManager {
   private async wrapContent(tempFileInfo: TempFileInfo, finalSQL: string): Promise<string> {
     // 对于markdown和generic语言，使用完全不同的同步策略
     if (tempFileInfo.language === 'markdown' || tempFileInfo.language === 'generic') {
-      return this.languageHandler.reconstructMarkdownContent(tempFileInfo.originalQuotedSQL, finalSQL);
+      return this.languageHandler.reconstructMarkdownContent(
+        tempFileInfo.originalQuotedSQL,
+        finalSQL
+      );
     }
 
-    // 获取原始的引号类型和前缀
-    const originalQuote = this.languageHandler.detectQuoteType(tempFileInfo.originalQuotedSQL);
-    const prefix = this.languageHandler.extractPrefix(tempFileInfo.originalQuotedSQL);
-
     // 智能包装内容（根据内容升级引号类型）
-    return this.languageHandler.wrapLikeIntelligent(tempFileInfo.originalQuotedSQL, finalSQL, tempFileInfo.language);
+    return this.languageHandler.wrapLikeIntelligent(
+      tempFileInfo.originalQuotedSQL,
+      finalSQL,
+      tempFileInfo.language
+    );
   }
 
   /**
    * 验证并更新选择范围
    */
-  private async validateAndUpdateSelection(tempFileInfo: TempFileInfo): Promise<vscode.Selection | undefined> {
+  private async validateAndUpdateSelection(
+    tempFileInfo: TempFileInfo
+  ): Promise<vscode.Selection | undefined> {
     const currentDocument = tempFileInfo.originalEditor.document;
     const currentSelection = tempFileInfo.originalSelection;
 
@@ -283,7 +293,9 @@ export class TempFileManager {
       if (originalIndex !== -1) {
         // 找到上次同步的内容，更新选择范围
         const startPos = currentDocument.positionAt(originalIndex);
-        const endPos = currentDocument.positionAt(originalIndex + tempFileInfo.lastSyncedContent.length);
+        const endPos = currentDocument.positionAt(
+          originalIndex + tempFileInfo.lastSyncedContent.length
+        );
         targetSelection = new vscode.Selection(startPos, endPos);
       }
     }
@@ -311,14 +323,15 @@ export class TempFileManager {
     // Validation: ensure the match is not a partial substring
     if (originalIndex !== -1) {
       const beforeChar = originalIndex > 0 ? fullText[originalIndex - 1] : '';
-      const afterChar = originalIndex + searchStr.length < fullText.length ?
-                       fullText[originalIndex + searchStr.length] : '';
+      const afterChar =
+        originalIndex + searchStr.length < fullText.length
+          ? fullText[originalIndex + searchStr.length]
+          : '';
 
       // Check if it's a standalone match
-      const isValidMatch = (
+      const isValidMatch =
         (beforeChar === '' || /\s/.test(beforeChar) || beforeChar === '=' || beforeChar === '(') &&
-        (afterChar === '' || /\s/.test(afterChar) || afterChar === ';' || afterChar === ')')
-      );
+        (afterChar === '' || /\s/.test(afterChar) || afterChar === ';' || afterChar === ')');
 
       if (!isValidMatch) {
         originalIndex = -1;
@@ -331,7 +344,10 @@ export class TempFileManager {
   /**
    * 转换ORM占位符为临时格式
    */
-  private convertPlaceholdersToTemp(sql: string): { convertedSQL: string; hasPlaceholders: boolean } {
+  private convertPlaceholdersToTemp(sql: string): {
+    convertedSQL: string;
+    hasPlaceholders: boolean;
+  } {
     const placeholderRegex = /:(?!\d+)\w+/g;
     let hasPlaceholders = false;
     let convertedSQL = sql;
@@ -384,8 +400,12 @@ export class TempFileManager {
    * 删除临时文件
    */
   private deleteTempFile(uri: vscode.Uri): void {
-    const tempFileCleanup = vscode.workspace.getConfiguration('sqlsugar').get<boolean>('tempFileCleanup', true);
-    const cleanupOnClose = vscode.workspace.getConfiguration('sqlsugar').get<boolean>('cleanupOnClose', true);
+    const tempFileCleanup = vscode.workspace
+      .getConfiguration('sqlsugar')
+      .get<boolean>('tempFileCleanup', true);
+    const cleanupOnClose = vscode.workspace
+      .getConfiguration('sqlsugar')
+      .get<boolean>('cleanupOnClose', true);
 
     // 在测试环境中禁用自动删除
     if (tempFileCleanup && cleanupOnClose && !process.env.VSCODE_TEST) {
@@ -393,7 +413,10 @@ export class TempFileManager {
         console.error('Failed to delete temp file:', err);
       });
     } else if (process.env.VSCODE_TEST) {
-      console.log('Test environment detected, skipping automatic cleanup of temp file:', uri.fsPath);
+      console.log(
+        'Test environment detected, skipping automatic cleanup of temp file:',
+        uri.fsPath
+      );
     }
   }
 

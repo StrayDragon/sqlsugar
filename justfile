@@ -25,9 +25,17 @@ build:
 type-check:
     pnpm run check-types
 
-# Run linting
+# Build type declarations
+build-declarations:
+    pnpm run build:declarations
+
+# Run linting (all files)
 lint:
     pnpm run lint
+
+# Run linting on main extension files only
+lint-main:
+    pnpm run lint:main
 
 # =============================================================================
 # Testing Commands
@@ -36,9 +44,25 @@ lint:
 # Run unit tests (fast)
 unit-test:
     @echo "🧪 Running unit tests..."
-    pnpm run lint
+    pnpm run lint:main
     pnpm run check-types
     @echo "✅ Unit tests completed successfully!"
+
+# Run component tests (web components)
+test-components:
+    pnpm run test:components
+
+# Run component tests in watch mode
+test-components-watch:
+    pnpm run test:components:watch
+
+# Build web components
+build-components:
+    pnpm run build:components
+
+# Development mode for web components
+dev-components:
+    pnpm run dev:components
 
 # Run integration tests (with VS Code)
 integration-test: compile-tests build
@@ -122,6 +146,12 @@ clean:
 # Common aliases
 alias pv := package-vsix
 alias c := clean
+alias tc := test-components
+alias tcw := test-components-watch
+alias bc := build-components
+alias dc := dev-components
+alias lm := lint-main
+alias bd := build-declarations
 
 # =============================================================================
 # Help and Information

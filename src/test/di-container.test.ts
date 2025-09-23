@@ -12,7 +12,7 @@ suite('DI Container Tests', () => {
     let container: DIContainer;
 
     setup(() => {
-        container = new DIContainer();
+        container = DIContainer.getInstance();
     });
 
     teardown(() => {

@@ -177,7 +177,7 @@ export class Jinja2WebviewIntegrated {
         const nunjucksUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'node_modules', 'nunjucks', 'browser', 'nunjucks.min.js'));
 
         // Get URIs for our web components
-        const componentsUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'dist', 'jinja2-editor', 'components'));
+        const componentsUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'dist', 'jinja2-editor', 'jinja2-editor.js'));
 
         // Build initial values
         const initialValues: Record<string, any> = {};
@@ -465,13 +465,7 @@ export class Jinja2WebviewIntegrated {
 
                 // Load component scripts
                 const scripts = [
-                    '${componentsUri}/jinja2-editor.js',
-                    '${componentsUri}/variable-input.js',
-                    '${componentsUri}/sql-preview.js',
-                    '${componentsUri}/ui/button.js',
-                    '${componentsUri}/ui/input.js',
-                    '${componentsUri}/ui/select.js',
-                    '${componentsUri}/ui/card.js'
+                    '${componentsUri}'
                 ];
 
                 let loadedCount = 0;

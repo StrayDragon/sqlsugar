@@ -1,4 +1,5 @@
-import { LitElement, html, css, customElement, property } from 'lit';
+import { LitElement, html, css } from 'lit';
+import { customElement, property } from 'lit/decorators.js';
 
 @customElement('jinja-button')
 export class JinjaButton extends LitElement {

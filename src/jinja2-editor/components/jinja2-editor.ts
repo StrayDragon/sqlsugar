@@ -1,4 +1,5 @@
-import { LitElement, html, css, customElement, property, state } from 'lit';
+import { LitElement, html, css } from 'lit';
+import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { Jinja2Variable, VariableChangeEvent, TemplateRenderEvent } from '../types.js';

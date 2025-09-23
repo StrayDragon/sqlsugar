@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "outDir": "./dist/jinja2-editor/types",
+    "rootDir": "./src/jinja2-editor",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "composite": true,
+    "skipLibCheck": true,
+    "noEmit": false
+  },
+  "include": [
+    "src/jinja2-editor/**/*.ts"
+  ],
+  "exclude": [
+    "src/jinja2-editor/**/*.test.ts",
+    "src/jinja2-editor/**/test-dom-setup.ts"
+  ]
+}

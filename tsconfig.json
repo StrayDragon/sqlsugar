@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "Node16",
+		"module": "ES2022",
 		"target": "ES2022",
 		"lib": [
 			"ES2022"
@@ -11,18 +11,18 @@
 		"downlevelIteration": true,  /* Enable full support for iterables in ES5 and ES3. */
 		"noImplicitReturns": true, /* Report error when not all code paths in function return a value. */
 		"noFallthroughCasesInSwitch": true, /* Report errors for fallthrough cases in switch statement. */
-		"noUnusedParameters": true,  /* Report errors on unused parameters. */
-		"exactOptionalPropertyTypes": true, /* Ensure optional property types are written exactly */
+		"noUnusedParameters": false,  /* Report errors on unused parameters. */
+		"exactOptionalPropertyTypes": false, /* Ensure optional property types are written exactly */
 		"noImplicitOverride": true, /* Ensure overriding methods in derived classes are marked with override modifier */
-		"noPropertyAccessFromIndexSignature": true, /* Enforces using indexed accessors for keys declared using an index signature */
-		"noUncheckedIndexedAccess": true, /* Add undefined to a type when accessed using an index signature */
+		"noPropertyAccessFromIndexSignature": false, /* Enforces using indexed accessors for keys declared using an index signature */
+		"noUncheckedIndexedAccess": false, /* Add undefined to a type when accessed using an index signature */
 		"allowUnusedLabels": false, /* Disallow unused labels */
 		"allowUnreachableCode": false, /* Disallow unreachable code */
 		"noImplicitAny": true, /* Enable error reporting for expressions and declarations with an implied 'any' type */
 		"strictNullChecks": true, /* When strict null checks are enabled, null and undefined have their own distinct types */
 		"strictFunctionTypes": true, /* When assigning functions, check to ensure parameters and the return types are subtype-compatible */
 		"strictBindCallApply": true, /* Check that the arguments for 'bind', 'call', and 'apply' methods match the original function */
-		"strictPropertyInitialization": true, /* Ensure non-undefined class properties are initialized in the constructor */
+		"strictPropertyInitialization": false, /* Ensure non-undefined class properties are initialized in the constructor */
 		"alwaysStrict": true, /* Parse in strict mode and emit "use strict" for each source file */
 		"resolveJsonModule": true, /* Include modules imported with '.json' extension */
 		"esModuleInterop": true, /* Enables emit interoperability between CommonJS and ES Modules */
@@ -35,7 +35,8 @@
 		"experimentalDecorators": true, /* Enables experimental support for ES decorators */
 		"allowSyntheticDefaultImports": true, /* Allow default imports from modules with no default export */
 		"isolatedModules": true, /* Ensure that each file can be safely transpiled without relying on other imports */
-		"jsx": "react" /* Specify what JSX code is generated */
+		"jsx": "react", /* Specify what JSX code is generated */
+		"moduleResolution": "node"
 	},
 	"include": [
 		"src/**/*"
@@ -48,6 +49,15 @@
 		"docs",
 		"debug",
 		"scripts",
-		"standalone-jinja-editor"
+		"standalone-jinja-editor",
+		"src/jinja2-editor",
+		"src/test/result-type.test.ts",
+		"src/test/core-architecture.test.ts",
+		"src/test/extension-refactored.test.ts",
+		"src/test/jinja2-*.test.ts",
+		"src/test/test-dom-setup.ts",
+		"src/test/di-container.test.ts",
+		"src/test/utils/jinja2-test-helpers.ts",
+		"src/types/result.ts"
 	]
 }

@@ -1,6 +1,10 @@
 import { fixture, html, expect } from '@open-wc/testing';
 import { JinjaSqlPreview } from './sql-preview.js';
 import type { Jinja2Variable } from '../types.js';
+import sinon from 'sinon';
+
+// Setup DOM for testing
+import '../../test/test-dom-setup.js';
 import { stub } from 'sinon';
 
 describe('JinjaSqlPreview', () => {

@@ -1,6 +1,7 @@
-import * as vscode from 'vscode';
-import * as path from 'path';
 import * as fs from 'fs';
+import * as path from 'path';
+import * as vscode from 'vscode';
+
 import { ExtensionCore } from '../../core/extension-core';
 
 /**
@@ -226,7 +227,7 @@ export const SQL_TEST_TEMPLATES = {
 FROM users
 WHERE status = 'active'
 ORDER BY created_at DESC`,
-  JINJA2_SIMPLE: `SELECT * FROM users WHERE name = '{{ name }}'`,
+  JINJA2_SIMPLE: 'SELECT * FROM users WHERE name = \'{{ name }}\'',
   JINJA2_COMPLEX: `SELECT * FROM users
 WHERE department_id = {{ department_id }}
   AND created_date >= '{{ start_date }}'
@@ -276,7 +277,7 @@ export class TestAssertions {
    */
   static validateQuoteHandling(content: string, expectedQuoteType: string): void {
     if (expectedQuoteType === 'triple') {
-      if (!content.includes('"""') && !content.includes("'''")) {
+      if (!content.includes('"""') && !content.includes('\'\'\'')) {
         throw new Error('Expected triple quotes for multi-line content');
       }
     }

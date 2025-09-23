@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+
 import { TempFileManager } from './temp-file-manager';
 
 /**
@@ -16,7 +17,7 @@ export class EventHandler {
   /**
    * 注册所有事件监听器
    */
-  public registerEventListeners(context: vscode.ExtensionContext): void {
+  public registerEventListeners(): void {
     this.registerDocumentCloseListener();
     this.registerTerminalCloseListener();
     this.registerWorkspaceChangeListener();
@@ -27,7 +28,7 @@ export class EventHandler {
    * 注册文档关闭事件监听器
    */
   private registerDocumentCloseListener(): void {
-    const disposable = vscode.workspace.onDidCloseTextDocument((doc) => {
+    const disposable = vscode.workspace.onDidCloseTextDocument(doc => {
       this.tempFileManager.cleanupTempFile(doc.uri);
     });
 
@@ -38,7 +39,7 @@ export class EventHandler {
    * 注册终端关闭事件监听器
    */
   private registerTerminalCloseListener(): void {
-    const disposable = vscode.window.onDidCloseTerminal((terminal) => {
+    const disposable = vscode.window.onDidCloseTerminal(terminal => {
       // 清理与终端相关的资源
       this.handleTerminalClose(terminal);
     });
@@ -61,7 +62,7 @@ export class EventHandler {
    * 注册配置变化监听器
    */
   private registerConfigurationChangeListener(): void {
-    const disposable = vscode.workspace.onDidChangeConfiguration((e) => {
+    const disposable = vscode.workspace.onDidChangeConfiguration(e => {
       this.handleConfigurationChange(e);
     });
 
@@ -97,7 +98,7 @@ export class EventHandler {
   /**
    * 注册开发者命令
    */
-  public registerDeveloperCommands(context: vscode.ExtensionContext): void {
+  public registerDeveloperCommands(): void {
     // 开发者命令已在CommandManager中注册
     // 这里可以添加特定的事件相关命令
   }

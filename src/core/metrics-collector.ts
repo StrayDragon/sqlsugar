@@ -52,7 +52,8 @@ export class MetricsCollector {
 
     // 计算新的平均响应时间
     perf.totalOperations++;
-    perf.avgResponseTime = ((perf.avgResponseTime * (perf.totalOperations - 1)) + operationTime) / perf.totalOperations;
+    perf.avgResponseTime =
+      (perf.avgResponseTime * (perf.totalOperations - 1) + operationTime) / perf.totalOperations;
 
     if (hadError) {
       perf.errorCount++;
@@ -92,7 +93,7 @@ export class MetricsCollector {
       avgResponseTime: perf.avgResponseTime,
       totalOperations: perf.totalOperations,
       errorRate,
-      successRate
+      successRate,
     };
   }
 
@@ -108,8 +109,8 @@ export class MetricsCollector {
       performanceMetrics: {
         avgResponseTime: 0,
         totalOperations: 0,
-        errorCount: 0
-      }
+        errorCount: 0,
+      },
     };
   }
 
@@ -117,11 +118,15 @@ export class MetricsCollector {
    * 导出指标为JSON
    */
   public exportMetrics(): string {
-    return JSON.stringify({
-      timestamp: new Date().toISOString(),
-      metrics: this.metrics,
-      performanceReport: this.getPerformanceReport(),
-      commandUsageStats: this.getCommandUsageStats()
-    }, null, 2);
+    return JSON.stringify(
+      {
+        timestamp: new Date().toISOString(),
+        metrics: this.metrics,
+        performanceReport: this.getPerformanceReport(),
+        commandUsageStats: this.getCommandUsageStats(),
+      },
+      null,
+      2
+    );
   }
 }

@@ -10,8 +10,7 @@ export { JinjaSqlPreview } from './components/sql-preview.js';
 // Main Editor Component
 export { Jinja2Editor } from './components/jinja2-editor.js';
 
-// Types
-export type { Jinja2Variable, Jinja2VariableType } from './types.js';
+// Types are exported separately via declaration files
 
 // Re-export Lit for convenience
 export * from 'lit';

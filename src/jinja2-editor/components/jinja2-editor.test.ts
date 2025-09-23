@@ -1,6 +1,10 @@
 import { fixture, html, expect } from '@open-wc/testing';
 import { Jinja2Editor } from './jinja2-editor.js';
 import type { Jinja2Variable, Jinja2VariableType } from '../types.js';
+import sinon from 'sinon';
+
+// Setup DOM for testing
+import '../../test/test-dom-setup.js';
 
 describe('Jinja2Editor', () => {
   const sampleVariables: Jinja2Variable[] = [

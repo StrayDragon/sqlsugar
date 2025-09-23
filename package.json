@@ -4,6 +4,7 @@
   "description": "SQLSugar enables inline SQL editing across multiple programming languages with sqls LSP support and advanced features like Jinja2 template processing and terminal SQL extraction.",
   "version": "0.0.1",
   "publisher": "l8ng",
+  "type": "module",
   "engines": {
     "vscode": "^1.98.0"
   },
@@ -16,6 +17,7 @@
     "onCommand:sqlsugar.copyJinja2Template"
   ],
   "main": "./dist/extension.js",
+  "types": "./dist/types/extension.d.ts",
   "contributes": {
     "commands": [
       {
@@ -209,28 +211,33 @@
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
-    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+    "compile": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js",
     "watch": "npm-run-all -p watch:*",
     "watch:esbuild": "node esbuild.js --watch",
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+    "watch:declarations": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
+    "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
+    "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
     "vsix": "pnpm run package && vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
-    "compile-tests": "tsc -p . --outDir out",
-    "watch-tests": "tsc -p . -w --outDir out",
-    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "compile-tests": "tsc -p ./tsconfig.test.json",
+    "watch-tests": "tsc -p ./tsconfig.test.json -w",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint:main",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
+    "format": "prettier --write 'src/**/*.{ts,js}' '!src/test/**/*' '!src/jinja2-editor/**/*'",
+    "format:check": "prettier --check 'src/**/*.{ts,js}' '!src/test/**/*' '!src/jinja2-editor/**/*'",
+    "format:all": "prettier --write 'src/**/*.{ts,js}'",
+    "lint:main": "eslint src/core src/extension.ts src/types/result.ts src/indentationAnalyzer.ts src/jinja2-*.ts src/sqlalchemy-placeholder-processor.ts",
     "test": "node out/test/runTest.js",
     "test:components": "wtr src/jinja2-editor/components/**/*.test.ts",
     "test:components:watch": "wtr src/jinja2-editor/components/**/*.test.ts --watch",
-    "build:components": "rollup -c rollup.config.js",
+    "build:components": "node build-components.js",
     "dev:components": "wtr src/jinja2-editor/components/**/*.test.ts --node-resolve --watch"
   },
   "dependencies": {
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
     "js-yaml": "^4.1.0",
-    "lit": "^3.3.1",
     "nunjucks": "^3.2.4",
     "vscode-languageclient": "^9.0.1"
   },
@@ -242,8 +249,10 @@
   "devDependencies": {
     "@antfu/eslint-config": "^5.4.1",
     "@open-wc/testing": "^4.0.0",
+    "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-terser": "^0.4.4",
+    "@rollup/plugin-typescript": "^12.1.4",
     "@types/chai": "^5.2.2",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
@@ -257,18 +266,25 @@
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.0",
     "@web/test-runner": "^0.20.2",
+    "@web/test-runner-mocha": "^0.9.0",
     "@web/test-runner-playwright": "^0.11.0",
     "chai": "^6.0.1",
     "esbuild": "^0.25.8",
+    "esbuild-plugin-copy": "^2.1.1",
     "eslint": "^9.32.0",
+    "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-perfectionist": "^4.15.0",
+    "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-sonarjs": "^3.0.5",
+    "lit": "^3.3.1",
     "mocha": "^11.7.2",
     "npm-run-all": "^4.1.5",
+    "prettier": "^3.6.2",
     "rollup": "^4.30.1",
-    "rollup-plugin-summary": "^1.1.1",
     "rollup-plugin-filesize": "^10.0.0",
+    "rollup-plugin-summary": "^1.1.1",
     "sinon": "^21.0.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
 }

@@ -21,14 +21,14 @@ suite('Result Type Tests', () => {
             const error = new Error('Test error');
             const result = new Err(error);
             assert.strictEqual(result.ok, false, 'Err result should have ok=false');
-            assert.strictEqual(result.value, undefined, 'Err result should have no value');
             assert.strictEqual(result.error, error, 'Err result should contain the error');
         });
 
         test('should handle string errors in Err', () => {
-            const result = new Err('Something went wrong');
-            assert.strictEqual(result.ok, false, 'Err result should have ok=false');
-            assert.strictEqual(result.error, 'Something went wrong', 'Err result should contain the string error');
+            const result = new Error('Something went wrong');
+            const errResult = new Err(result);
+            assert.strictEqual(errResult.ok, false, 'Err result should have ok=false');
+            assert.strictEqual(errResult.error, result, 'Err result should contain the string error');
         });
     });
 
@@ -72,13 +72,13 @@ suite('Result Type Tests', () => {
             const result = new Ok('invalid');
             const flatMapped = result.flatMap(x => {
                 if (x === 'invalid') {
-                    return new Err('Invalid input');
+                    return new Err(new Error('Invalid input'));
                 }
                 return new Ok(x);
             });
 
             assert.ok(flatMapped instanceof Err, 'Should return Err for invalid input');
-            assert.strictEqual(flatMapped.error, 'Invalid input', 'Should contain the error');
+            assert.strictEqual(flatMapped.error.message, 'Invalid input', 'Should contain the error');
         });
 
         test('should not flatMap Err value', () => {
@@ -115,8 +115,8 @@ suite('Result Type Tests', () => {
         test('should short-circuit chain on error', () => {
             const result = new Ok('10')
                 .map(x => parseInt(x, 10))
-                .flatMap(x => {
-                    if (x < 0) return new Err('Negative number');
+                .flatMap((x: number) => {
+                    if (x < 0) return new Err(new Error('Negative number'));
                     return new Ok(x);
                 })
                 .map(x => x * 2); // This should not execute
@@ -148,7 +148,7 @@ suite('Result Type Tests', () => {
         test('should handle async operations', async () => {
             const asyncOperation = async (value: number): Promise<Result<number, Error>> => {
                 if (value > 100) {
-                    return new Err('Value too large');
+                    return new Err(new Error('Value too large'));
                 }
                 return new Ok(value * 2);
             };
@@ -159,7 +159,7 @@ suite('Result Type Tests', () => {
 
             const errorResult = await asyncOperation(200);
             assert.ok(errorResult instanceof Err, 'Invalid async operation should return Err');
-            assert.strictEqual(errorResult.error, 'Value too large', 'Should contain correct error');
+            assert.strictEqual(errorResult.error.message, 'Value too large', 'Should contain correct error');
         });
     });
 
@@ -191,7 +191,7 @@ suite('Result Type Tests', () => {
         test('should handle validation scenarios', () => {
             const validateEmail = (email: string): Result<string, Error> => {
                 if (!email.includes('@')) {
-                    return new Err('Invalid email format');
+                    return new Err(new Error('Invalid email format'));
                 }
                 return new Ok(email.toLowerCase());
             };
@@ -199,10 +199,10 @@ suite('Result Type Tests', () => {
             const validateAge = (age: string): Result<number, Error> => {
                 const num = parseInt(age, 10);
                 if (isNaN(num)) {
-                    return new Err('Age must be a number');
+                    return new Err(new Error('Age must be a number'));
                 }
                 if (num < 0 || num > 150) {
-                    return new Err('Age must be between 0 and 150');
+                    return new Err(new Error('Age must be between 0 and 150'));
                 }
                 return new Ok(num);
             };
@@ -229,10 +229,10 @@ suite('Result Type Tests', () => {
 
             const findUserById = (id: number): Result<User, Error> => {
                 if (id <= 0) {
-                    return new Err('Invalid user ID');
+                    return new Err(new Error('Invalid user ID'));
                 }
                 if (id > 1000) {
-                    return new Err('User not found');
+                    return new Err(new Error('User not found'));
                 }
                 return new Ok({ id, name: `User ${id}`, email: `user${id}@example.com` });
             };
@@ -251,12 +251,12 @@ suite('Result Type Tests', () => {
             // Invalid ID
             const result2 = getUserEmail(-1);
             assert.ok(result2 instanceof Err, 'Invalid ID should return Err');
-            assert.strictEqual(result2.error, 'Invalid user ID', 'Should contain validation error');
+            assert.strictEqual(result2.error.message, 'Invalid user ID', 'Should contain validation error');
 
             // User not found
             const result3 = getUserEmail(9999);
             assert.ok(result3 instanceof Err, 'Non-existent user should return Err');
-            assert.strictEqual(result3.error, 'User not found', 'Should contain not found error');
+            assert.strictEqual(result3.error.message, 'User not found', 'Should contain not found error');
         });
     });
 

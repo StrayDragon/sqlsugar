@@ -172,42 +172,50 @@ SQLSugar VS Code Extension modernization project is currently 90% complete. The 
 - **Linting**: @antfu/eslint-config with additional plugins
 - **TypeScript**: Strict mode with enhanced configuration
 
-## Todos
-  ☒ 阶段1: 升级ESLint配置和TypeScript配置
-  ☒ 阶段2: 强化TypeScript配置
-  ☒ 阶段3: 核心架构重构
-  ☒ 阶段3.1: 分离大型组件 - 分析extension-core.ts结构
-  ☒ 阶段3.2: 创建依赖注入容器
-  ☒ 阶段3.3: 引入Result类型模式
-  ☒ 阶段3.4: 重构临时文件管理器
-  ☒ 阶段3.5: 重构事件处理器
-  ☒ 阶段3.6: 重构extension-core.ts以使用新架构
-  ☒ 阶段4: 测试现代化
-  ☒ 阶段4.1: 创建共享测试工具
-  ☒ 阶段4.2: 重构重复测试用例
-  ☒ 阶段4.2.1: 重构Jinja2测试文件使用新助手
-  ☒ 阶段4.2.2: 合并重复的Jinja2测试
-  ☒ 阶段4.2.3: 重构extension.test.ts使用新助手
-  ☒ 阶段4.3: 创建新的架构组件测试
-  ☒ 阶段4.3.1: 为新的架构组件创建测试
-  ☒ 阶段4.3.2: 为Result类型创建测试
-  ☒ 阶段4.3.3: 为DI容器创建测试
-  ☒ Jinja2阶段1: 基础设施搭建 - 安装Lit依赖和配置构建
-  ☒ Jinja2阶段2: 创建基础UI组件
-  ☒ Jinja2阶段3: 开发核心组件
-  ☒ Jinja2阶段4: 集成主编辑器
-  ☐ Jinja2阶段5: 测试和优化
-  ☒ 为UI组件创建测试 - Button组件测试
-  ☒ 为UI组件创建测试 - Input组件测试
-  ☒ 为UI组件创建测试 - Select组件测试
-  ☒ 为UI组件创建测试 - Variable Input组件测试
-  ☒ 为UI组件创建测试 - SQL Preview组件测试
-  ☒ 为UI组件创建测试 - 主Editor组件测试
-  ☒ 配置构建和打包流程
-  ☐ 运行测试验证所有组件工作正常
-  ☐ 最终清理和性能优化
-  ☒ 完成进度总结到 LATEST.md
+● Now let me try running the tests again:
 
+● Bash(pnpm run test:components)
+  ⎿  Error: > sqlsugar@0.0.1 test:components /home/l8ng/Projects/__straydragon__/sqlsugar
+     > wtr src/jinja2-editor/components/**/*.test.ts
+
+
+     Running 3 test files...
+
+
+      ELIFECYCLE  Command failed with exit code 1.
+
+● The test runner is still having issues. Let me try a different approach - let me try running the tests with Node.js directly using Mocha instead of the Web Test Runner, since
+  this might be a configuration issue with the browser environment:
+
+● Bash(npx mocha src/jinja2-editor/components/**/*.test.ts --require ts-node/register)
+  ⎿  Error: npm warn Unknown project config "enable-pre-post-scripts". This will stop working in the next major version of npm.
+
+      Exception during run: SyntaxError[ @/home/l8ng/Projects/__straydragon__/sqlsugar/src/jinja2-editor/components/ui/button.test.ts ]: Invalid or unexpected token
+         at compileSourceTextModule (node:internal/modules/esm/utils:357:16)
+         at ModuleLoader.moduleStrategy (node:internal/modules/esm/translators:108:18)
+         at ModuleLoader.<anonymous> (node:internal/modules/esm/translators:618:10)
+         at ModuleLoader.#translate (node:internal/modules/esm/loader:556:20)
+         at afterLoad (node:internal/modules/esm/loader:606:29)
+         at ModuleLoader.loadAndTranslate (node:internal/modules/esm/loader:611:12)
+         at ModuleLoader.#createModuleJob (node:internal/modules/esm/loader:635:36)
+     … +2 lines (ctrl+o to see all)
+
+● The tests are having module loading issues. Let me check the first test file to see what might be causing the issue:
+
+● Read(src/jinja2-editor/components/ui/button.test.ts)
+  ⎿  Read 30 lines (ctrl+o to expand)
+
+● The test file looks fine. The issue might be with the module system. Let me check if there's a test-dom-setup file that might be needed:
+
+● Read(src/test/test-dom-setup.ts)
+  ⎿  Read 237 lines (ctrl+o to expand)
+
+  Todos
+  ☒ Fix Rollup terser plugin import error
+  ☒ Add 'type': 'module' to package.json for ES modules
+  ☐ Configure Web Test Runner TypeScript compilation
+  ☐ Run component tests to verify all Lit components work
+  ☐ Final cleanup and performance optimization
 ---
 
 **Progress**: 90% Complete

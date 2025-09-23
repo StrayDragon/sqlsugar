@@ -1,24 +1,25 @@
-import * as vscode from 'vscode';
 import * as path from 'path';
+import * as vscode from 'vscode';
+
 import { Jinja2Variable } from './jinja2-nunjucks-processor';
 
 /**
  * WebView变量值接口
  */
 interface VariableValue {
-    name: string;
-    type: string;
-    value: any;
-    isEmpty: boolean;
+  name: string;
+  type: string;
+  value: any;
+  isEmpty: boolean;
 }
 
 /**
  * WebView编辑器结果接口
  */
 interface WebViewResult {
-    success: boolean;
-    values?: Record<string, any>;
-    error?: string;
+  success: boolean;
+  values?: Record<string, any>;
+  error?: string;
 }
 
 /**
@@ -26,152 +27,164 @@ interface WebViewResult {
  * 提供可视化模板编辑和变量管理界面
  */
 export class Jinja2WebviewEditor {
-    private static readonly viewType = 'sqlsugar.jinja2Editor';
-    private panel: vscode.WebviewPanel | undefined;
-    private resolvePromise: ((values: Record<string, any>) => void) | undefined;
-    private rejectPromise: ((reason?: any) => void) | undefined;
+  private static readonly viewType = 'sqlsugar.jinja2Editor';
+  private panel: vscode.WebviewPanel | undefined;
+  private resolvePromise: ((values: Record<string, any>) => void) | undefined;
+  private rejectPromise: ((reason?: any) => void) | undefined;
 
-    /**
-     * 显示 WebView 编辑器
-     */
-    public static showEditor(
-        template: string,
-        variables: Jinja2Variable[],
-        title: string = 'Jinja2模板编辑器'
-    ): Promise<Record<string, any>> {
-        return new Promise((resolve, reject) => {
-            const editor = new Jinja2WebviewEditor();
-            editor.resolvePromise = resolve;
-            editor.rejectPromise = reject;
-            editor.show(template, variables, title);
-        });
+  /**
+   * 显示 WebView 编辑器
+   */
+  public static showEditor(
+    template: string,
+    variables: Jinja2Variable[],
+    title: string = 'Jinja2模板编辑器'
+  ): Promise<Record<string, any>> {
+    return new Promise((resolve, reject) => {
+      const editor = new Jinja2WebviewEditor();
+      editor.resolvePromise = resolve;
+      editor.rejectPromise = reject;
+      editor.show(template, variables, title);
+    });
+  }
+
+  /**
+   * 获取扩展上下文路径
+   */
+  private getContextPath(): string {
+    // 在开发环境和生产环境中获取不同的路径
+    const isDevelopment = process.env.VSCODE_DEBUG_MODE === 'true';
+    if (isDevelopment) {
+      return __dirname; // 开发环境：指向源码目录
+    } else {
+      return path.join(__dirname, '..'); // 生产环境：指向打包后的目录
+    }
+  }
+
+  private show(template: string, variables: Jinja2Variable[], title: string): void {
+    // 创建或显示 webview 面板
+    if (this.panel) {
+      this.panel.reveal();
+      this.updateContent(template, variables);
+      return;
     }
 
-    /**
-     * 获取扩展上下文路径
-     */
-    private getContextPath(): string {
-        // 在开发环境和生产环境中获取不同的路径
-        const isDevelopment = process.env.VSCODE_DEBUG_MODE === 'true';
-        if (isDevelopment) {
-            return __dirname; // 开发环境：指向源码目录
-        } else {
-            return path.join(__dirname, '..'); // 生产环境：指向打包后的目录
+    this.panel = vscode.window.createWebviewPanel(
+      Jinja2WebviewEditor.viewType,
+      title,
+      vscode.ViewColumn.Beside,
+      {
+        enableScripts: true,
+        retainContextWhenHidden: true,
+        localResourceRoots: [
+          vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources'),
+        ],
+        enableCommandUris: false,
+      }
+    );
+
+    this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
+    this.setupWebviewListeners();
+  }
+
+  private setupWebviewListeners(): void {
+    if (!this.panel) {
+      return;
+    }
+
+    this.panel.onDidDispose(() => {
+      this.panel = undefined;
+      if (this.rejectPromise) {
+        this.rejectPromise(new Error('用户关闭了编辑器'));
+        this.rejectPromise = undefined;
+        this.resolvePromise = undefined;
+      }
+    });
+
+    this.panel.webview.onDidReceiveMessage(async message => {
+      await this.handleWebviewMessage(message);
+    });
+  }
+
+  private async handleWebviewMessage(message: any): Promise<void> {
+    switch (message.command) {
+      case 'submit':
+        if (this.resolvePromise && message.values) {
+          this.resolvePromise(message.values);
+          this.panel?.dispose();
         }
-    }
+        break;
 
-    private show(template: string, variables: Jinja2Variable[], title: string): void {
-        // 创建或显示 webview 面板
-        if (this.panel) {
-            this.panel.reveal();
-            this.updateContent(template, variables);
-            return;
+      case 'cancel':
+        if (this.rejectPromise) {
+          this.rejectPromise(new Error('用户取消了操作'));
+          this.panel?.dispose();
         }
+        break;
 
-        this.panel = vscode.window.createWebviewPanel(
-            Jinja2WebviewEditor.viewType,
-            title,
-            vscode.ViewColumn.Beside,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [
-                    vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources')
-                ],
-                enableCommandUris: false
-            }
-        );
-
-        this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
-        this.setupWebviewListeners();
-    }
-
-    private setupWebviewListeners(): void {
-        if (!this.panel) {
-            return;
+      case 'copyToClipboard':
+        if (message.text) {
+          await vscode.env.clipboard.writeText(message.text);
+          vscode.window.showInformationMessage('SQL已复制到剪贴板');
         }
+        break;
 
-        this.panel.onDidDispose(() => {
-            this.panel = undefined;
-            if (this.rejectPromise) {
-                this.rejectPromise(new Error('用户关闭了编辑器'));
-                this.rejectPromise = undefined;
-                this.resolvePromise = undefined;
-            }
-        });
-
-        this.panel.webview.onDidReceiveMessage(async (message) => {
-            await this.handleWebviewMessage(message);
-        });
-    }
-
-    private async handleWebviewMessage(message: any): Promise<void> {
-        switch (message.command) {
-            case 'submit':
-                if (this.resolvePromise && message.values) {
-                    this.resolvePromise(message.values);
-                    this.panel?.dispose();
-                }
-                break;
-
-            case 'cancel':
-                if (this.rejectPromise) {
-                    this.rejectPromise(new Error('用户取消了操作'));
-                    this.panel?.dispose();
-                }
-                break;
-
-            case 'copyToClipboard':
-                if (message.text) {
-                    await vscode.env.clipboard.writeText(message.text);
-                    vscode.window.showInformationMessage('SQL已复制到剪贴板');
-                }
-                break;
-
-            case 'showError':
-                if (message.message) {
-                    vscode.window.showErrorMessage(message.message);
-                }
-                break;
+      case 'showError':
+        if (message.message) {
+          vscode.window.showErrorMessage(message.message);
         }
+        break;
+    }
+  }
+
+  private updateContent(template: string, variables: Jinja2Variable[]): void {
+    if (!this.panel) {
+      return;
     }
 
-    private updateContent(template: string, variables: Jinja2Variable[]): void {
-        if (!this.panel) {
-            return;
-        }
+    this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
+  }
 
-        this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
-    }
+  private getHtmlContent(
+    webview: vscode.Webview,
+    template: string,
+    variables: Jinja2Variable[]
+  ): string {
+    const nonce = getNonce();
+    const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
 
-    private getHtmlContent(webview: vscode.Webview, template: string, variables: Jinja2Variable[]): string {
-        const nonce = getNonce();
-        const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
+    // 获取主题配置
+    const theme = vscode.workspace
+      .getConfiguration('sqlsugar')
+      .get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
+    const fontSize = vscode.workspace
+      .getConfiguration('sqlsugar')
+      .get<number>('sqlSyntaxHighlightFontSize', 14);
 
-        // 获取主题配置
-        const theme = vscode.workspace.getConfiguration('sqlsugar').get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
-        const fontSize = vscode.workspace.getConfiguration('sqlsugar').get<number>('sqlSyntaxHighlightFontSize', 14);
+    // 获取本地资源URI
+    const localNunjucksUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources', 'nunjucks.min.js')
+    );
 
-        // 获取本地资源URI
-        const localNunjucksUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources', 'nunjucks.min.js'));
+    // 构建变量初始值 - 使用安全的方式创建对象
+    const initialValuesObj: Record<string, any> = {};
+    variables.forEach(v => {
+      initialValuesObj[v.name] = v.defaultValue;
+    });
+    const initialValues = JSON.stringify(initialValuesObj);
 
-        // 构建变量初始值 - 使用安全的方式创建对象
-        const initialValuesObj: Record<string, any> = {};
-        variables.forEach(v => {
-            initialValuesObj[v.name] = v.defaultValue;
-        });
-        const initialValues = JSON.stringify(initialValuesObj);
+    // 构建变量配置 - 使用安全的方式创建数组
+    const variableConfigs = JSON.stringify(
+      variables.map(v => ({
+        name: v.name,
+        defaultValue: v.defaultValue,
+        description: v.description || '',
+        type: v.type,
+        filters: v.filters || [],
+      }))
+    );
 
-        // 构建变量配置 - 使用安全的方式创建数组
-        const variableConfigs = JSON.stringify(variables.map(v => ({
-            name: v.name,
-            defaultValue: v.defaultValue,
-            description: v.description || '',
-            type: v.type,
-            filters: v.filters || []
-        })));
-
-        return `<!DOCTYPE html>
+    return `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
@@ -1977,24 +1990,24 @@ export class Jinja2WebviewEditor {
     </script>
 </body>
 </html>`;
-    }
+  }
 
-    private sanitizeJsonString(value: any): string {
-        if (value === null || value === undefined) {
-            return 'null';
-        }
-        if (typeof value === 'string') {
-            return JSON.stringify(value);
-        }
-        return JSON.stringify(String(value));
+  private sanitizeJsonString(value: any): string {
+    if (value === null || value === undefined) {
+      return 'null';
     }
+    if (typeof value === 'string') {
+      return JSON.stringify(value);
+    }
+    return JSON.stringify(String(value));
+  }
 }
 
 function getNonce(): string {
-    let text = '';
-    const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-    for (let i = 0; i < 32; i++) {
-        text += possible.charAt(Math.floor(Math.random() * possible.length));
-    }
-    return text;
+  let text = '';
+  const possible = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  for (let i = 0; i < 32; i++) {
+    text += possible.charAt(Math.floor(Math.random() * possible.length));
+  }
+  return text;
 }

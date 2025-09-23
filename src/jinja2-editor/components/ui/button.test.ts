@@ -1,5 +1,5 @@
 import { fixture, html, expect } from '@open-wc/testing';
-import { JinjaButton } from './button.js';
+import { JinjaButton } from './button.ts';
 
 describe('JinjaButton', () => {
   it('registers as a custom element', () => {

@@ -9,226 +9,251 @@
  */
 
 export interface LineFingerprint {
-    contentHash: string;     // 行内容的哈希值（不含缩进）
-    originalIndent: string; // 原始缩进
-    lineIndex: number;      // 在原始SQL中的行号
+  contentHash: string; // 行内容的哈希值（不含缩进）
+  originalIndent: string; // 原始缩进
+  lineIndex: number; // 在原始SQL中的行号
 }
 
 export interface PreciseIndentTracker {
-    originalSql: string;
-    fingerprints: LineFingerprint[];
-    isEmpty: boolean;
+  originalSql: string;
+  fingerprints: LineFingerprint[];
+  isEmpty: boolean;
 }
 
 export class PreciseIndentSyncManager {
-    private trackers: Map<string, PreciseIndentTracker> = new Map();
+  private trackers: Map<string, PreciseIndentTracker> = new Map();
 
-    /**
-     * 创建精确缩进跟踪器
-     */
-    createTracker(tempFilePath: string, originalSql: string): PreciseIndentTracker {
-        const fingerprints = this.createFingerprints(originalSql);
+  /**
+   * 创建精确缩进跟踪器
+   */
+  createTracker(tempFilePath: string, originalSql: string): PreciseIndentTracker {
+    const fingerprints = this.createFingerprints(originalSql);
 
-        const tracker: PreciseIndentTracker = {
-            originalSql,
-            fingerprints,
-            isEmpty: fingerprints.length === 0
-        };
+    const tracker: PreciseIndentTracker = {
+      originalSql,
+      fingerprints,
+      isEmpty: fingerprints.length === 0,
+    };
 
-        this.trackers.set(tempFilePath, tracker);
-        console.log('DEBUG: Created precise indent tracker with', fingerprints.length, 'fingerprints');
-        return tracker;
-    }
+    this.trackers.set(tempFilePath, tracker);
+    console.log('DEBUG: Created precise indent tracker with', fingerprints.length, 'fingerprints');
+    return tracker;
+  }
 
-    /**
-     * 创建行指纹
-     */
-    private createFingerprints(sql: string): LineFingerprint[] {
-        const lines = sql.split('\n');
-        const fingerprints: LineFingerprint[] = [];
+  /**
+   * 创建行指纹
+   */
+  private createFingerprints(sql: string): LineFingerprint[] {
+    const lines = sql.split('\n');
+    const fingerprints: LineFingerprint[] = [];
 
-        lines.forEach((line, index) => {
-            // 提取缩进和内容
-            const indentMatch = line.match(/^(\s*)(.+)$/);
-            if (indentMatch) {
-                const [, indent, content] = indentMatch;
-                const contentHash = this.hashContent(content.trim());
+    lines.forEach((line, index) => {
+      // 提取缩进和内容
+      const indentMatch = line.match(/^(\s*)(.+)$/);
+      if (indentMatch) {
+        const [, indent, content] = indentMatch;
+        const contentHash = this.hashContent(content.trim());
 
-                fingerprints.push({
-                    contentHash,
-                    originalIndent: indent,
-                    lineIndex: index
-                });
-            } else {
-                // 空行或只有缩进的行
-                const contentHash = this.hashContent('');
-                fingerprints.push({
-                    contentHash,
-                    originalIndent: line,
-                    lineIndex: index
-                });
-            }
+        fingerprints.push({
+          contentHash,
+          originalIndent: indent,
+          lineIndex: index,
         });
+      } else {
+        // 空行或只有缩进的行
+        const contentHash = this.hashContent('');
+        fingerprints.push({
+          contentHash,
+          originalIndent: line,
+          lineIndex: index,
+        });
+      }
+    });
 
-        return fingerprints;
+    return fingerprints;
+  }
+
+  /**
+   * 同步缩进 - 精确匹配并复制缩进
+   */
+  syncIndent(tempFilePath: string, formattedSql: string): string {
+    const tracker = this.trackers.get(tempFilePath);
+    if (!tracker || tracker.isEmpty) {
+      console.log('DEBUG: No tracker found or empty, returning formatted SQL as-is');
+      return formattedSql;
     }
 
-    /**
-     * 同步缩进 - 精确匹配并复制缩进
-     */
-    syncIndent(tempFilePath: string, formattedSql: string): string {
-        const tracker = this.trackers.get(tempFilePath);
-        if (!tracker || tracker.isEmpty) {
-            console.log('DEBUG: No tracker found or empty, returning formatted SQL as-is');
-            return formattedSql;
-        }
+    const formattedLines = formattedSql.split('\n');
+    const result: string[] = [];
 
-        const formattedLines = formattedSql.split('\n');
-        const result: string[] = [];
+    console.log('DEBUG: Syncing indent for', formattedLines.length, 'lines');
 
-        console.log('DEBUG: Syncing indent for', formattedLines.length, 'lines');
+    for (let i = 0; i < formattedLines.length; i++) {
+      const formattedLine = formattedLines[i];
+      const trimmed = formattedLine.trim();
 
-        for (let i = 0; i < formattedLines.length; i++) {
-            const formattedLine = formattedLines[i];
-            const trimmed = formattedLine.trim();
+      if (!trimmed) {
+        // 空行保持原样
+        result.push('');
+        continue;
+      }
 
-            if (!trimmed) {
-                // 空行保持原样
-                result.push('');
-                continue;
-            }
+      // 查找匹配的指纹
+      const fingerprint = this.findMatchingFingerprint(tracker, trimmed);
 
-            // 查找匹配的指纹
-            const fingerprint = this.findMatchingFingerprint(tracker, trimmed);
-
-            if (fingerprint) {
-                // 找到匹配，使用原始缩进
-                result.push(fingerprint.originalIndent + trimmed);
-                console.log(`DEBUG: Line ${i}: Matched fingerprint, using indent with`, fingerprint.originalIndent.length, 'spaces');
-            } else {
-                // 未找到匹配，尝试从前面的行推断缩进
-                const inferredIndent = this.inferIndentFromContext(formattedLines, i, tracker);
-                result.push(inferredIndent + trimmed);
-                console.log(`DEBUG: Line ${i}: No fingerprint match, inferred indent with`, inferredIndent.length, 'spaces');
-            }
-        }
-
-        const finalResult = result.join('\n');
-        console.log('DEBUG: Final synced SQL:', JSON.stringify(finalResult, null, 2));
-        return finalResult;
+      if (fingerprint) {
+        // 找到匹配，使用原始缩进
+        result.push(fingerprint.originalIndent + trimmed);
+        console.log(
+          `DEBUG: Line ${i}: Matched fingerprint, using indent with`,
+          fingerprint.originalIndent.length,
+          'spaces'
+        );
+      } else {
+        // 未找到匹配，尝试从前面的行推断缩进
+        const inferredIndent = this.inferIndentFromContext(formattedLines, i, tracker);
+        result.push(inferredIndent + trimmed);
+        console.log(
+          `DEBUG: Line ${i}: No fingerprint match, inferred indent with`,
+          inferredIndent.length,
+          'spaces'
+        );
+      }
     }
 
-    /**
-     * 查找匹配的指纹
-     */
-    private findMatchingFingerprint(tracker: PreciseIndentTracker, content: string): LineFingerprint | null {
-        const contentHash = this.hashContent(content);
+    const finalResult = result.join('\n');
+    console.log('DEBUG: Final synced SQL:', JSON.stringify(finalResult, null, 2));
+    return finalResult;
+  }
 
-        // 首先尝试精确哈希匹配
-        let fingerprint = tracker.fingerprints.find(fp => fp.contentHash === contentHash);
+  /**
+   * 查找匹配的指纹
+   */
+  private findMatchingFingerprint(
+    tracker: PreciseIndentTracker,
+    content: string
+  ): LineFingerprint | null {
+    const contentHash = this.hashContent(content);
 
+    // 首先尝试精确哈希匹配
+    let fingerprint = tracker.fingerprints.find(fp => fp.contentHash === contentHash);
+
+    if (fingerprint) {
+      return fingerprint;
+    }
+
+    // 如果没有精确匹配，尝试模糊匹配（忽略大小写和空格差异）
+    fingerprint = tracker.fingerprints.find(fp => {
+      const fpContent = this.normalizeContent(content);
+      const originalContent = this.getOriginalContentFromFingerprint(tracker, fp);
+      return fpContent === this.normalizeContent(originalContent);
+    });
+
+    return fingerprint || null;
+  }
+
+  /**
+   * 从上下文推断缩进
+   */
+  private inferIndentFromContext(
+    formattedLines: string[],
+    currentIndex: number,
+    tracker: PreciseIndentTracker
+  ): string {
+    // 向上查找第一个有缩进的行
+    for (let i = currentIndex - 1; i >= 0; i--) {
+      const line = formattedLines[i];
+      const trimmed = line.trim();
+
+      if (trimmed) {
+        // 检查这一行是否有匹配的指纹
+        const fingerprint = this.findMatchingFingerprint(tracker, trimmed);
         if (fingerprint) {
-            return fingerprint;
+          return fingerprint.originalIndent;
         }
 
-        // 如果没有精确匹配，尝试模糊匹配（忽略大小写和空格差异）
-        fingerprint = tracker.fingerprints.find(fp => {
-            const fpContent = this.normalizeContent(content);
-            const originalContent = this.getOriginalContentFromFingerprint(tracker, fp);
-            return fpContent === this.normalizeContent(originalContent);
-        });
-
-        return fingerprint || null;
-    }
-
-    /**
-     * 从上下文推断缩进
-     */
-    private inferIndentFromContext(formattedLines: string[], currentIndex: number, tracker: PreciseIndentTracker): string {
-        // 向上查找第一个有缩进的行
-        for (let i = currentIndex - 1; i >= 0; i--) {
-            const line = formattedLines[i];
-            const trimmed = line.trim();
-
-            if (trimmed) {
-                // 检查这一行是否有匹配的指纹
-                const fingerprint = this.findMatchingFingerprint(tracker, trimmed);
-                if (fingerprint) {
-                    return fingerprint.originalIndent;
-                }
-
-                // 如果没有指纹，使用该行的现有缩进
-                const indentMatch = line.match(/^(\s*)/);
-                if (indentMatch) {
-                    return indentMatch[1];
-                }
-
-                break;
-            }
+        // 如果没有指纹，使用该行的现有缩进
+        const indentMatch = line.match(/^(\s*)/);
+        if (indentMatch) {
+          return indentMatch[1];
         }
 
-        // 如果没有找到任何参考，使用常见默认值
-        if (currentIndex > 0) {
-            const prevLine = formattedLines[currentIndex - 1];
-            const prevIndent = prevLine.match(/^(\s*)/)?.[1] || '';
-            return prevIndent;
-        }
-
-        return '';
+        break;
+      }
     }
 
-    /**
-     * 获取指纹的原始内容
-     */
-    private getOriginalContentFromFingerprint(tracker: PreciseIndentTracker, fingerprint: LineFingerprint): string {
-        const originalLine = tracker.originalSql.split('\n')[fingerprint.lineIndex];
-        return originalLine?.trim() || '';
+    // 如果没有找到任何参考，使用常见默认值
+    if (currentIndex > 0) {
+      const prevLine = formattedLines[currentIndex - 1];
+      const prevIndent = prevLine.match(/^(\s*)/)?.[1] || '';
+      return prevIndent;
     }
 
-    /**
-     * 标准化内容用于模糊匹配
-     */
-    private normalizeContent(content: string): string {
-        return content
-            .toLowerCase()
-            .replace(/\s+/g, ' ')  // 多个空格变为一个
-            .replace(/[(),`"'=<>]/g, '') // 移除常见标点
-            .trim();
+    return '';
+  }
+
+  /**
+   * 获取指纹的原始内容
+   */
+  private getOriginalContentFromFingerprint(
+    tracker: PreciseIndentTracker,
+    fingerprint: LineFingerprint
+  ): string {
+    const originalLine = tracker.originalSql.split('\n')[fingerprint.lineIndex];
+    return originalLine?.trim() || '';
+  }
+
+  /**
+   * 标准化内容用于模糊匹配
+   */
+  private normalizeContent(content: string): string {
+    return content
+      .toLowerCase()
+      .replace(/\s+/g, ' ') // 多个空格变为一个
+      .replace(/[(),`"'=<>]/g, '') // 移除常见标点
+      .trim();
+  }
+
+  /**
+   * 生成内容哈希
+   */
+  private hashContent(content: string): string {
+    // 简单但有效的哈希函数
+    let hash = 0;
+    for (let i = 0; i < content.length; i++) {
+      const char = content.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash; // 转换为32位整数
+    }
+    return Math.abs(hash).toString(16);
+  }
+
+  /**
+   * 清理跟踪器
+   */
+  cleanupTracker(tempFilePath: string): void {
+    this.trackers.delete(tempFilePath);
+  }
+
+  /**
+   * 获取统计信息
+   */
+  getStats(): { trackedFiles: number; totalFingerprints: number } {
+    let totalFingerprints = 0;
+    for (const tracker of this.trackers.values()) {
+      totalFingerprints += tracker.fingerprints.length;
     }
 
-    /**
-     * 生成内容哈希
-     */
-    private hashContent(content: string): string {
-        // 简单但有效的哈希函数
-        let hash = 0;
-        for (let i = 0; i < content.length; i++) {
-            const char = content.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // 转换为32位整数
-        }
-        return Math.abs(hash).toString(16);
-    }
+    return {
+      trackedFiles: this.trackers.size,
+      totalFingerprints,
+    };
+  }
 
-    /**
-     * 清理跟踪器
-     */
-    cleanupTracker(tempFilePath: string): void {
-        this.trackers.delete(tempFilePath);
-    }
-
-    /**
-     * 获取统计信息
-     */
-    getStats(): { trackedFiles: number; totalFingerprints: number } {
-        let totalFingerprints = 0;
-        for (const tracker of this.trackers.values()) {
-            totalFingerprints += tracker.fingerprints.length;
-        }
-
-        return {
-            trackedFiles: this.trackers.size,
-            totalFingerprints
-        };
-    }
+  /**
+   * 清理所有跟踪器
+   */
+  dispose(): void {
+    this.trackers.clear();
+  }
 }

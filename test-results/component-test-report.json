@@ -1,0 +1,38 @@
+{
+  "timestamp": "2025-09-23T13:18:57.984Z",
+  "summary": {
+    "passed": 26,
+    "warnings": 0,
+    "failed": 0,
+    "total": 27
+  },
+  "results": [
+    "✅ Build directory exists",
+    "✅ Main bundle exists",
+    "✅ WebView bundle exists",
+    "📊 Main bundle: 7033 lines",
+    "✅ src/jinja2-editor/components/ui/button.ts",
+    "✅ src/jinja2-editor/components/ui/input.ts",
+    "✅ src/jinja2-editor/components/ui/select.ts",
+    "✅ src/jinja2-editor/components/variable-input.ts",
+    "✅ src/jinja2-editor/components/sql-preview.ts",
+    "✅ src/jinja2-editor/components/jinja2-editor.ts",
+    "✅ src/jinja2-editor/components/ui/button.test.ts",
+    "✅ src/jinja2-editor/components/ui/input.test.ts",
+    "✅ src/jinja2-editor/components/ui/select.test.ts",
+    "✅ src/jinja2-editor/components/variable-input.test.ts",
+    "✅ src/jinja2-editor/components/sql-preview.test.ts",
+    "✅ src/jinja2-editor/components/jinja2-editor.test.ts",
+    "✅ src/jinja2-editor/components/ui/button.ts has exports",
+    "✅ src/jinja2-editor/components/ui/input.ts has exports",
+    "✅ src/jinja2-editor/components/ui/select.ts has exports",
+    "✅ src/jinja2-editor/components/variable-input.ts has exports",
+    "✅ src/jinja2-editor/components/sql-preview.ts has exports",
+    "✅ src/jinja2-editor/components/jinja2-editor.ts has exports",
+    "✅ Package.json has \"type\": \"module\"",
+    "✅ Build script exists",
+    "✅ Test script exists",
+    "✅ Rollup config exists",
+    "✅ Rollup config includes TypeScript plugin"
+  ]
+}

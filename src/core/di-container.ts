@@ -6,7 +6,15 @@ import * as vscode from 'vscode';
  */
 export class DIContainer {
   private static instance: DIContainer | undefined;
-  private services = new Map<string, { factory: () => any; instance: any; type: 'singleton' | 'transient' }>();
+  private services = new Map<
+    string,
+    {
+      factory: (...args: any[]) => any;
+      instance: any;
+      type: 'singleton' | 'transient';
+      isContextAware?: boolean;
+    }
+  >();
   private disposables: vscode.Disposable[] = [];
 
   private constructor() {}
@@ -28,7 +36,7 @@ export class DIContainer {
     this.services.set(key, {
       factory,
       instance: undefined,
-      type: 'singleton'
+      type: 'singleton',
     });
   }
 
@@ -39,20 +47,22 @@ export class DIContainer {
     this.services.set(key, {
       factory,
       instance: undefined,
-      type: 'transient'
+      type: 'transient',
     });
   }
 
   /**
    * Register a service with VS Code context (singleton with context support)
    */
-  public registerWithContext<T>(key: string, factory: (context: vscode.ExtensionContext) => T): void {
+  public registerWithContext<T>(
+    key: string,
+    factory: (context: vscode.ExtensionContext) => T
+  ): void {
     this.services.set(key, {
-      factory: () => {
-        throw new Error(`Service ${key} requires context. Use getWithContext() instead.`);
-      },
+      factory,
       instance: undefined,
-      type: 'singleton'
+      type: 'singleton',
+      isContextAware: true,
     });
   }
 
@@ -163,6 +173,8 @@ export class DIContainer {
     this.clear();
     this.disposables.forEach(d => d.dispose());
     this.disposables = [];
+    // Reset the singleton instance to allow re-creation
+    DIContainer.instance = undefined;
   }
 }
 

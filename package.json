@@ -220,10 +220,17 @@
     "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "test": "node out/test/runTest.js"
+    "test": "node out/test/runTest.js",
+    "test:components": "wtr src/jinja2-editor/components/**/*.test.ts",
+    "test:components:watch": "wtr src/jinja2-editor/components/**/*.test.ts --watch",
+    "build:components": "rollup -c rollup.config.js",
+    "dev:components": "wtr src/jinja2-editor/components/**/*.test.ts --node-resolve --watch"
   },
   "dependencies": {
+    "@lit/context": "^1.1.6",
+    "@lit/task": "^1.0.3",
     "js-yaml": "^4.1.0",
+    "lit": "^3.3.1",
     "nunjucks": "^3.2.4",
     "vscode-languageclient": "^9.0.1"
   },
@@ -234,22 +241,34 @@
   "icon": "icon.png",
   "devDependencies": {
     "@antfu/eslint-config": "^5.4.1",
+    "@open-wc/testing": "^4.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.0",
+    "@rollup/plugin-terser": "^0.4.4",
+    "@types/chai": "^5.2.2",
     "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",
+    "@types/sinon": "^17.0.4",
     "@types/vscode": "^1.98.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
     "@vscode/test-cli": "^0.0.11",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.0",
+    "@web/test-runner": "^0.20.2",
+    "@web/test-runner-playwright": "^0.11.0",
+    "chai": "^6.0.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "eslint-plugin-perfectionist": "^4.15.0",
     "eslint-plugin-sonarjs": "^3.0.5",
     "mocha": "^11.7.2",
     "npm-run-all": "^4.1.5",
+    "rollup": "^4.30.1",
+    "rollup-plugin-summary": "^1.1.1",
+    "rollup-plugin-filesize": "^10.0.0",
+    "sinon": "^21.0.0",
     "typescript": "^5.9.2"
   }
 }

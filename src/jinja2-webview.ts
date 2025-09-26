@@ -1,6 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
 
+import { ExtensionCore } from './core/extension-core';
 import { Jinja2Variable } from './jinja2-nunjucks-processor';
 
 /**
@@ -31,6 +32,7 @@ export class Jinja2WebviewEditor {
   private panel: vscode.WebviewPanel | undefined;
   private resolvePromise: ((values: Record<string, any>) => void) | undefined;
   private rejectPromise: ((reason?: any) => void) | undefined;
+  private extensionPath: string;
 
   /**
    * 显示 WebView 编辑器
@@ -42,6 +44,16 @@ export class Jinja2WebviewEditor {
   ): Promise<Record<string, any>> {
     return new Promise((resolve, reject) => {
       const editor = new Jinja2WebviewEditor();
+
+      // Get extension path from ExtensionCore
+      try {
+        const extensionCore = ExtensionCore.getInstance();
+        editor.extensionPath = extensionCore['context'].extensionPath;
+      } catch (error) {
+        // Fallback: use current working directory
+        editor.extensionPath = process.cwd();
+      }
+
       editor.resolvePromise = resolve;
       editor.rejectPromise = reject;
       editor.show(template, variables, title);
@@ -52,13 +64,8 @@ export class Jinja2WebviewEditor {
    * 获取扩展上下文路径
    */
   private getContextPath(): string {
-    // 在开发环境和生产环境中获取不同的路径
-    const isDevelopment = process.env.VSCODE_DEBUG_MODE === 'true';
-    if (isDevelopment) {
-      return __dirname; // 开发环境：指向源码目录
-    } else {
-      return path.join(__dirname, '..'); // 生产环境：指向打包后的目录
-    }
+    // 使用扩展路径，在开发和生产环境中都有效
+    return this.extensionPath;
   }
 
   private show(template: string, variables: Jinja2Variable[], title: string): void {
@@ -161,10 +168,7 @@ export class Jinja2WebviewEditor {
       .getConfiguration('sqlsugar')
       .get<number>('sqlSyntaxHighlightFontSize', 14);
 
-    // 获取本地资源URI
-    const localNunjucksUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources', 'nunjucks.min.js')
-    );
+    // 使用CDN加载nunjucks，无需本地资源URI
 
     // 构建变量初始值 - 使用安全的方式创建对象
     const initialValuesObj: Record<string, any> = {};
@@ -189,7 +193,7 @@ export class Jinja2WebviewEditor {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' ${localNunjucksUri} https://cdn.jsdelivr.net; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; style-src ${webview.cspSource} 'unsafe-inline';">
     <title>Jinja2 Template Editor - ${templatePreview}</title>
     <style>
         :root {
@@ -489,77 +493,13 @@ export class Jinja2WebviewEditor {
             margin-top: 10px;
         }
 
-        /* SQL 语法高亮主题 */
-        .theme-vscode-dark .sql-keyword { color: #569cd6; font-weight: bold; }
-        .theme-vscode-dark .sql-string { color: #ce9178; }
-        .theme-vscode-dark .sql-number { color: #b5cea8; }
-        .theme-vscode-dark .sql-function { color: #dcdcaa; }
-        .theme-vscode-dark .sql-operator { color: #d4d4d4; }
-        .theme-vscode-dark .sql-comment { color: #6a9955; font-style: italic; }
-        .theme-vscode-dark .sql-placeholder { color: #4ec9b0; font-weight: bold; }
-
-        /* VSCode Light Theme */
-        .theme-vscode-light .sql-keyword { color: #0000ff; font-weight: bold; }
-        .theme-vscode-light .sql-string { color: #a31515; }
-        .theme-vscode-light .sql-number { color: #098658; }
-        .theme-vscode-light .sql-function { color: #795e26; }
-        .theme-vscode-light .sql-operator { color: #000000; }
-        .theme-vscode-light .sql-comment { color: #008000; font-style: italic; }
-        .theme-vscode-light .sql-placeholder { color: #0070c0; font-weight: bold; }
-
-        /* GitHub Dark Theme */
-        .theme-github-dark .sql-keyword { color: #ff7b72; font-weight: bold; }
-        .theme-github-dark .sql-string { color: #a5d6ff; }
-        .theme-github-dark .sql-number { color: #79c0ff; }
-        .theme-github-dark .sql-function { color: #d2a8ff; }
-        .theme-github-dark .sql-operator { color: #c9d1d9; }
-        .theme-github-dark .sql-comment { color: #8b949e; font-style: italic; }
-        .theme-github-dark .sql-placeholder { color: #7ee787; font-weight: bold; }
-
-        /* GitHub Light Theme */
-        .theme-github-light .sql-keyword { color: #cf222e; font-weight: bold; }
-        .theme-github-light .sql-string { color: #0a3069; }
-        .theme-github-light .sql-number { color: #0550ae; }
-        .theme-github-light .sql-function { color: #8250df; }
-        .theme-github-light .sql-operator { color: #24292f; }
-        .theme-github-light .sql-comment { color: #6e7781; font-style: italic; }
-        .theme-github-light .sql-placeholder { color: #116329; font-weight: bold; }
-
-        /* Monokai Theme */
-        .theme-monokai .sql-keyword { color: #f92672; font-weight: bold; }
-        .theme-monokai .sql-string { color: #e6db74; }
-        .theme-monokai .sql-number { color: #ae81ff; }
-        .theme-monokai .sql-function { color: #a6e22e; }
-        .theme-monokai .sql-operator { color: #f8f8f2; }
-        .theme-monokai .sql-comment { color: #75715e; font-style: italic; }
-        .theme-monokai .sql-placeholder { color: #66d9ef; font-weight: bold; }
-
-        /* Solarized Dark Theme */
-        .theme-solarized-dark .sql-keyword { color: #268bd2; font-weight: bold; }
-        .theme-solarized-dark .sql-string { color: #2aa198; }
-        .theme-solarized-dark .sql-number { color: #d33682; }
-        .theme-solarized-dark .sql-function { color: #859900; }
-        .theme-solarized-dark .sql-operator { color: #93a1a1; }
-        .theme-solarized-dark .sql-comment { color: #586e75; font-style: italic; }
-        .theme-solarized-dark .sql-placeholder { color: #cb4b16; font-weight: bold; }
-
-        /* Solarized Light Theme */
-        .theme-solarized-light .sql-keyword { color: #268bd2; font-weight: bold; }
-        .theme-solarized-light .sql-string { color: #2aa198; }
-        .theme-solarized-light .sql-number { color: #d33682; }
-        .theme-solarized-light .sql-function { color: #859900; }
-        .theme-solarized-light .sql-operator { color: #586e75; }
-        .theme-solarized-light .sql-comment { color: #93a1a1; font-style: italic; }
-        .theme-solarized-light .sql-placeholder { color: #cb4b16; font-weight: bold; }
-
-        /* Dracula Theme */
-        .theme-dracula .sql-keyword { color: #ff79c6; font-weight: bold; }
-        .theme-dracula .sql-string { color: #f1fa8c; }
-        .theme-dracula .sql-number { color: #bd93f9; }
-        .theme-dracula .sql-function { color: #50fa7b; }
-        .theme-dracula .sql-operator { color: #f8f8f2; }
-        .theme-dracula .sql-comment { color: #6272a4; font-style: italic; }
-        .theme-dracula .sql-placeholder { color: #8be9fd; font-weight: bold; }
+        /* SQL 语法高亮 - 简化亮色主题 */
+        .sql-keyword { color: #0066cc; font-weight: bold; }
+        .sql-string { color: #008000; }
+        .sql-number { color: #9900cc; }
+        .sql-function { color: #ff6600; }
+        .sql-placeholder { color: #cc0000; font-weight: bold; }
+        .sql-comment { color: #808080; font-style: italic; }
 
         @media (max-width: 1024px) {
             .main-content {
@@ -606,7 +546,7 @@ export class Jinja2WebviewEditor {
 
                 <div class="preview-section">
                     <div class="template-original" id="templateOriginal"></div>
-                    <div class="sql-preview theme-${theme}" id="sqlPreview">-- 请配置变量值生成 SQL...</div>
+                    <div class="sql-preview" id="sqlPreview">-- 请配置变量值生成 SQL...</div>
                     <div class="status-info">
                         <span id="statusInfo">准备就绪</span>
                         <span id="variableCount"></span>
@@ -616,8 +556,8 @@ export class Jinja2WebviewEditor {
         </div>
     </div>
 
-    <!-- 引入 nunjucks 库 - 优先使用本地资源，fallback到CDN -->
-    <script src="${localNunjucksUri}" nonce="${nonce}" onerror="this.onerror=null; this.src='https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js'"></script>
+    <!-- 引入 nunjucks 库 - 使用CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js" nonce="${nonce}"></script>
 
     <script nonce="${nonce}">
         // 从 VS Code 传递的数据
@@ -1494,21 +1434,61 @@ export class Jinja2WebviewEditor {
             select.parentNode.replaceChild(input, select);
         }
 
-        // SQL 语法高亮
+        // SQL 语法高亮 - 使用简单的字符串匹配避免正则表达式问题
         function highlightSQL(sql) {
-            return sql
-                // 关键字
-                .replace(/\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|OUTER|ON|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|EXISTS|TRUE|FALSE)\b/g, '<span class="sql-keyword">$1</span>')
-                // 字符串
-                .replace(/'([^']|(\\'))*'/g, '<span class="sql-string">$&</span>')
-                // 数字
-                .replace(/\b\d+(\.\d+)?\b/g, '<span class="sql-number">$&</span>')
-                // 函数
-                    .replace(/\\b([a-zA-Z_][a-zA-Z0-9_]*)\\s*\\(/g, '<span class="sql-function">$1</span>(')
-                // 占位符
-                .replace(/:(\w+)\b/g, '<span class="sql-placeholder">$&</span>')
-                // 注释
-                .replace(/(--.*)$/gm, '<span class="sql-comment">$1</span>');
+            // 更简单的方法：使用字符串匹配而不是复杂的正则表达式
+            const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'TRUE', 'FALSE'];
+
+            // 转换为HTML，避免XSS
+            let result = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+            // 按长度排序关键字，确保长关键字优先匹配（如COUNT在C之前）
+            keywords.sort((a, b) => b.length - a.length);
+
+            // 使用字符串匹配高亮关键字
+            keywords.forEach(keyword => {
+                const upperKeyword = keyword.toUpperCase();
+                const upperResult = result.toUpperCase();
+                let lastIndex = 0;
+                let highlighted = '';
+
+                while (true) {
+                    const index = upperResult.indexOf(upperKeyword, lastIndex);
+                    if (index === -1) break;
+
+                    // 检查是否是单词边界
+                    const beforeChar = index > 0 ? result[index - 1] : ' ';
+                    const afterChar = index + keyword.length < result.length ? result[index + keyword.length] : ' ';
+                    const isWordBoundary = !/[a-zA-Z0-9_]/.test(beforeChar) && !/[a-zA-Z0-9_]/.test(afterChar);
+
+                    if (isWordBoundary) {
+                        highlighted += result.substring(lastIndex, index);
+                        highlighted += '<span class="sql-keyword">' + result.substring(index, index + keyword.length) + '</span>';
+                        lastIndex = index + keyword.length;
+                    } else {
+                        highlighted += result.substring(lastIndex, index + 1);
+                        lastIndex = index + 1;
+                    }
+                }
+
+                if (highlighted) {
+                    highlighted += result.substring(lastIndex);
+                    result = highlighted;
+                }
+            });
+
+            // 使用简单的字符串匹配高亮字符串
+            result = result.replace(/'[^']*'/g, match => '<span class="sql-string">' + match + '</span>');
+            result = result.replace(/"[^"]*"/g, match => '<span class="sql-string">' + match + '</span>');
+
+            // 高亮数字
+            result = result.replace(/\b\d+(\.\d+)?\b/g, match => '<span class="sql-number">' + match + '</span>');
+
+            // 高亮注释
+            result = result.replace(/--.*$/gm, match => '<span class="sql-comment">' + match + '</span>');
+            result = result.replace(/\/\*[\s\S]*?\*\//g, match => '<span class="sql-comment">' + match + '</span>');
+
+            return result;
         }
 
         // 构建嵌套上下文对象

@@ -13,10 +13,10 @@ export class CommandManager {
   private jinja2Handler: Jinja2NunjucksHandler;
   private extensionCore: ExtensionCore;
 
-  constructor(context: vscode.ExtensionContext) {
+  constructor(context: vscode.ExtensionContext, extensionCore?: ExtensionCore) {
     this.context = context;
     this.jinja2Handler = Jinja2NunjucksHandler.getInstance();
-    this.extensionCore = ExtensionCore.getInstance(context);
+    this.extensionCore = extensionCore || ExtensionCore.getInstance(context);
   }
 
   /**

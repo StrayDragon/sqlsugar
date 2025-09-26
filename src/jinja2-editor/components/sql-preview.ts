@@ -439,15 +439,56 @@ export class JinjaSqlPreview extends LitElement {
   private highlightSQL(sql: string): string {
     if (!this.highlightSyntax) return sql;
 
-    return sql
-      .replace(/\b(SELECT|FROM|WHERE|AND|OR|NOT|IN|LIKE|BETWEEN|IS|NULL|INSERT|INTO|VALUES|UPDATE|SET|DELETE|JOIN|INNER|LEFT|RIGHT|OUTER|ON|GROUP|BY|HAVING|ORDER|ASC|DESC|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|EXISTS|TRUE|FALSE|PRIMARY|KEY|FOREIGN|REFERENCES|TABLE|INDEX|CREATE|ALTER|DROP|DATABASE|SCHEMA|VIEW|TRIGGER|PROCEDURE|FUNCTION)\b/gi,
-        '<span class="sql-keyword">$1</span>')
-      .replace(/'([^']|(\\'))*'/g, '<span class="sql-string">$&</span>')
-      .replace(/`([^`]|``)*`/g, '<span class="sql-identifier">$&</span>')
-      .replace(/"([^"]|"")*"/g, '<span class="sql-identifier">$&</span>')
-      .replace(/\b\d+(\.\d+)?\b/g, '<span class="sql-number">$&</span>')
-      .replace(/--.*$/gm, '<span class="sql-comment">$&</span>')
-      .replace(/\/\*[\s\S]*?\*\//g, '<span class="sql-comment">$&</span>');
+    // Use simple string matching to avoid regex compilation issues
+    const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'TRUE', 'FALSE', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'TABLE', 'INDEX', 'CREATE', 'ALTER', 'DROP', 'DATABASE', 'SCHEMA', 'VIEW', 'TRIGGER', 'PROCEDURE', 'FUNCTION'];
+
+    // Convert to HTML entities first to avoid XSS
+    let result = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    // Sort keywords by length (longest first) to ensure proper matching
+    keywords.sort((a, b) => b.length - a.length);
+
+    // Use string matching for keywords to avoid regex issues
+    keywords.forEach(keyword => {
+      const upperKeyword = keyword.toUpperCase();
+      const upperResult = result.toUpperCase();
+      let lastIndex = 0;
+      let highlighted = '';
+
+      while (true) {
+        const index = upperResult.indexOf(upperKeyword, lastIndex);
+        if (index === -1) break;
+
+        // Check word boundaries
+        const beforeChar = index > 0 ? result[index - 1] : ' ';
+        const afterChar = index + keyword.length < result.length ? result[index + keyword.length] : ' ';
+        const isWordBoundary = !/[a-zA-Z0-9_]/.test(beforeChar) && !/[a-zA-Z0-9_]/.test(afterChar);
+
+        if (isWordBoundary) {
+          highlighted += result.substring(lastIndex, index);
+          highlighted += '<span class="sql-keyword">' + result.substring(index, index + keyword.length) + '</span>';
+          lastIndex = index + keyword.length;
+        } else {
+          highlighted += result.substring(lastIndex, index + 1);
+          lastIndex = index + 1;
+        }
+      }
+
+      if (highlighted) {
+        highlighted += result.substring(lastIndex);
+        result = highlighted;
+      }
+    });
+
+    // Use simple regex patterns for strings, numbers, and comments
+    result = result.replace(/'[^']*'/g, match => '<span class="sql-string">' + match + '</span>');
+    result = result.replace(/`[^`]*`/g, match => '<span class="sql-identifier">' + match + '</span>');
+    result = result.replace(/"[^"]*"/g, match => '<span class="sql-identifier">' + match + '</span>');
+    result = result.replace(/\b\d+(\.\d+)?\b/g, match => '<span class="sql-number">' + match + '</span>');
+    result = result.replace(/--.*$/gm, match => '<span class="sql-comment">' + match + '</span>');
+    result = result.replace(/\/\*[\s\S]*?\*\//g, match => '<span class="sql-comment">' + match + '</span>');
+
+    return result;
   }
 
   private async copyToClipboard() {

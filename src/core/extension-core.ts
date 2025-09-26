@@ -43,7 +43,7 @@ export class ExtensionCore {
     this.languageHandler = new LanguageHandler();
     this.preciseIndentSync = new PreciseIndentSyncManager();
     this.sqlsClientManager = new SQLsClientManager(this.context);
-    this.commandManager = new CommandManager(this.context);
+    this.commandManager = new CommandManager(this.context, this);
     this.tempFileManager = new TempFileManager(this.languageHandler, this.preciseIndentSync);
     this.eventHandler = new EventHandler(this.tempFileManager);
     this.metricsCollector = new MetricsCollector();

@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
+import { ExtensionCore } from '../core/extension-core';
 import { Jinja2Variable } from '../jinja2-nunjucks-processor';
 import { VariableChangeEvent, TemplateRenderEvent } from './types.js';
 
@@ -15,6 +16,7 @@ export class Jinja2WebviewIntegrated {
     private resolvePromise: ((values: Record<string, any>) => void) | undefined;
     private rejectPromise: ((reason?: any) => void) | undefined;
     private disposables: vscode.Disposable[] = [];
+    private extensionPath: string;
 
     /**
      * Show the modern WebView editor
@@ -26,6 +28,16 @@ export class Jinja2WebviewIntegrated {
     ): Promise<Record<string, any>> {
         return new Promise((resolve, reject) => {
             const editor = new Jinja2WebviewIntegrated();
+
+            // Get extension path from ExtensionCore
+            try {
+                const extensionCore = ExtensionCore.getInstance();
+                editor.extensionPath = extensionCore['context'].extensionPath;
+            } catch (error) {
+                // Fallback: use current working directory
+                editor.extensionPath = process.cwd();
+            }
+
             editor.resolvePromise = resolve;
             editor.rejectPromise = reject;
             editor.show(template, variables, title);
@@ -33,12 +45,8 @@ export class Jinja2WebviewIntegrated {
     }
 
     private getContextPath(): string {
-        const isDevelopment = process.env.VSCODE_DEBUG_MODE === 'true';
-        if (isDevelopment) {
-            return __dirname;
-        } else {
-            return path.join(__dirname, '..');
-        }
+        // 使用扩展路径，在开发和生产环境中都有效
+        return this.extensionPath;
     }
 
     private async show(template: string, variables: Jinja2Variable[], title: string): Promise<void> {
@@ -193,7 +201,7 @@ export class Jinja2WebviewIntegrated {
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
         img-src ${webview.cspSource} https: data:;
-        script-src 'nonce-${nonce}' 'unsafe-eval' ${webview.cspSource} ${litCoreUri} ${litDecoratorsUri} ${litDirectivesUri} ${nunjucksUri} https://cdn.jsdelivr.net;
+        script-src 'nonce-${nonce}' 'unsafe-eval' 'unsafe-inline' ${webview.cspSource} ${litCoreUri} ${litDecoratorsUri} ${litDirectivesUri} ${nunjucksUri} https://cdn.jsdelivr.net;
         style-src ${webview.cspSource} 'unsafe-inline';
         font-src ${webview.cspSource} https://fonts.gstatic.com;
         connect-src ${webview.cspSource};

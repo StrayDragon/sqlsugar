@@ -229,9 +229,10 @@ if (typeof globalThis !== 'undefined') {
     (globalThis as any).Text = Text;
 }
 
-export { MockElement, customElements, Event, Text, Document, window, navigator };
-
 // Export for CommonJS environments
 if (typeof module !== 'undefined' && module.exports) {
     module.exports = { MockElement, customElements, Event, Text, Document, window, navigator };
 }
+
+// Export for ES Module environments
+export { MockElement, customElements, Event, Text, Document, window, navigator };

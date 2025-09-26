@@ -99,13 +99,27 @@ const esbuildProblemMatcherPlugin = {
 	},
 };
 
+/**
+ * @type {import('esbuild').Plugin}
+ */
+const fixDynamicRequirePlugin = {
+	name: 'fix-dynamic-require',
+
+	setup(build) {
+		// Fix dynamic require calls by adding require function to global scope
+		build.onStart(() => {
+			console.log('[fix-dynamic-require] Adding require function');
+		});
+	},
+};
+
 async function main() {
 	const ctx = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'
 		],
 		bundle: true,
-		format: 'cjs',
+		format: 'esm',
 		minify: production,
 		sourcemap: !production,
 		sourcesContent: false,
@@ -113,9 +127,13 @@ async function main() {
 		outfile: 'dist/extension.js',
 		external: ['vscode'],
 		logLevel: 'silent',
+		banner: {
+			js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
+		},
 		plugins: [
 			/* add to the end of plugins array */
 			esbuildProblemMatcherPlugin,
+			fixDynamicRequirePlugin,
 		],
 	});
 	if (watch) {

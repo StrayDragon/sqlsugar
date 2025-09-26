@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import { Jinja2NunjucksHandler } from '../jinja2-nunjucks-handler';
 import { ExtensionCore } from './extension-core';
+import { LanguageHandler } from '../core/language-handler';
 
 /**
  * SQLSugar命令管理器
@@ -83,7 +84,6 @@ export class CommandManager {
 
     try {
       // 获取语言处理器检查SQL
-      const { LanguageHandler } = require('../core/language-handler');
       const languageHandler = new LanguageHandler();
 
       if (!languageHandler.looksLikeSQL(selectedText)) {
@@ -125,7 +125,6 @@ export class CommandManager {
   private async handleSwitchConnection(): Promise<void> {
     try {
       // 获取SQLs客户端管理器
-      const { ExtensionCore } = require('./extension-core');
       const extensionCore = ExtensionCore.getInstance(this.context);
       const sqlsClientManager = extensionCore.getSQLsClientManager();
 
@@ -197,7 +196,6 @@ export class CommandManager {
   private async handleGetMetrics(): Promise<void> {
     try {
       // 获取扩展核心实例和指标
-      const { ExtensionCore } = require('./extension-core');
       const extensionCore = ExtensionCore.getInstance(this.context);
       const metrics = extensionCore.getMetrics();
 

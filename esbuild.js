@@ -113,7 +113,10 @@ const fixDynamicRequirePlugin = {
 	},
 };
 
-async function main() {
+/**
+ * 主扩展构建
+ */
+async function buildExtension() {
 	const ctx = await esbuild.context({
 		entryPoints: [
 			'src/extension.ts'
@@ -131,18 +134,68 @@ async function main() {
 			js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
 		},
 		plugins: [
-			/* add to the end of plugins array */
 			esbuildProblemMatcherPlugin,
 			fixDynamicRequirePlugin,
 		],
 	});
+
 	if (watch) {
 		await ctx.watch();
 	} else {
 		await ctx.rebuild();
 		await ctx.dispose();
-		// 复制artifacts和debug目录到dist目录
+	}
+}
+
+/**
+ * Jinja2 Editor构建（替换原来的rollup配置）
+ */
+async function buildJinja2Editor() {
+	const ctx = await esbuild.context({
+		entryPoints: [
+			'src/jinja2-editor/index.ts'
+		],
+		bundle: true,
+		format: 'esm',
+		minify: production,
+		sourcemap: !production,
+		sourcesContent: false,
+		platform: 'browser',
+		outfile: 'dist/jinja2-editor/jinja2-editor.js',
+		external: ['vscode', 'lit'],
+		logLevel: 'silent',
+		loader: {
+			'.ts': 'ts',
+			'.js': 'js',
+		},
+		tsconfig: './tsconfig.json',
+		plugins: [
+			esbuildProblemMatcherPlugin,
+		],
+	});
+
+	if (watch) {
+		await ctx.watch();
+	} else {
+		await ctx.rebuild();
+		await ctx.dispose();
+	}
+}
+
+async function main() {
+	// 并行构建主扩展和Jinja2 Editor
+	const buildPromises = [
+		buildExtension(),
+		buildJinja2Editor()
+	];
+
+	if (!watch) {
+		await Promise.all(buildPromises);
+		// 只在非watch模式下复制资源目录
 		copyArtifactsAndDebugDirectories();
+	} else {
+		// watch模式下启动监听
+		await Promise.all(buildPromises);
 	}
 }
 

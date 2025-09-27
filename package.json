@@ -252,10 +252,6 @@
   "icon": "icon.png",
   "devDependencies": {
     "@antfu/eslint-config": "^5.4.1",
-    "@rollup/plugin-commonjs": "^28.0.6",
-    "@rollup/plugin-node-resolve": "^16.0.0",
-    "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^12.1.4",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",
@@ -264,7 +260,6 @@
     "@typescript-eslint/parser": "^8.39.0",
         "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.8",
-    "esbuild-plugin-copy": "^2.1.1",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-perfectionist": "^4.15.0",
@@ -273,9 +268,6 @@
     "lit": "^3.3.1",
         "npm-run-all": "^4.1.5",
     "prettier": "^3.6.2",
-    "rollup": "^4.30.1",
-    "rollup-plugin-filesize": "^10.0.0",
-    "rollup-plugin-summary": "^1.1.1",
         "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }

@@ -1,8 +1,8 @@
 import * as vscode from 'vscode';
 
+import { LanguageHandler } from '../core/language-handler';
 import { Jinja2NunjucksHandler } from '../jinja2-nunjucks-handler';
 import { ExtensionCore } from './extension-core';
-import { LanguageHandler } from '../core/language-handler';
 
 /**
  * SQLSugar命令管理器

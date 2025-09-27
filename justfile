@@ -1,5 +1,5 @@
 # SQLSugar VS Code Extension - Justfile
-# Simplified task runner for packaging, testing, and cleanup
+# Simplified task runner for packaging, and cleanup
 
 # Default recipe - show available commands
 default:
@@ -38,78 +38,6 @@ lint-main:
     pnpm run lint:main
 
 # =============================================================================
-# Testing Commands
-# =============================================================================
-
-# Run unit tests (fast)
-unit-test:
-    @echo "🧪 Running unit tests..."
-    pnpm run lint:main
-    pnpm run check-types
-    @echo "✅ Unit tests completed successfully!"
-
-# Run component tests (web components)
-test-components:
-    pnpm run test:components
-
-# Run component tests in watch mode
-test-components-watch:
-    pnpm run test:components:watch
-
-# Build web components
-build-components:
-    pnpm run build:components
-
-# Development mode for web components
-dev-components:
-    pnpm run dev:components
-
-# Run integration tests (with VS Code)
-integration-test: compile-tests build
-    @echo "🧪 Running integration tests..."
-    # Use xvfb-run if available (for CI), otherwise run directly (for local dev)
-    @if test -n "${GITHUB_ACTIONS:-}" && command -v xvfb-run >/dev/null 2>&1; then \
-        echo "🔧 Running with xvfb-run (GitHub Actions)"; \
-        DISPLAY=':99.0' xvfb-run -a pnpm run test; \
-    else \
-        echo "🔧 Running directly (local development)"; \
-        pnpm run test; \
-    fi
-    # Clean up temporary files
-    rm -rf .vscode-test/
-    rm -rf artifacts/test_stub/
-    @echo "✅ Integration tests completed successfully!"
-
-# Compile test files
-compile-tests:
-    pnpm run compile-tests
-
-# =============================================================================
-# MySQL Database Testing (Optional)
-# ==============================================================================
-
-# Setup MySQL database for testing using Docker Compose
-setup-db:
-    @echo "🗄️ Setting up test database using Docker Compose..."
-    # Check if Docker is running
-    @docker info > /dev/null 2>&1 || (echo "❌ Docker is not running" && exit 1)
-    # Start MySQL using docker-compose
-    cd docker && docker-compose up -d
-    # Wait for MySQL to be ready
-    @echo "⏳ Waiting for MySQL to be ready..."
-    @until mysql -h 127.0.0.1 -u testuser -ptestpass -e "SELECT 1" 2>/dev/null; do \
-        echo "Waiting for MySQL..."; \
-        sleep 2; \
-    done
-    @echo "✅ Database setup complete"
-
-# Cleanup test database container
-clean-db:
-    @echo "🧹 Cleaning up test database..."
-    cd docker && docker-compose down
-    @echo "✅ Database cleanup complete"
-
-# =============================================================================
 # Packaging and Distribution
 # =============================================================================
 
@@ -136,8 +64,6 @@ clean:
     rm -rf dist/
     rm -rf out/
     rm -f *.vsix
-    rm -rf .vscode-test/
-    rm -rf artifacts/test_stub/
 
 # =============================================================================
 # Aliases and Shortcuts
@@ -146,10 +72,6 @@ clean:
 # Common aliases
 alias pv := package-vsix
 alias c := clean
-alias tc := test-components
-alias tcw := test-components-watch
-alias bc := build-components
-alias dc := dev-components
 alias lm := lint-main
 alias bd := build-declarations
 

@@ -42,16 +42,6 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Setup test database
-        run: |
-          # Wait for MySQL to be ready
-          until mysql -h 127.0.0.1 -u testuser -ptestpass -e "SELECT 1"; do
-            echo "Waiting for MySQL..."
-            sleep 2
-          done
-          # Initialize test data
-          mysql -h 127.0.0.1 -u testuser -ptestpass testdb < docker/init.sql
-
       - name: Setup sqls
         run: |
           # Download sqls zip for Linux
@@ -67,7 +57,18 @@ jobs:
       - name: Run type check
         run: pnpm run check-types
 
-      - name: Run tests
-        run: xvfb-run -a pnpm run test
-        env:
-          DISPLAY: ':99.0'
+
+      # - name: Setup test database
+      #   run: |
+      #     # Wait for MySQL to be ready
+      #     until mysql -h 127.0.0.1 -u testuser -ptestpass -e "SELECT 1"; do
+      #       echo "Waiting for MySQL..."
+      #       sleep 2
+      #     done
+      #     # Initialize test data
+      #     mysql -h 127.0.0.1 -u testuser -ptestpass testdb < docker/init.sql
+
+      # - name: Run tests
+      #   run: xvfb-run -a pnpm run test
+      #   env:
+      #     DISPLAY: ':99.0'

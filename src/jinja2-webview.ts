@@ -33,6 +33,7 @@ export class Jinja2WebviewEditor {
   private resolvePromise: ((values: Record<string, any>) => void) | undefined;
   private rejectPromise: ((reason?: any) => void) | undefined;
   private extensionPath: string;
+  private context: vscode.ExtensionContext;
 
   /**
    * 显示 WebView 编辑器
@@ -45,9 +46,10 @@ export class Jinja2WebviewEditor {
     return new Promise((resolve, reject) => {
       const editor = new Jinja2WebviewEditor();
 
-      // Get extension path from ExtensionCore
+      // Get extension context from ExtensionCore
       try {
         const extensionCore = ExtensionCore.getInstance();
+        editor.context = extensionCore['context'];
         editor.extensionPath = extensionCore['context'].extensionPath;
       } catch (error) {
         // Fallback: use current working directory
@@ -84,9 +86,12 @@ export class Jinja2WebviewEditor {
         enableScripts: true,
         retainContextWhenHidden: true,
         localResourceRoots: [
-          vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'resources'),
+          vscode.Uri.joinPath(this.context.extensionUri, 'resources'),
+          vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources'),
         ],
         enableCommandUris: false,
+        // Explicit sandbox settings to prevent security warnings
+        enableForms: false,
       }
     );
 
@@ -160,15 +165,22 @@ export class Jinja2WebviewEditor {
     const nonce = getNonce();
     const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
 
-    // 获取主题配置
-    const theme = vscode.workspace
-      .getConfiguration('sqlsugar')
-      .get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
-    const fontSize = vscode.workspace
-      .getConfiguration('sqlsugar')
-      .get<number>('sqlSyntaxHighlightFontSize', 14);
+    // 获取配置
+    const config = vscode.workspace.getConfiguration('sqlsugar');
+    const theme = config.get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
+    const fontSize = config.get<number>('sqlSyntaxHighlightFontSize', 14);
+    const logLevel = config.get<string>('logLevel', 'error');
 
-    // 使用CDN加载nunjucks，无需本地资源URI
+    // 获取本地资源URI - 在已安装的扩展中，资源文件始终位于 dist/resources 目录
+    const nunjucksUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'nunjucks.min.js')
+    );
+    const highlightJsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js')
+    );
+    const highlightCssUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'vs2015.min.css')
+    );
 
     // 构建变量初始值 - 使用安全的方式创建对象
     const initialValuesObj: Record<string, any> = {};
@@ -193,7 +205,7 @@ export class Jinja2WebviewEditor {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' 'unsafe-inline' https://cdn.jsdelivr.net; style-src ${webview.cspSource} 'unsafe-inline';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' 'unsafe-eval' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
     <title>Jinja2 Template Editor - ${templatePreview}</title>
     <style>
         :root {
@@ -493,13 +505,7 @@ export class Jinja2WebviewEditor {
             margin-top: 10px;
         }
 
-        /* SQL 语法高亮 - 简化亮色主题 */
-        .sql-keyword { color: #0066cc; font-weight: bold; }
-        .sql-string { color: #008000; }
-        .sql-number { color: #9900cc; }
-        .sql-function { color: #ff6600; }
-        .sql-placeholder { color: #cc0000; font-weight: bold; }
-        .sql-comment { color: #808080; font-style: italic; }
+        /* SQL 语法高亮 - 由 highlight.js 提供 */
 
         @media (max-width: 1024px) {
             .main-content {
@@ -556,16 +562,92 @@ export class Jinja2WebviewEditor {
         </div>
     </div>
 
-    <!-- 引入 nunjucks 库 - 使用CDN -->
-    <script src="https://cdn.jsdelivr.net/npm/nunjucks@3.2.4/browser/nunjucks.min.js" nonce="${nonce}"></script>
+    <!-- 引入外部库 - 使用 VS Code webview 最佳实践 -->
+    <script nonce="${nonce}">
+        // 库加载状态检查
+        let librariesLoaded = {
+            nunjucks: false,
+            highlightJs: false
+        };
+
+        // 库加载错误处理
+        function handleLibraryError(libraryName, error) {
+            logError(\`Failed to load \${libraryName}:\`, error);
+            // 通知 VS Code 显示错误信息
+            if (window.vscode) {
+                window.vscode.postMessage({
+                    command: 'showError',
+                    message: \`Failed to load \${libraryName} library. Please reinstall the extension.\`
+                });
+            }
+        }
+
+        // 检查库是否加载成功
+        function checkLibrariesLoaded() {
+            if (typeof nunjucks !== 'undefined') {
+                librariesLoaded.nunjucks = true;
+            }
+            if (typeof hljs !== 'undefined') {
+                librariesLoaded.highlightJs = true;
+            }
+
+            // 如果库未加载，显示错误信息
+            setTimeout(() => {
+                if (!librariesLoaded.nunjucks) {
+                    handleLibraryError('nunjucks', new Error('nunjucks is not defined'));
+                }
+                if (!librariesLoaded.highlightJs) {
+                    handleLibraryError('highlight.js', new Error('hljs is not defined'));
+                }
+            }, 2000);
+        }
+    </script>
+
+    <!-- 引入 nunjucks 库 -->
+    <script src="${nunjucksUri}" nonce="${nonce}" onerror="handleLibraryError('nunjucks', event)"></script>
+
+    <!-- 引入 highlight.js 库 -->
+    <script src="${highlightJsUri}" nonce="${nonce}" onerror="handleLibraryError('highlight.js', event)"></script>
+    <link rel="stylesheet" href="${highlightCssUri}" nonce="${nonce}">
 
     <script nonce="${nonce}">
         // 从 VS Code 传递的数据
         const template = ${JSON.stringify(template)};
         const variables = ${variableConfigs};
+        const logLevel = '${logLevel}';
 
         // 初始值
         let initialValues = ${initialValues};
+
+        // 日志级别控制函数
+        function shouldLog(level) {
+            const levels = { 'none': 0, 'error': 1, 'warn': 2, 'info': 3, 'debug': 4 };
+            return levels[level] <= levels[logLevel] || levels[level] <= levels['error'];
+        }
+
+        function logError(...args) {
+            if (shouldLog('error')) {
+                console.error(...args);
+            }
+        }
+
+        function logWarn(...args) {
+            if (shouldLog('warn')) {
+                console.warn(...args);
+            }
+        }
+
+        function logInfo(...args) {
+            if (shouldLog('info')) {
+                console.info(...args);
+            }
+        }
+
+        function logDebug(...args) {
+            if (shouldLog('debug')) {
+                console.debug(...args);
+            }
+        }
 
         // 支持的类型
         const supportedTypes = [
@@ -705,6 +787,9 @@ export class Jinja2WebviewEditor {
 
         // 初始化页面
         document.addEventListener('DOMContentLoaded', function() {
+            // 首先检查库是否加载
+            checkLibrariesLoaded();
+
             displayTemplate();
             generateVariableControls();
             refreshTemplate();
@@ -1434,61 +1519,21 @@ export class Jinja2WebviewEditor {
             select.parentNode.replaceChild(input, select);
         }
 
-        // SQL 语法高亮 - 使用简单的字符串匹配避免正则表达式问题
+        // SQL 语法高亮 - 使用 highlight.js 库提供高性能语法高亮
         function highlightSQL(sql) {
-            // 更简单的方法：使用字符串匹配而不是复杂的正则表达式
-            const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'TRUE', 'FALSE'];
-
-            // 转换为HTML，避免XSS
-            let result = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-            // 按长度排序关键字，确保长关键字优先匹配（如COUNT在C之前）
-            keywords.sort((a, b) => b.length - a.length);
-
-            // 使用字符串匹配高亮关键字
-            keywords.forEach(keyword => {
-                const upperKeyword = keyword.toUpperCase();
-                const upperResult = result.toUpperCase();
-                let lastIndex = 0;
-                let highlighted = '';
-
-                while (true) {
-                    const index = upperResult.indexOf(upperKeyword, lastIndex);
-                    if (index === -1) break;
-
-                    // 检查是否是单词边界
-                    const beforeChar = index > 0 ? result[index - 1] : ' ';
-                    const afterChar = index + keyword.length < result.length ? result[index + keyword.length] : ' ';
-                    const isWordBoundary = !/[a-zA-Z0-9_]/.test(beforeChar) && !/[a-zA-Z0-9_]/.test(afterChar);
-
-                    if (isWordBoundary) {
-                        highlighted += result.substring(lastIndex, index);
-                        highlighted += '<span class="sql-keyword">' + result.substring(index, index + keyword.length) + '</span>';
-                        lastIndex = index + keyword.length;
-                    } else {
-                        highlighted += result.substring(lastIndex, index + 1);
-                        lastIndex = index + 1;
-                    }
+            try {
+                // 检查 highlight.js 是否可用
+                if (typeof hljs === 'undefined' || !hljs.highlight) {
+                    return sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                 }
 
-                if (highlighted) {
-                    highlighted += result.substring(lastIndex);
-                    result = highlighted;
-                }
-            });
-
-            // 使用简单的字符串匹配高亮字符串
-            result = result.replace(/'[^']*'/g, match => '<span class="sql-string">' + match + '</span>');
-            result = result.replace(/"[^"]*"/g, match => '<span class="sql-string">' + match + '</span>');
-
-            // 高亮数字
-            result = result.replace(/\b\d+(\.\d+)?\b/g, match => '<span class="sql-number">' + match + '</span>');
-
-            // 高亮注释
-            result = result.replace(/--.*$/gm, match => '<span class="sql-comment">' + match + '</span>');
-            result = result.replace(/\/\*[\s\S]*?\*\//g, match => '<span class="sql-comment">' + match + '</span>');
-
-            return result;
+                // 使用 highlight.js 进行 SQL 语法高亮
+                const result = hljs.highlight(sql, { language: 'sql' });
+                return result.value;
+            } catch (error) {
+                // 如果 highlight.js 失败，返回转义后的纯文本
+                return sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            }
         }
 
         // 构建嵌套上下文对象
@@ -1525,6 +1570,11 @@ export class Jinja2WebviewEditor {
         // 渲染模板 - 直接使用 nunjucks
         function renderTemplate(templateText, context, variablesList = null) {
             try {
+                // 检查 nunjucks 是否可用
+                if (typeof nunjucks === 'undefined' || !nunjucks.Environment) {
+                    return fallbackRenderTemplate(templateText, context);
+                }
+
                 // 直接使用 nunjucks 渲染模板
                 // 创建一个临时的 nunjucks 环境来处理模板渲染
                 const tempEnv = new nunjucks.Environment(null, {
@@ -1621,9 +1671,9 @@ export class Jinja2WebviewEditor {
 
                 return result;
             } catch (error) {
-                console.error('nunjucks 渲染失败:', error);
-                console.error('模板:', templateText);
-                console.error('上下文:', context);
+                logError('nunjucks 渲染失败:', error);
+                logError('模板:', templateText);
+                logError('上下文:', context);
                 // 如果 nunjucks 渲染失败，回退到简单渲染
                 return fallbackRenderTemplate(templateText, context);
             }
@@ -1884,7 +1934,7 @@ export class Jinja2WebviewEditor {
                 updateVariableCount();
 
             } catch (error) {
-                console.error('模板渲染错误:', error);
+                logError('模板渲染错误:', error);
                 statusInfo.textContent = '模板渲染失败';
                 sqlPreview.textContent = '渲染错误: ' + error.message;
 

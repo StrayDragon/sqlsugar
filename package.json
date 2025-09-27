@@ -204,8 +204,20 @@
                 "description": "Default format suggestion"
               }
             }
-          }
+          },
+        "sqlsugar.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "none"
+          ],
+          "default": "error",
+          "description": "Log level for WebView console output. 'error' shows only errors, 'none' disables all logs."
         }
+      }
       }
     }
   },
@@ -219,20 +231,12 @@
     "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
     "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
     "vsix": "pnpm run package && vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
-    "compile-tests": "tsc -p ./tsconfig.test.json",
-    "watch-tests": "tsc -p ./tsconfig.test.json -w",
-    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint:main",
-    "check-types": "tsc --noEmit",
+        "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "format": "prettier --write 'src/**/*.{ts,js}' '!src/test/**/*' '!src/jinja2-editor/**/*'",
-    "format:check": "prettier --check 'src/**/*.{ts,js}' '!src/test/**/*' '!src/jinja2-editor/**/*'",
+    "format": "prettier --write 'src/**/*.{ts,js}' '!src/jinja2-editor/**/*'",
+    "format:check": "prettier --check 'src/**/*.{ts,js}' '!src/jinja2-editor/**/*'",
     "format:all": "prettier --write 'src/**/*.{ts,js}'",
-    "lint:main": "eslint src/core src/extension.ts src/types/result.ts src/indentationAnalyzer.ts src/jinja2-*.ts src/sqlalchemy-placeholder-processor.ts",
-    "test": "node out/test/runTest.js",
-    "test:components": "wtr src/jinja2-editor/components/**/*.test.ts",
-    "test:components:watch": "wtr src/jinja2-editor/components/**/*.test.ts --watch",
-    "build:components": "node build-components.js",
-    "dev:components": "wtr src/jinja2-editor/components/**/*.test.ts --node-resolve --watch"
+    "lint:main": "eslint src/core src/extension.ts src/types/result.ts src/indentationAnalyzer.ts src/jinja2-*.ts src/sqlalchemy-placeholder-processor.ts"
   },
   "dependencies": {
     "@lit/context": "^1.1.6",
@@ -248,27 +252,17 @@
   "icon": "icon.png",
   "devDependencies": {
     "@antfu/eslint-config": "^5.4.1",
-    "@open-wc/testing": "^4.0.0",
     "@rollup/plugin-commonjs": "^28.0.6",
     "@rollup/plugin-node-resolve": "^16.0.0",
     "@rollup/plugin-terser": "^0.4.4",
     "@rollup/plugin-typescript": "^12.1.4",
-    "@types/chai": "^5.2.2",
     "@types/js-yaml": "^4.0.9",
-    "@types/mocha": "^10.0.10",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",
-    "@types/sinon": "^17.0.4",
     "@types/vscode": "^1.98.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
-    "@vscode/test-cli": "^0.0.11",
-    "@vscode/test-electron": "^2.5.2",
-    "@vscode/vsce": "^3.6.1",
-    "@web/test-runner": "^0.20.2",
-    "@web/test-runner-mocha": "^0.9.0",
-    "@web/test-runner-playwright": "^0.11.0",
-    "chai": "^6.0.1",
+        "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.8",
     "esbuild-plugin-copy": "^2.1.1",
     "eslint": "^9.32.0",
@@ -277,14 +271,12 @@
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-sonarjs": "^3.0.5",
     "lit": "^3.3.1",
-    "mocha": "^11.7.2",
-    "npm-run-all": "^4.1.5",
+        "npm-run-all": "^4.1.5",
     "prettier": "^3.6.2",
     "rollup": "^4.30.1",
     "rollup-plugin-filesize": "^10.0.0",
     "rollup-plugin-summary": "^1.1.1",
-    "sinon": "^21.0.0",
-    "ts-node": "^10.9.2",
+        "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
 }

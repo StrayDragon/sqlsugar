@@ -7,6 +7,7 @@ import {
   LanguageClientOptions,
   Executable,
   ServerOptions,
+  State as LanguageClientState,
 } from 'vscode-languageclient/node';
 
 /**
@@ -102,8 +103,41 @@ export class SQLsClientManager {
    * 重启客户端
    */
   public async restartClient(): Promise<void> {
-    await this.stopClient();
-    await this.startClient();
+    // 如果客户端不存在或已经停止，直接启动新的客户端
+    if (!this.client) {
+      await this.startClient();
+      return;
+    }
+
+    try {
+      // 检查客户端状态，如果正在启动则等待
+      if (this.client.state === LanguageClientState.Starting) {
+        console.log('Client is starting, waiting before restart...');
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      // 尝试停止客户端
+      if (this.client.state !== LanguageClientState.Stopped) {
+        await this.client.stop();
+      }
+    } catch (error) {
+      // 忽略停止错误，这通常是因为客户端已经处于停止状态
+      console.warn('Error stopping client during restart:', error);
+    } finally {
+      this.client = undefined;
+    }
+
+    // 等待确保资源完全清理
+    await new Promise(resolve => setTimeout(resolve, 300));
+
+    try {
+      await this.startClient();
+    } catch (startError) {
+      console.error('Failed to start client after restart:', startError);
+      vscode.window.showErrorMessage(
+        'Failed to restart SQLs client. Please check your configuration.'
+      );
+    }
   }
 
   /**

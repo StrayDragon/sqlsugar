@@ -3,6 +3,7 @@
 .vscode-test/**
 out/**
 node_modules/**
+.venv/**
 src/**
 .gitignore
 .yarnrc
@@ -50,6 +51,9 @@ debug-*.js
 *.temp
 .DS_Store
 Thumbs.db
+
+# SQLs binary (users should install sqls separately)
+bin/**
 
 # Build artifacts that shouldn't be included
 *.vsix

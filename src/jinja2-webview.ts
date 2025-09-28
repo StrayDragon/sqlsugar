@@ -1691,19 +1691,49 @@ export class Jinja2WebviewEditor {
                 // 将扁平的变量名转换为嵌套对象结构
                 const processedContext = buildNestedContext(context);
 
-                // 为所有未定义的变量提供合理的默认值
+                // 为所有未定义的变量提供合理的默认值，但保持空值状态
                 Object.keys(processedContext).forEach(key => {
                     if (processedContext[key] === null || processedContext[key] === undefined) {
-                        // 根据变量名推断默认值类型
-                        const varName = key.toLowerCase();
-                        if (varName.includes('id') || varName.includes('count') || varName.includes('amount') || varName.includes('limit')) {
-                            processedContext[key] = 42; // 数字默认值
-                        } else if (varName.startsWith('is_') || varName.startsWith('has_') || varName.includes('include') || varName.includes('deleted')) {
-                            processedContext[key] = false; // 布尔默认值
-                        } else if (varName.includes('date') || varName.includes('time')) {
-                            processedContext[key] = '2024-01-01'; // 日期默认值
+                        // 查找变量类型信息
+                        const variable = variablesList ? variablesList.find(v => v.name === key) : null;
+
+                        if (variable) {
+                            // 根据变量类型获取空值
+                            switch (variable.type) {
+                                case 'string':
+                                case 'date':
+                                case 'datetime':
+                                case 'time':
+                                case 'uuid':
+                                case 'email':
+                                case 'url':
+                                    processedContext[key] = '';
+                                    break;
+                                case 'number':
+                                    processedContext[key] = 0;
+                                    break;
+                                case 'boolean':
+                                    processedContext[key] = false;
+                                    break;
+                                case 'json':
+                                case 'null':
+                                    processedContext[key] = null;
+                                    break;
+                                default:
+                                    processedContext[key] = '';
+                            }
                         } else {
-                            processedContext[key] = 'demo_' + key; // 字符串默认值
+                            // 如果没有变量类型信息，使用原来的推断逻辑
+                            const varName = key.toLowerCase();
+                            if (varName.includes('id') || varName.includes('count') || varName.includes('amount') || varName.includes('limit')) {
+                                processedContext[key] = 42; // 数字默认值
+                            } else if (varName.startsWith('is_') || varName.startsWith('has_') || varName.includes('include') || varName.includes('deleted')) {
+                                processedContext[key] = false; // 布尔默认值
+                            } else if (varName.includes('date') || varName.includes('time')) {
+                                processedContext[key] = '2024-01-01'; // 日期默认值
+                            } else {
+                                processedContext[key] = 'demo_' + key; // 字符串默认值
+                            }
                         }
                     }
                 });

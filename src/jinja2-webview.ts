@@ -613,12 +613,12 @@ export class Jinja2WebviewEditor {
 
         // 库加载错误处理
         function handleLibraryError(libraryName, error) {
-            logError(\`Failed to load \${libraryName}:\`, error);
+            logError('Failed to load ' + libraryName + ':', error);
             // 通知 VS Code 显示错误信息
             if (window.vscode) {
                 window.vscode.postMessage({
                     command: 'showError',
-                    message: \`Failed to load \${libraryName} library. Please reinstall the extension.\`
+                    message: 'Failed to load ' + libraryName + ' library. Please reinstall the extension.'
                 });
             }
         }
@@ -778,34 +778,34 @@ export class Jinja2WebviewEditor {
 
             switch (option) {
                 case 'today':
-                    return \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
+                    return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
                 case 'yesterday':
                     const yesterday = new Date(now);
                     yesterday.setDate(yesterday.getDate() - 1);
-                    return \`\${yesterday.getFullYear()}-\${pad(yesterday.getMonth() + 1)}-\${pad(yesterday.getDate())}\`;
+                    return yesterday.getFullYear() + '-' + pad(yesterday.getMonth() + 1) + '-' + pad(yesterday.getDate());
                 case 'tomorrow':
                     const tomorrow = new Date(now);
                     tomorrow.setDate(tomorrow.getDate() + 1);
-                    return \`\${tomorrow.getFullYear()}-\${pad(tomorrow.getMonth() + 1)}-\${pad(tomorrow.getDate())}\`;
+                    return tomorrow.getFullYear() + '-' + pad(tomorrow.getMonth() + 1) + '-' + pad(tomorrow.getDate());
                 case 'this_monday':
                     const monday = new Date(now);
                     const day = now.getDay();
                     const diff = day === 0 ? -6 : 1 - day;
                     monday.setDate(monday.getDate() + diff);
-                    return \`\${monday.getFullYear()}-\${pad(monday.getMonth() + 1)}-\${pad(monday.getDate())}\`;
+                    return monday.getFullYear() + '-' + pad(monday.getMonth() + 1) + '-' + pad(monday.getDate());
                 case 'this_sunday':
                     const sunday = new Date(now);
                     const day2 = now.getDay();
                     const diff2 = day2 === 0 ? 0 : 7 - day2;
                     sunday.setDate(sunday.getDate() + diff2);
-                    return \`\${sunday.getFullYear()}-\${pad(sunday.getMonth() + 1)}-\${pad(sunday.getDate())}\`;
+                    return sunday.getFullYear() + '-' + pad(sunday.getMonth() + 1) + '-' + pad(sunday.getDate());
                 case 'this_month_1st':
-                    return \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-01\`;
+                    return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-01';
                 case 'this_month_last':
                     const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-                    return \`\${lastDay.getFullYear()}-\${pad(lastDay.getMonth() + 1)}-\${pad(lastDay.getDate())}\`;
+                    return lastDay.getFullYear() + '-' + pad(lastDay.getMonth() + 1) + '-' + pad(lastDay.getDate());
                 default:
-                    return \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
+                    return now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
             }
         }
 
@@ -818,11 +818,11 @@ export class Jinja2WebviewEditor {
                 case 'current_time':
                     return '00:00:00';
                 case 'exact_time':
-                    return \`\${pad(now.getHours())}:\${pad(now.getMinutes())}:\${pad(now.getSeconds())}\`;
+                    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
                 case 'string_000000':
                     return '00:00:00';
                 default:
-                    return \`\${pad(now.getHours())}:\${pad(now.getMinutes())}:\${pad(now.getSeconds())}\`;
+                    return pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
             }
         }
 
@@ -1108,16 +1108,14 @@ export class Jinja2WebviewEditor {
 
             // 添加样式
             const style = document.createElement('style');
-            style.textContent = \`
-                .filter-btn:hover {
-                    background-color: var(--vscode-button-secondaryHoverBackground) !important;
-                    color: var(--vscode-button-secondaryForeground) !important;
-                }
-                .filter-btn.selected {
-                    background-color: var(--vscode-button-background) !important;
-                    color: var(--vscode-button-foreground) !important;
-                }
-            \`;
+            style.textContent = '.filter-btn:hover {' +
+                    'background-color: var(--vscode-button-secondaryHoverBackground) !important;' +
+                    'color: var(--vscode-button-secondaryForeground) !important;' +
+                '}' +
+                '.filter-btn.selected {' +
+                    'background-color: var(--vscode-button-background) !important;' +
+                    'color: var(--vscode-button-foreground) !important;' +
+                '}';
             container.appendChild(style);
 
             // 更新按钮样式的函数
@@ -1426,8 +1424,8 @@ export class Jinja2WebviewEditor {
         function getDefaultForType(type) {
             const now = new Date();
             const pad = (num) => num.toString().padStart(2, '0');
-            const today = \`\${now.getFullYear()}-\${pad(now.getMonth() + 1)}-\${pad(now.getDate())}\`;
-            const nowTime = \`\${pad(now.getHours())}:\${pad(now.getMinutes())}:\${pad(now.getSeconds())}\`;
+            const today = now.getFullYear() + '-' + pad(now.getMonth() + 1) + '-' + pad(now.getDate());
+            const nowTime = pad(now.getHours()) + ':' + pad(now.getMinutes()) + ':' + pad(now.getSeconds());
 
             switch (type) {
                 case 'string': return 'demo_string';
@@ -1685,6 +1683,151 @@ export class Jinja2WebviewEditor {
                         return Object.keys(value).length;
                     }
                     return 0;
+                });
+
+                // 添加缺失的过滤器
+                tempEnv.addFilter('bool', (value) => {
+                    if (typeof value === 'boolean') return value;
+                    if (typeof value === 'string') {
+                        const lowerValue = value.toLowerCase();
+                        return lowerValue === 'true' || lowerValue === '1' || lowerValue !== 'false' && lowerValue !== '0' && value !== '';
+                    }
+                    return Boolean(value);
+                });
+
+                tempEnv.addFilter('string', (value) => {
+                    return String(value);
+                });
+
+                tempEnv.addFilter('abs', (value) => {
+                    return Math.abs(Number(value));
+                });
+
+                tempEnv.addFilter('round', (value) => {
+                    return Math.round(Number(value));
+                });
+
+                tempEnv.addFilter('sum', (value) => {
+                    if (Array.isArray(value)) {
+                        return value.reduce((sum, item) => sum + Number(item), 0);
+                    }
+                    return Number(value);
+                });
+
+                tempEnv.addFilter('min', (value) => {
+                    if (Array.isArray(value)) {
+                        return Math.min(...value.map(item => Number(item)));
+                    }
+                    return Number(value);
+                });
+
+                tempEnv.addFilter('max', (value) => {
+                    if (Array.isArray(value)) {
+                        return Math.max(...value.map(item => Number(item)));
+                    }
+                    return Number(value);
+                });
+
+                tempEnv.addFilter('striptags', (value) => {
+                    return String(value).replace(/<[^>]*>/g, '');
+                });
+
+                tempEnv.addFilter('truncate', (value) => {
+                    return String(value).substring(0, 255) + '...';
+                });
+
+                tempEnv.addFilter('unique', (value) => {
+                    if (Array.isArray(value)) {
+                        return [...new Set(value)];
+                    }
+                    return value;
+                });
+
+                tempEnv.addFilter('reverse', (value) => {
+                    if (Array.isArray(value)) {
+                        return [...value].reverse();
+                    } else if (typeof value === 'string') {
+                        return value.split('').reverse().join('');
+                    }
+                    return value;
+                });
+
+                tempEnv.addFilter('first', (value) => {
+                    if (Array.isArray(value)) {
+                        return value[0];
+                    }
+                    return value;
+                });
+
+                tempEnv.addFilter('last', (value) => {
+                    if (Array.isArray(value)) {
+                        return value[value.length - 1];
+                    }
+                    return value;
+                });
+
+                tempEnv.addFilter('slice', (value) => {
+                    if (Array.isArray(value)) {
+                        return value.slice(0, 10);
+                    }
+                    return value;
+                });
+
+                tempEnv.addFilter('wordwrap', (value, width = 80) => {
+                    const text = String(value);
+                    const result = [];
+                    for (let i = 0; i < text.length; i += width) {
+                        result.push(text.substring(i, i + width));
+                    }
+                    return result.join('\n');
+                });
+
+                tempEnv.addFilter('urlencode', (value) => {
+                    return encodeURIComponent(String(value));
+                });
+
+                // SQL相关过滤器（确保正确的引号）
+                tempEnv.addFilter('sql_quote', (value) => {
+                    if (value == null) return 'NULL';
+                    if (typeof value === 'string') return "'" + value.replace(/'/g, "''") + "'";
+                    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+                    if (typeof value === 'number') return String(value);
+                    if (typeof value === 'object') return "'" + JSON.stringify(value).replace(/'/g, "''") + "'";
+                    return String(value);
+                });
+
+                tempEnv.addFilter('sql_identifier', (value) => {
+                    if (typeof value !== 'string') return String(value);
+                    return '"' + value.replace(/"/g, '""') + '"';
+                });
+
+                tempEnv.addFilter('sql_date', (value) => {
+                    if (value == null) return 'NULL';
+                    const date = new Date(value);
+                    if (isNaN(date.getTime())) return "'" + value + "'";
+                    return "'" + date.toISOString().split('T')[0] + "'";
+                });
+
+                tempEnv.addFilter('sql_datetime', (value) => {
+                    if (value == null) return 'NULL';
+                    const date = new Date(value);
+                    if (isNaN(date.getTime())) return "'" + value + "'";
+                    return "'" + date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '') + "'";
+                });
+
+                tempEnv.addFilter('sql_in', (value) => {
+                    if (value == null) return 'NULL';
+                    if (Array.isArray(value)) {
+                        return '(' + value.map(v => {
+                            if (v == null) return 'NULL';
+                            if (typeof v === 'string') return "'" + v.replace(/'/g, "''") + "'";
+                            if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+                            return String(v);
+                        }).join(', ') + ')';
+                    }
+                    if (typeof value === 'string') return "'" + value.replace(/'/g, "''") + "'";
+                    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+                    return String(value);
                 });
 
                 // 处理上下文，确保数据类型正确传递给 nunjucks
@@ -2029,7 +2172,7 @@ export class Jinja2WebviewEditor {
                 return value !== null && value !== undefined && value !== '';
             }).length;
 
-            variableCount.textContent = \`已设置 \${setVars}/\${variables.length} 个变量\`;
+            variableCount.textContent = '已设置 ' + setVars + '/' + variables.length + ' 个变量';
         }
 
         // 重置为默认值

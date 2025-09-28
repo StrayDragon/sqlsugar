@@ -393,8 +393,12 @@ export class JinjaSqlPreview extends LitElement {
     const startTime = performance.now();
 
     try {
-      // Simulate template rendering (in real implementation, this would use nunjucks)
-      this.renderedSQL = this.simulateTemplateRendering(this.template, this.values);
+      // Use actual nunjucks rendering if available, otherwise fall back to simulation
+      if (typeof nunjucks !== 'undefined') {
+        this.renderedSQL = this.renderWithNunjucks(this.template, this.values);
+      } else {
+        this.renderedSQL = this.simulateTemplateRendering(this.template, this.values);
+      }
       this.renderError = null;
     } catch (error) {
       this.renderedSQL = '';
@@ -425,6 +429,186 @@ export class JinjaSqlPreview extends LitElement {
     result = result.replace(/{% endif %}/g, '');
 
     return result;
+  }
+
+  private renderWithNunjucks(template: string, values: Record<string, any>): string {
+    try {
+      // Configure nunjucks environment
+      const env = nunjucks.configure({ autoescape: false });
+
+      // Add all filters from the main WebView implementation
+      env.addFilter('float', (value: any) => {
+        const num = parseFloat(value);
+        return isNaN(num) ? 0 : num;
+      });
+
+      env.addFilter('int', (value: any) => {
+        const num = parseInt(value, 10);
+        return isNaN(num) ? 0 : num;
+      });
+
+      env.addFilter('default', (value: any, defaultValue: any) => {
+        return value !== null && value !== undefined && value !== '' ? value : defaultValue;
+      });
+
+      env.addFilter('length', (value: any) => {
+        if (Array.isArray(value)) return value.length;
+        if (typeof value === 'string') return value.length;
+        if (typeof value === 'object' && value !== null) return Object.keys(value).length;
+        return 0;
+      });
+
+      env.addFilter('bool', (value: any) => {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+          const lowerValue = value.toLowerCase();
+          return lowerValue === 'true' || lowerValue === '1' || lowerValue !== 'false' && lowerValue !== '0' && value !== '';
+        }
+        return Boolean(value);
+      });
+
+      env.addFilter('string', (value: any) => {
+        return String(value);
+      });
+
+      env.addFilter('abs', (value: any) => {
+        return Math.abs(Number(value));
+      });
+
+      env.addFilter('round', (value: any) => {
+        return Math.round(Number(value));
+      });
+
+      env.addFilter('sum', (value: any) => {
+        if (Array.isArray(value)) {
+          return value.reduce((sum, item) => sum + Number(item), 0);
+        }
+        return Number(value);
+      });
+
+      env.addFilter('min', (value: any) => {
+        if (Array.isArray(value)) {
+          return Math.min(...value.map(item => Number(item)));
+        }
+        return Number(value);
+      });
+
+      env.addFilter('max', (value: any) => {
+        if (Array.isArray(value)) {
+          return Math.max(...value.map(item => Number(item)));
+        }
+        return Number(value);
+      });
+
+      env.addFilter('striptags', (value: any) => {
+        return String(value).replace(/<[^>]*>/g, '');
+      });
+
+      env.addFilter('truncate', (value: any) => {
+        return String(value).substring(0, 255) + '...';
+      });
+
+      env.addFilter('unique', (value: any) => {
+        if (Array.isArray(value)) {
+          return [...new Set(value)];
+        }
+        return value;
+      });
+
+      env.addFilter('reverse', (value: any) => {
+        if (Array.isArray(value)) {
+          return [...value].reverse();
+        } else if (typeof value === 'string') {
+          return value.split('').reverse().join('');
+        }
+        return value;
+      });
+
+      env.addFilter('first', (value: any) => {
+        if (Array.isArray(value)) {
+          return value[0];
+        }
+        return value;
+      });
+
+      env.addFilter('last', (value: any) => {
+        if (Array.isArray(value)) {
+          return value[value.length - 1];
+        }
+        return value;
+      });
+
+      env.addFilter('slice', (value: any) => {
+        if (Array.isArray(value)) {
+          return value.slice(0, 10);
+        }
+        return value;
+      });
+
+      env.addFilter('wordwrap', (value: any, width = 80) => {
+        const text = String(value);
+        const result = [];
+        for (let i = 0; i < text.length; i += width) {
+          result.push(text.substring(i, i + width));
+        }
+        return result.join('\n');
+      });
+
+      env.addFilter('urlencode', (value: any) => {
+        return encodeURIComponent(String(value));
+      });
+
+      env.addFilter('sql_quote', (value: any) => {
+        if (value == null) return 'NULL';
+        if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+        if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+        if (typeof value === 'number') return String(value);
+        if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+        return String(value);
+      });
+
+      env.addFilter('sql_identifier', (value: any) => {
+        if (typeof value !== 'string') return String(value);
+        return `"${value.replace(/"/g, '""')}"`;
+      });
+
+      env.addFilter('sql_date', (value: any) => {
+        if (value == null) return 'NULL';
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return `'${value}'`;
+        return `'${date.toISOString().split('T')[0]}'`;
+      });
+
+      env.addFilter('sql_datetime', (value: any) => {
+        if (value == null) return 'NULL';
+        const date = new Date(value);
+        if (isNaN(date.getTime())) return `'${value}'`;
+        return `'${date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')}'`;
+      });
+
+      env.addFilter('sql_in', (value: any) => {
+        if (value == null) return 'NULL';
+        if (Array.isArray(value)) {
+          return `(${value.map(v => {
+            if (v == null) return 'NULL';
+            if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+            if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
+            return String(v);
+          }).join(', ')})`;
+        }
+        if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+        if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+        return String(value);
+      });
+
+      // Render the template with nunjucks
+      const rendered = nunjucks.renderString(template, values);
+      return rendered;
+    } catch (error) {
+      console.error('Nunjucks rendering failed:', error);
+      // Fall back to simulation if nunjucks fails
+      return this.simulateTemplateRendering(template, values);
+    }
   }
 
   private formatValue(value: any): string {

@@ -20,6 +20,10 @@ export interface DevMetrics {
 export class MetricsCollector {
   private metrics: DevMetrics;
 
+  constructor() {
+    this.reset();
+  }
+
   /**
    * 记录命令调用
    */

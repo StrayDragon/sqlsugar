@@ -400,6 +400,11 @@ export class Jinja2WebviewIntegrated {
 
         function initializeEditor() {
             try {
+                // Check if nunjucks is loaded
+                if (typeof nunjucks === 'undefined') {
+                    throw new Error('nunjucks library not loaded. Filters may not work properly.');
+                }
+
                 const editor = document.getElementById('mainEditor');
 
                 // Set initial data
@@ -471,8 +476,9 @@ export class Jinja2WebviewIntegrated {
                     return;
                 }
 
-                // Load component scripts
+                // Load component scripts and dependencies
                 const scripts = [
+                    '${nunjucksUri}',
                     '${componentsUri}'
                 ];
 
@@ -482,7 +488,10 @@ export class Jinja2WebviewIntegrated {
                 scripts.forEach(scriptSrc => {
                     const script = document.createElement('script');
                     script.src = scriptSrc;
-                    script.type = 'module';
+                    // Only set type='module' for component scripts, not for libraries
+                    if (scriptSrc.includes('jinja2-editor')) {
+                        script.type = 'module';
+                    }
                     script.nonce = '${nonce}';
                     script.onload = () => {
                         loadedCount++;

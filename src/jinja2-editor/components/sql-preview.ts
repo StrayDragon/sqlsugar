@@ -493,20 +493,48 @@ export class JinjaSqlPreview extends LitElement {
 
   private async copyToClipboard() {
     try {
-      await navigator.clipboard.writeText(this.renderedSQL);
-
-      const button = this.shadowRoot?.querySelector('.copy-button') as HTMLButtonElement;
-      if (button) {
-        button.textContent = 'Copied!';
-        button.classList.add('copied');
-
-        setTimeout(() => {
-          button.textContent = 'Copy';
-          button.classList.remove('copied');
-        }, 2000);
+      // Try the standard clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(this.renderedSQL);
+        this.showCopySuccess();
+      } else {
+        // Fallback to the parent extension
+        await this.fallbackCopyToExtension();
       }
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
+      // Try fallback method
+      await this.fallbackCopyToExtension();
+    }
+  }
+
+  private async fallbackCopyToExtension() {
+    try {
+      // Send message to parent extension to handle clipboard operations
+      const message = {
+        command: 'copyToClipboard',
+        text: this.renderedSQL
+      };
+
+      // Post message to the parent window (extension host)
+      window.parent.postMessage(message, '*');
+      this.showCopySuccess();
+    } catch (error) {
+      console.error('Fallback clipboard copy failed:', error);
+    }
+  }
+
+  private showCopySuccess() {
+    const button = this.shadowRoot?.querySelector('.copy-button') as HTMLButtonElement;
+    if (button) {
+      const originalText = button.textContent;
+      button.textContent = 'Copied!';
+      button.classList.add('copied');
+
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.classList.remove('copied');
+      }, 2000);
     }
   }
 

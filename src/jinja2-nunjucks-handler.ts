@@ -325,7 +325,7 @@ export class Jinja2NunjucksHandler {
     userValues?: Record<string, any>
   ): Promise<void> {
     try {
-      await vscode.env.clipboard.writeText(sql);
+      await this.copyToClipboardWithFallback(sql);
 
       // 显示成功消息
       const variableCount = variables.length;
@@ -542,5 +542,46 @@ export class Jinja2NunjucksHandler {
       return 'undefined';
     }
     return String(defaultValue);
+  }
+
+  /**
+   * 复制文本到剪贴板，支持 wl-copy fallback
+   */
+  private async copyToClipboardWithFallback(text: string): Promise<void> {
+    try {
+      // 首先尝试使用 VS Code 的剪贴板 API
+      await vscode.env.clipboard.writeText(text);
+    } catch (error) {
+      console.warn('VS Code clipboard failed, trying fallback:', error);
+
+      // 检查是否启用了 wl-copy fallback
+      const config = vscode.workspace.getConfiguration('sqlsugar');
+      const enableWlCopyFallback = config.get<boolean>('enableWlCopyFallback', false);
+
+      if (enableWlCopyFallback && process.platform === 'linux') {
+        await this.copyWithWlCopy(text);
+      } else {
+        // 如果没有启用 fallback 或者不是 Linux 系统，显示错误
+        throw new Error('剪贴板操作失败，请检查系统权限或启用 wl-copy fallback');
+      }
+    }
+  }
+
+  /**
+   * 使用 wl-copy 命令复制文本到剪贴板（Linux Wayland）
+   */
+  private async copyWithWlCopy(text: string): Promise<void> {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+
+    try {
+      // 使用 wl-copy 复制文本
+      await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
+      console.log('Text copied to clipboard using wl-copy');
+    } catch (error) {
+      console.error('wl-copy failed:', error);
+      throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
+    }
   }
 }

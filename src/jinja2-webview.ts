@@ -136,7 +136,7 @@ export class Jinja2WebviewEditor {
 
       case 'copyToClipboard':
         if (message.text) {
-          await vscode.env.clipboard.writeText(message.text);
+          await this.copyToClipboardWithFallback(message.text);
           vscode.window.showInformationMessage('SQL已复制到剪贴板');
         }
         break;
@@ -146,6 +146,47 @@ export class Jinja2WebviewEditor {
           vscode.window.showErrorMessage(message.message);
         }
         break;
+    }
+  }
+
+  /**
+   * 复制文本到剪贴板，支持 wl-copy fallback
+   */
+  private async copyToClipboardWithFallback(text: string): Promise<void> {
+    try {
+      // 首先尝试使用 VS Code 的剪贴板 API
+      await vscode.env.clipboard.writeText(text);
+    } catch (error) {
+      console.warn('VS Code clipboard failed, trying fallback:', error);
+
+      // 检查是否启用了 wl-copy fallback
+      const config = vscode.workspace.getConfiguration('sqlsugar');
+      const enableWlCopyFallback = config.get<boolean>('enableWlCopyFallback', false);
+
+      if (enableWlCopyFallback && process.platform === 'linux') {
+        await this.copyWithWlCopy(text);
+      } else {
+        // 如果没有启用 fallback 或者不是 Linux 系统，显示错误
+        throw new Error('剪贴板操作失败，请检查系统权限或启用 wl-copy fallback');
+      }
+    }
+  }
+
+  /**
+   * 使用 wl-copy 命令复制文本到剪贴板（Linux Wayland）
+   */
+  private async copyWithWlCopy(text: string): Promise<void> {
+    const { exec } = require('child_process');
+    const { promisify } = require('util');
+    const execAsync = promisify(exec);
+
+    try {
+      // 使用 wl-copy 复制文本
+      await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
+      console.log('Text copied to clipboard using wl-copy');
+    } catch (error) {
+      console.error('wl-copy failed:', error);
+      throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
     }
   }
 
@@ -1339,10 +1380,24 @@ export class Jinja2WebviewEditor {
                         toggleEmptyValue(variableName);
                     }
                 } else {
-                    // 更新默认值
+                    // 更新值
                     const valueInput = document.getElementById('value_' + safeName);
+                    const emptyCheckbox = document.getElementById('empty_' + safeName);
+
                     if (valueInput) {
-                        valueInput.value = formatValueForInput(getDefaultForType(newType), newType);
+                        // 检查当前是否为空值状态
+                        const currentIsEmpty = emptyCheckbox && emptyCheckbox.checked;
+
+                        if (currentIsEmpty) {
+                            // 保持空值状态，但更新类型对应的空值
+                            const emptyValue = getEmptyValueForType(newType);
+                            valueInput.value = formatValueForInput(emptyValue, newType);
+                            initialValues[variableName] = emptyValue;
+                        } else {
+                            // 非空值状态，使用默认值
+                            valueInput.value = formatValueForInput(getDefaultForType(newType), newType);
+                            initialValues[variableName] = getDefaultForType(newType);
+                        }
 
                         // 如果是布尔类型，替换为选择框
                         if (newType === 'boolean') {
@@ -1355,8 +1410,7 @@ export class Jinja2WebviewEditor {
                         }
                     }
 
-                    // 清除空值复选框
-                    const emptyCheckbox = document.getElementById('empty_' + safeName);
+                    // 清除空值复选框（仅当新类型不是null时）
                     if (emptyCheckbox) {
                         emptyCheckbox.checked = false;
                     }
@@ -1383,6 +1437,24 @@ export class Jinja2WebviewEditor {
                 case 'boolean': return true;
                 case 'null': return null;
                 default: return null;
+            }
+        }
+
+        // 获取类型的空值
+        function getEmptyValueForType(type) {
+            switch (type) {
+                case 'string': return '';
+                case 'number': return 0;
+                case 'date': return '';
+                case 'datetime': return '';
+                case 'boolean': return false;
+                case 'null': return null;
+                case 'time': return '';
+                case 'json': return null;
+                case 'uuid': return '';
+                case 'email': return '';
+                case 'url': return '';
+                default: return '';
             }
         }
 
@@ -1426,8 +1498,9 @@ export class Jinja2WebviewEditor {
                 valueInput.disabled = false;
                 const typeSelect = document.getElementById('type_' + safeName);
                 const type = typeSelect ? typeSelect.value : 'string';
-                valueInput.value = formatValueForInput(getDefaultForType(type), type);
-                initialValues[variableName] = getDefaultForType(type);
+                const emptyValue = getEmptyValueForType(type);
+                valueInput.value = formatValueForInput(emptyValue, type);
+                initialValues[variableName] = emptyValue;
             }
 
             refreshTemplate();

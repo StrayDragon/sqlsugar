@@ -29,11 +29,37 @@ interface WebViewResult {
  */
 export class Jinja2WebviewEditor {
   private static readonly viewType = 'sqlsugar.jinja2Editor';
+  private static activeInstances: Jinja2WebviewEditor[] = [];
   private panel: vscode.WebviewPanel | undefined;
   private resolvePromise: ((values: Record<string, any>) => void) | undefined;
   private rejectPromise: ((reason?: any) => void) | undefined;
   private extensionPath: string;
   private context: vscode.ExtensionContext;
+  private currentTemplate: string = '';
+  private currentVariables: Jinja2Variable[] = [];
+
+  /**
+   * 刷新所有活动的WebView实例以应用新的主题
+   */
+  public static refreshAllInstances(): void {
+    Jinja2WebviewEditor.activeInstances.forEach(editor => {
+      editor.refreshTheme();
+    });
+  }
+
+  /**
+   * 刷新当前WebView实例的主题
+   */
+  private refreshTheme(): void {
+    if (this.panel && this.currentTemplate && this.currentVariables.length > 0) {
+      // 重新创建WebView内容以应用新主题
+      this.panel.webview.html = this.getHtmlContent(
+        this.panel.webview,
+        this.currentTemplate,
+        this.currentVariables
+      );
+    }
+  }
 
   /**
    * 显示 WebView 编辑器
@@ -71,6 +97,10 @@ export class Jinja2WebviewEditor {
   }
 
   private show(template: string, variables: Jinja2Variable[], title: string): void {
+    // 存储当前模板和变量用于主题刷新
+    this.currentTemplate = template;
+    this.currentVariables = variables;
+
     // 创建或显示 webview 面板
     if (this.panel) {
       this.panel.reveal();
@@ -97,6 +127,9 @@ export class Jinja2WebviewEditor {
 
     this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
     this.setupWebviewListeners();
+
+    // 添加到活跃实例列表
+    Jinja2WebviewEditor.activeInstances.push(this);
   }
 
   private setupWebviewListeners(): void {
@@ -106,6 +139,11 @@ export class Jinja2WebviewEditor {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
+      // 从活跃实例列表中移除
+      const index = Jinja2WebviewEditor.activeInstances.indexOf(this);
+      if (index > -1) {
+        Jinja2WebviewEditor.activeInstances.splice(index, 1);
+      }
       if (this.rejectPromise) {
         this.rejectPromise(new Error('用户关闭了编辑器'));
         this.rejectPromise = undefined;
@@ -195,6 +233,10 @@ export class Jinja2WebviewEditor {
       return;
     }
 
+    // 更新存储的模板和变量
+    this.currentTemplate = template;
+    this.currentVariables = variables;
+
     this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
   }
 
@@ -212,6 +254,16 @@ export class Jinja2WebviewEditor {
     const fontSize = config.get<number>('sqlSyntaxHighlightFontSize', 14);
     const logLevel = config.get<string>('logLevel', 'error');
 
+    // 主题映射配置
+    const themeMap: Record<string, string> = {
+      'vscode-dark': 'vs2015.min.css',
+      'vscode-light': 'vscode-light.min.css',
+      'github-dark': 'github-dark.min.css',
+      'github-light': 'github.min.css',
+      'solarized-dark': 'solarized-dark.min.css',
+      'solarized-light': 'solarized-light.min.css',
+    };
+
     // 获取本地资源URI - 在已安装的扩展中，资源文件始终位于 dist/resources 目录
     const nunjucksUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'nunjucks.min.js')
@@ -220,7 +272,12 @@ export class Jinja2WebviewEditor {
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js')
     );
     const highlightCssUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'vs2015.min.css')
+      vscode.Uri.joinPath(
+        this.context.extensionUri,
+        'dist',
+        'resources',
+        themeMap[theme] || themeMap['vscode-dark']
+      )
     );
 
     // 构建变量初始值 - 使用安全的方式创建对象

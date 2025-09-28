@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { Jinja2WebviewEditor } from '../jinja2-webview';
 import { TempFileManager } from './temp-file-manager';
 
 /**
@@ -91,7 +92,23 @@ export class EventHandler {
   private handleConfigurationChange(e: vscode.ConfigurationChangeEvent): void {
     if (e.affectsConfiguration('sqlsugar')) {
       console.log('SQLSugar configuration changed');
-      // 可以在这里添加配置变化时的处理逻辑
+
+      // 检查是否是主题配置变化
+      if (e.affectsConfiguration('sqlsugar.sqlSyntaxHighlightTheme')) {
+        console.log('SQLSugar theme configuration changed, refreshing WebView instances');
+        this.refreshWebviewThemes();
+      }
+    }
+  }
+
+  /**
+   * 刷新所有WebView实例的主题
+   */
+  private refreshWebviewThemes(): void {
+    try {
+      Jinja2WebviewEditor.refreshAllInstances();
+    } catch (error) {
+      console.log('Failed to refresh WebView themes:', error);
     }
   }
 

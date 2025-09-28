@@ -110,10 +110,8 @@
             "vscode-light",
             "github-dark",
             "github-light",
-            "monokai",
             "solarized-dark",
-            "solarized-light",
-            "dracula"
+            "solarized-light"
           ],
           "default": "vscode-dark",
           "description": "SQL syntax highlighting theme for WebView"

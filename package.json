@@ -4,9 +4,8 @@
   "description": "SQLSugar enables inline SQL editing across multiple programming languages with sqls LSP support and advanced features like Jinja2 template processing and terminal SQL extraction.",
   "version": "0.0.1",
   "publisher": "l8ng",
-  "type": "module",
   "engines": {
-    "vscode": "^1.98.0"
+    "vscode": "^1.74.0"
   },
   "enabledApiProposals": [],
   "categories": [
@@ -43,18 +42,6 @@
       {
         "command": "sqlsugar.copyJinja2TemplateWebview",
         "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor)"
-      },
-      {
-        "command": "sqlsugar.configureJinja2TypeRules",
-        "title": "SQLSugar: Configure Jinja2 Type Rules"
-      },
-      {
-        "command": "sqlsugar.exportJinja2TypeRules",
-        "title": "SQLSugar: Export Jinja2 Type Rules"
-      },
-      {
-        "command": "sqlsugar.importJinja2TypeRules",
-        "title": "SQLSugar: Import Jinja2 Type Rules"
       }
     ],
     "menus": {
@@ -85,15 +72,6 @@
         },
         {
           "command": "sqlsugar.copyJinja2TemplateWebview"
-        },
-        {
-          "command": "sqlsugar.configureJinja2TypeRules"
-        },
-        {
-          "command": "sqlsugar.exportJinja2TypeRules"
-        },
-        {
-          "command": "sqlsugar.importJinja2TypeRules"
         }
       ]
     },
@@ -205,19 +183,24 @@
               }
             }
           },
-        "sqlsugar.logLevel": {
-          "type": "string",
-          "enum": [
-            "error",
-            "warn",
-            "info",
-            "debug",
-            "none"
-          ],
-          "default": "error",
-          "description": "Log level for WebView console output. 'error' shows only errors, 'none' disables all logs."
+          "sqlsugar.logLevel": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warn",
+              "info",
+              "debug",
+              "none"
+            ],
+            "default": "error",
+            "description": "Log level for WebView console output. 'error' shows only errors, 'none' disables all logs."
+          },
+          "sqlsugar.enableWlCopyFallback": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable wl-copy fallback for clipboard operations on Linux Wayland systems"
+          }
         }
-      }
       }
     }
   },
@@ -231,7 +214,7 @@
     "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
     "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
     "vsix": "pnpm run package && vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
-        "check-types": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "format": "prettier --write 'src/**/*.{ts,js}' '!src/jinja2-editor/**/*'",
     "format:check": "prettier --check 'src/**/*.{ts,js}' '!src/jinja2-editor/**/*'",
@@ -255,10 +238,10 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",
-    "@types/vscode": "^1.98.0",
+    "@types/vscode": "1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
-        "@vscode/vsce": "^3.6.1",
+    "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "eslint-config-prettier": "^10.1.8",
@@ -266,9 +249,9 @@
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-sonarjs": "^3.0.5",
     "lit": "^3.3.1",
-        "npm-run-all": "^4.1.5",
+    "npm-run-all": "^4.1.5",
     "prettier": "^3.6.2",
-        "ts-node": "^10.9.2",
+    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
   }
 }

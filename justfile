@@ -29,13 +29,25 @@ type-check:
 build-declarations:
     pnpm run build:declarations
 
-# Run linting (all files)
-lint:
-    pnpm run lint
+# Run tests
+test:
+    pnpm run test
 
-# Run linting on main extension files only
-lint-main:
+# Format code
+format:
+    pnpm run format
+
+# Format check (dry run)
+format-check:
+    pnpm run format:check
+
+# Run linting (main files only - default)
+lint:
     pnpm run lint:main
+
+# Run linting on all files (including jinja2-editor)
+lint-all:
+    pnpm run lint
 
 # =============================================================================
 # Packaging and Distribution
@@ -51,9 +63,11 @@ install-local: package-vsix
 
 # Create backup of current vsix
 backup: package-vsix
-    @mkdir -p backups
-    @cp sqlsugar.vsix "backups/sqlsugar-$(date +%Y%m%d-%H%M%S).vsix"
-    @echo "✅ Backup created in backups/ directory"
+    #!/usr/bin/env bash
+    set -e
+    mkdir -p backups
+    cp sqlsugar.vsix "backups/sqlsugar-$(date +%Y%m%d-%H%M%S).vsix"
+    echo "✅ Backup created in backups/ directory"
 
 # =============================================================================
 # Cleanup Commands
@@ -65,6 +79,12 @@ clean:
     rm -rf out/
     rm -f *.vsix
 
+# Deep clean (including node_modules)
+deep-clean: clean
+    rm -rf node_modules/
+    rm -rf .vscode-test/
+    rm -rf .vscode/sqlsugar/temp/
+
 # =============================================================================
 # Aliases and Shortcuts
 # =============================================================================
@@ -72,8 +92,13 @@ clean:
 # Common aliases
 alias pv := package-vsix
 alias c := clean
-alias lm := lint-main
+alias dc := deep-clean
+alias lm := lint
+alias la := lint-all
 alias bd := build-declarations
+alias tc := type-check
+alias f := format
+alias fc := format-check
 
 # =============================================================================
 # Help and Information

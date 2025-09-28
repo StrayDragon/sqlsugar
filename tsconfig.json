@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"module": "ES2022",
+		"module": "CommonJS", // Important: Use CommonJS for VS Code and Cursor compatibility
 		"target": "ES2022",
 		"lib": [
 			"ES2022"
@@ -36,7 +36,7 @@
 		"allowSyntheticDefaultImports": true, /* Allow default imports from modules with no default export */
 		"isolatedModules": true, /* Ensure that each file can be safely transpiled without relying on other imports */
 		"jsx": "react", /* Specify what JSX code is generated */
-		"moduleResolution": "node"
+		"moduleResolution": "node" // Important: Use Node module resolution for VS Code and Cursor compatibility
 	},
 	"include": [
 		"src/**/*"

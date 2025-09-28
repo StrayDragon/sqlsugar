@@ -122,17 +122,14 @@ async function buildExtension() {
 			'src/extension.ts'
 		],
 		bundle: true,
-		format: 'esm',
+		format: 'cjs', // Important: Use CommonJS for VS Code and Cursor compatibility
 		minify: production,
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'node',
 		outfile: 'dist/extension.js',
-		external: ['vscode'],
+		external: ['vscode'], // Important: Externalize vscode module for VS Code and Cursor compatibility
 		logLevel: 'silent',
-		banner: {
-			js: `import { createRequire } from 'module'; const require = createRequire(import.meta.url);`,
-		},
 		plugins: [
 			esbuildProblemMatcherPlugin,
 			fixDynamicRequirePlugin,

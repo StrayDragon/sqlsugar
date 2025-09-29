@@ -5,6 +5,7 @@
   "version": "0.0.1",
   "publisher": "l8ng",
   "engines": {
+    "pnpm": ">=10",
     "vscode": "^1.74.0"
   },
   "enabledApiProposals": [],
@@ -203,26 +204,21 @@
     }
   },
   "scripts": {
+    "preinstall": "npx only-allow pnpm",
     "vscode:prepublish": "pnpm run package",
     "compile": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js",
-    "watch": "npm-run-all -p watch:*",
-    "watch:esbuild": "node esbuild.js --watch",
-    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
-    "watch:declarations": "tsc --watch --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
     "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
     "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
     "vsix": "pnpm run package && vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
-    "format": "prettier --write 'src/**/*.{ts,js}' '!src/jinja2-editor/**/*'",
-    "format:check": "prettier --check 'src/**/*.{ts,js}' '!src/jinja2-editor/**/*'",
-    "format:all": "prettier --write 'src/**/*.{ts,js}'",
-    "lint:main": "eslint src/core src/extension.ts src/types/result.ts src/indentationAnalyzer.ts src/jinja2-*.ts src/sqlalchemy-placeholder-processor.ts"
+    "lint:main": "eslint src/**/*.ts"
   },
   "dependencies": {
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
     "js-yaml": "^4.1.0",
+    "lit": "^3.3.1",
     "nunjucks": "^3.2.4",
     "vscode-languageclient": "^9.0.1"
   },
@@ -232,7 +228,6 @@
   },
   "icon": "icon.png",
   "devDependencies": {
-    "@antfu/eslint-config": "^5.4.1",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",
@@ -242,14 +237,7 @@
     "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-perfectionist": "^4.15.0",
-    "eslint-plugin-prettier": "^5.5.4",
-    "eslint-plugin-sonarjs": "^3.0.5",
-    "lit": "^3.3.1",
-    "npm-run-all": "^4.1.5",
-    "prettier": "^3.6.2",
-    "ts-node": "^10.9.2",
     "typescript": "^5.9.2"
-  }
+  },
+  "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
 }

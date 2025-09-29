@@ -7,7 +7,6 @@ import { Jinja2Variable, Jinja2VariableType } from '../types.js';
 export class JinjaVariableInput extends LitElement {
   @property({ type: Object }) variable!: Jinja2Variable;
   @property({ type: Object }) value: any = undefined;
-  @property({ type: Boolean }) showFilters = false;
 
   @state() private localValue: any = undefined;
   @state() private localType: Jinja2VariableType = 'string';
@@ -111,68 +110,6 @@ export class JinjaVariableInput extends LitElement {
       color: var(--vscode-button-foreground);
     }
 
-    .filters-section {
-      margin-top: var(--spacing-sm);
-      padding-top: var(--spacing-sm);
-      border-top: 1px solid var(--vscode-widget-border);
-    }
-
-    .filters-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: var(--spacing-xs);
-    }
-
-    .filters-title {
-      font-size: var(--font-size-sm);
-      font-weight: var(--font-weight-medium);
-      color: var(--vscode-foreground);
-    }
-
-    .filters-toggle {
-      background: none;
-      border: 1px solid var(--vscode-button-border);
-      color: var(--vscode-button-foreground);
-      padding: 2px 6px;
-      border-radius: var(--border-radius-sm);
-      font-size: var(--font-size-xs);
-      cursor: pointer;
-      transition: all var(--transition-fast);
-      font-family: var(--vscode-font-family);
-    }
-
-    .filters-toggle:hover {
-      background: var(--vscode-button-hoverBackground);
-    }
-
-    .filters-list {
-      display: flex;
-      flex-wrap: wrap;
-      gap: var(--spacing-xs);
-    }
-
-    .filter-tag {
-      background: var(--vscode-badge-background);
-      color: var(--vscode-badge-foreground);
-      padding: 2px 6px;
-      border-radius: 8px;
-      font-size: var(--font-size-xs);
-      display: flex;
-      align-items: center;
-      gap: 2px;
-    }
-
-    .filter-tag .remove {
-      cursor: pointer;
-      opacity: 0.7;
-      transition: opacity var(--transition-fast);
-    }
-
-    .filter-tag .remove:hover {
-      opacity: 1;
-    }
-
     .required-indicator {
       color: var(--vscode-errorForeground);
       margin-left: 2px;
@@ -239,27 +176,6 @@ export class JinjaVariableInput extends LitElement {
         </div>
 
         ${this.renderQuickOptions()}
-
-        ${this.variable.filters && this.variable.filters.length > 0 ? html`
-          <div class="filters-section">
-            <div class="filters-header">
-              <span class="filters-title">Applied Filters</span>
-              <button class="filters-toggle" @click=${this.toggleFilters}>
-                ${this.showFilters ? 'Hide' : 'Show'}
-              </button>
-            </div>
-            ${this.showFilters ? html`
-              <div class="filters-list">
-                ${this.variable.filters.map(filter => html`
-                  <span class="filter-tag">
-                    ${filter}
-                    <span class="remove" @click=${() => this.removeFilter(filter)}>×</span>
-                  </span>
-                `)}
-              </div>
-            ` : ''}
-          </div>
-        ` : ''}
 
         ${validationError ? html`
           <div class="validation-message">
@@ -402,23 +318,12 @@ export class JinjaVariableInput extends LitElement {
     this.emitChangeEvent();
   }
 
-  private toggleFilters() {
-    this.showFilters = !this.showFilters;
-  }
-
-  private removeFilter(filter: string) {
-    const updatedFilters = this.variable.filters?.filter(f => f !== filter) || [];
-    this.variable = { ...this.variable, filters: updatedFilters };
-    this.emitChangeEvent();
-  }
-
   private emitChangeEvent() {
     this.dispatchEvent(new CustomEvent('change', {
       detail: {
         name: this.variable.name,
         value: this.localValue,
-        type: this.localType,
-        filters: this.variable.filters
+        type: this.localType
       },
       bubbles: true,
       composed: true

@@ -1,4 +1,4 @@
-import type { Jinja2Variable, Jinja2VariableType } from '../types.js';
+import type { Jinja2Variable, Jinja2VariableType, Jinja2VariableValue } from '../types.js';
 
 /**
  * Creates a new Jinja2Variable with the provided properties
@@ -99,8 +99,8 @@ function isValidJinja2VariableType(type: string): type is Jinja2VariableType {
 /**
  * Gets a default value for a given variable type
  */
-export function getDefaultValueForType(type: Jinja2VariableType): any {
-  const defaults: Record<Jinja2VariableType, any> = {
+export function getDefaultValueForType(type: Jinja2VariableType): Jinja2VariableValue {
+  const defaults: Record<Jinja2VariableType, Jinja2VariableValue> = {
     string: 'demo_value',
     number: 42,
     integer: 42,
@@ -120,7 +120,7 @@ export function getDefaultValueForType(type: Jinja2VariableType): any {
 /**
  * Formats a value for display based on its type
  */
-export function formatValueForDisplay(value: any, type: Jinja2VariableType): string {
+export function formatValueForDisplay(value: Jinja2VariableValue, type: Jinja2VariableType): string {
   if (value == null) return 'null';
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return value.toString();
@@ -134,7 +134,7 @@ export function formatValueForDisplay(value: any, type: Jinja2VariableType): str
 /**
  * Validates a value against its variable type
  */
-export function validateValue(value: any, type: Jinja2VariableType): string | null {
+export function validateValue(value: Jinja2VariableValue, type: Jinja2VariableType): string | null {
   if (value == null && type !== 'null') {
     return 'Value cannot be null or undefined';
   }
@@ -213,7 +213,7 @@ export function validateValue(value: any, type: Jinja2VariableType): string | nu
 /**
  * Infers variable type from a value
  */
-export function inferTypeFromValue(value: any): Jinja2VariableType {
+export function inferTypeFromValue(value: Jinja2VariableValue): Jinja2VariableType {
   if (value === null || value === 'null') return 'null';
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') {

@@ -2,7 +2,20 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ExtensionCore } from '../core/extension-core';
 import { Jinja2Variable } from '../jinja2-nunjucks-processor';
-import { VariableChangeEvent, TemplateRenderEvent } from './types.js';
+import { VariableChangeEvent, TemplateRenderEvent, Jinja2VariableValue } from './types.js';
+
+/**
+ * WebView 消息类型
+ */
+interface WebViewMessage {
+  command: string;
+  text?: string;
+  message?: string;
+  data?: unknown;
+  config?: unknown;
+  values?: Record<string, unknown>;
+  [key: string]: unknown;
+}
 
 /**
  * Modern Jinja2 WebView Editor using Lit Web Components
@@ -13,8 +26,8 @@ import { VariableChangeEvent, TemplateRenderEvent } from './types.js';
 export class Jinja2WebviewIntegrated {
     private static readonly viewType = 'sqlsugar.jinja2EditorModern';
     private panel: vscode.WebviewPanel | undefined;
-    private resolvePromise: ((values: Record<string, any>) => void) | undefined;
-    private rejectPromise: ((reason?: any) => void) | undefined;
+    private resolvePromise: ((values: Record<string, Jinja2VariableValue>) => void) | undefined;
+    private rejectPromise: ((reason?: unknown) => void) | undefined;
     private disposables: vscode.Disposable[] = [];
     private extensionPath: string;
 
@@ -25,7 +38,7 @@ export class Jinja2WebviewIntegrated {
         template: string,
         variables: Jinja2Variable[],
         title: string = 'Jinja2 Template Editor'
-    ): Promise<Record<string, any>> {
+    ): Promise<Record<string, Jinja2VariableValue>> {
         return new Promise((resolve, reject) => {
             const editor = new Jinja2WebviewIntegrated();
 
@@ -93,25 +106,29 @@ export class Jinja2WebviewIntegrated {
         });
     }
 
-    private async handleWebviewMessage(message: any): Promise<void> {
-        switch (message.command) {
+    private async handleWebviewMessage(message: unknown): Promise<void> {
+        if (!message || typeof message !== 'object' || !('command' in message)) {
+            return;
+        }
+        const msg = message as { command: string; [key: string]: unknown };
+        switch (msg.command) {
             case 'ready':
                 // WebView is ready, we can send initial data
                 if (this.panel) {
                     this.panel.webview.postMessage({
                         command: 'initialize',
                         data: {
-                            template: message.currentTemplate,
-                            variables: message.currentVariables,
-                            values: message.currentValues
+                            template: msg.currentTemplate,
+                            variables: msg.currentVariables,
+                            values: msg.currentValues
                         }
                     });
                 }
                 break;
 
             case 'submit':
-                if (this.resolvePromise && message.values) {
-                    this.resolvePromise(message.values);
+                if (this.resolvePromise && msg.values) {
+                    this.resolvePromise(msg.values as Record<string, Jinja2VariableValue>);
                     this.dispose();
                 }
                 break;
@@ -188,7 +205,7 @@ export class Jinja2WebviewIntegrated {
         const componentsUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'dist', 'jinja2-editor', 'jinja2-editor.js'));
 
         // Build initial values
-        const initialValues: Record<string, any> = {};
+        const initialValues: Record<string, Jinja2VariableValue> = {};
         variables.forEach(v => {
             initialValues[v.name] = v.defaultValue ?? this.getDefaultValue(v.type);
         });
@@ -581,8 +598,8 @@ export class Jinja2WebviewIntegrated {
 </html>`;
     }
 
-    private getDefaultValue(type: string): any {
-        const defaults: Record<string, any> = {
+    private getDefaultValue(type: string): Jinja2VariableValue {
+        const defaults: Record<string, Jinja2VariableValue> = {
             string: 'demo_value',
             number: 42,
             integer: 42,
@@ -598,7 +615,7 @@ export class Jinja2WebviewIntegrated {
         return defaults[type] || 'demo_value';
     }
 
-    private async exportConfiguration(config: any): Promise<void> {
+    private async exportConfiguration(config: { template: string; variables: Jinja2Variable[]; values: Record<string, Jinja2VariableValue> }): Promise<void> {
         try {
             const Uri = vscode.Uri;
             const defaultUri = Uri.joinPath(Uri.file(this.getContextPath()), 'jinja2-config.json');

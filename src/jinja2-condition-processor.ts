@@ -4,7 +4,7 @@
  */
 
 export interface ConditionContext {
-  variables: Record<string, any>;
+  variables: Record<string, unknown>;
   variableTypes: Map<string, string>;
   templateContext: string;
 }
@@ -26,6 +26,45 @@ export interface ProcessingResult {
   keptBlocks: ConditionalBlock[];
   decisions: Array<{ condition: string; decision: 'keep' | 'remove'; reason: string }>;
 }
+
+export interface ExistenceCheckCondition {
+  type: 'existence_check';
+  variable: string;
+  operator: 'exists' | 'not_exists';
+}
+
+export interface ComparisonCondition {
+  type: 'comparison';
+  left: string;
+  operator: string;
+  right: string;
+}
+
+export interface MembershipCondition {
+  type: 'membership';
+  variable: string;
+  operator: string;
+  target: string;
+}
+
+export interface LogicalCondition {
+  type: 'logical';
+  operands: ParsedCondition[];
+  operators: string[];
+}
+
+export interface VariableCheckCondition {
+  type: 'variable_check';
+  variable: string;
+  operator: 'truthy';
+}
+
+export type ParsedCondition =
+  | ExistenceCheckCondition
+  | ComparisonCondition
+  | MembershipCondition
+  | LogicalCondition
+  | VariableCheckCondition;
 
 /**
  * Python风格的条件语句处理器
@@ -296,7 +335,7 @@ export class Jinja2ConditionProcessor {
   /**
    * 解析条件表达式
    */
-  private static parseConditionExpression(condition: string): any {
+  private static parseConditionExpression(condition: string): ParsedCondition {
     // 简单的条件解析器
     const trimmed = condition.trim();
 
@@ -363,7 +402,7 @@ export class Jinja2ConditionProcessor {
    * 检查变量是否存在
    */
   private static checkVariablesExist(
-    parsedCondition: any,
+    parsedCondition: ParsedCondition,
     context: ConditionContext
   ): { exists: boolean; missingVariable?: string } {
     if (parsedCondition.type === 'variable_check') {
@@ -409,7 +448,7 @@ export class Jinja2ConditionProcessor {
    * 评估表达式
    */
   private static evaluateExpression(
-    parsedCondition: any,
+    parsedCondition: ParsedCondition,
     context: ConditionContext
   ): { value: boolean; details: string } {
     switch (parsedCondition.type) {
@@ -457,7 +496,7 @@ export class Jinja2ConditionProcessor {
    * 评估存在性检查
    */
   private static evaluateExistenceCheck(
-    parsedCondition: any,
+    parsedCondition: ExistenceCheckCondition,
     context: ConditionContext
   ): { value: boolean; details: string } {
     const variable = parsedCondition.variable;
@@ -482,7 +521,7 @@ export class Jinja2ConditionProcessor {
    * 评估比较
    */
   private static evaluateComparison(
-    parsedCondition: any,
+    parsedCondition: ComparisonCondition,
     context: ConditionContext
   ): { value: boolean; details: string } {
     const leftValue = context.variables[parsedCondition.left];
@@ -500,7 +539,7 @@ export class Jinja2ConditionProcessor {
    * 评估成员检查
    */
   private static evaluateMembership(
-    parsedCondition: any,
+    parsedCondition: MembershipCondition,
     context: ConditionContext
   ): { value: boolean; details: string } {
     const variable = context.variables[parsedCondition.variable];
@@ -529,10 +568,10 @@ export class Jinja2ConditionProcessor {
    * 评估逻辑操作
    */
   private static evaluateLogical(
-    parsedCondition: any,
+    parsedCondition: LogicalCondition,
     context: ConditionContext
   ): { value: boolean; details: string } {
-    const results = parsedCondition.operands.map((operand: any) =>
+    const results = parsedCondition.operands.map((operand) =>
       this.evaluateExpression(operand, context)
     );
 
@@ -561,7 +600,7 @@ export class Jinja2ConditionProcessor {
   /**
    * 比较值
    */
-  private static compareValues(left: any, right: any, operator: string): boolean {
+  private static compareValues(left: unknown, right: unknown, operator: string): boolean {
     switch (operator) {
       case '==':
         return left == right;
@@ -583,7 +622,7 @@ export class Jinja2ConditionProcessor {
   /**
    * 解析值
    */
-  private static parseValue(value: string, context: ConditionContext): any {
+  private static parseValue(value: string, context: ConditionContext): string | number | boolean | null | unknown {
     // 移除引号
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
@@ -617,9 +656,12 @@ export class Jinja2ConditionProcessor {
   /**
    * Python风格真值检查
    */
-  private static isPythonTruthy(value: any): boolean {
-    // 检查明确的假值
-    if (this.PYTHON_FALSY_VALUES.has(value)) {
+  private static isPythonTruthy(value: unknown): boolean {
+    // 检查明确的假值 - 使用更安全的方式检查 Set 成员
+    if (value === false || value === 0 || value === 0.0 || value === '' ||
+        value === '0' || value === 'false' || value === 'False' || value === 'FALSE' ||
+        value === 'no' || value === 'No' || value === 'NO' || value === 'off' ||
+        value === 'Off' || value === 'OFF' || value === null || value === undefined) {
       return false;
     }
 

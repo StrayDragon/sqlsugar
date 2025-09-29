@@ -1,14 +1,14 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { Jinja2Variable, Jinja2VariableType } from '../types.js';
+import { Jinja2Variable, Jinja2VariableType, Jinja2VariableValue } from '../types.js';
 
 @customElement('jinja-variable-input')
 export class JinjaVariableInput extends LitElement {
   @property({ type: Object }) variable!: Jinja2Variable;
-  @property({ type: Object }) value: any = undefined;
+  @property({ type: Object }) value: Jinja2VariableValue = undefined;
 
-  @state() private localValue: any = undefined;
+  @state() private localValue: Jinja2VariableValue = undefined;
   @state() private localType: Jinja2VariableType = 'string';
   @state() private showQuickOptions = false;
 
@@ -313,7 +313,7 @@ export class JinjaVariableInput extends LitElement {
     this.emitChangeEvent();
   }
 
-  private handleQuickOption(option: any) {
+  private handleQuickOption(option: Jinja2VariableValue) {
     this.localValue = option;
     this.emitChangeEvent();
   }
@@ -362,13 +362,13 @@ export class JinjaVariableInput extends LitElement {
     return `Enter ${name} (${this.getDisplayType(type)})`;
   }
 
-  private formatValue(value: any): string {
+  private formatValue(value: Jinja2VariableValue): string {
     if (value == null) return '';
     if (typeof value === 'object') return JSON.stringify(value);
     return String(value);
   }
 
-  private parseValue(value: string, type: Jinja2VariableType): any {
+  private parseValue(value: string, type: Jinja2VariableType): Jinja2VariableValue {
     if (type === 'boolean') {
       return value === 'true';
     }
@@ -387,8 +387,8 @@ export class JinjaVariableInput extends LitElement {
     return value;
   }
 
-  private getDefaultValue(type: Jinja2VariableType): any {
-    const defaults: Record<Jinja2VariableType, any> = {
+  private getDefaultValue(type: Jinja2VariableType): Jinja2VariableValue {
+    const defaults: Record<Jinja2VariableType, Jinja2VariableValue> = {
       string: 'demo_value',
       number: 42,
       integer: 42,
@@ -404,7 +404,7 @@ export class JinjaVariableInput extends LitElement {
     return defaults[type] || '';
   }
 
-  private validateValue(value: any, type: Jinja2VariableType): string | null {
+  private validateValue(value: Jinja2VariableValue, type: Jinja2VariableType): string | null {
     if (this.variable.isRequired && (value == null || value === '')) {
       return `${this.variable.name} is required`;
     }
@@ -424,13 +424,13 @@ export class JinjaVariableInput extends LitElement {
     return null;
   }
 
-  private isValueActive(option: any, value: any, type: Jinja2VariableType): boolean {
+  private isValueActive(option: Jinja2VariableValue, value: Jinja2VariableValue, type: Jinja2VariableType): boolean {
     if (type === 'boolean') return option === value;
     if (type === 'number' || type === 'integer') return Number(option) === Number(value);
     return String(option) === String(value);
   }
 
-  private getOptionTitle(option: any, type: Jinja2VariableType): string {
+  private getOptionTitle(option: Jinja2VariableValue, type: Jinja2VariableType): string {
     if (type === 'json') {
       try {
         return JSON.stringify(JSON.parse(option), null, 2);
@@ -441,7 +441,7 @@ export class JinjaVariableInput extends LitElement {
     return String(option);
   }
 
-  private formatOption(option: any, type: Jinja2VariableType): string {
+  private formatOption(option: Jinja2VariableValue, type: Jinja2VariableType): string {
     if (type === 'json') {
       const str = String(option);
       return str.length > 20 ? str.substring(0, 17) + '...' : str;

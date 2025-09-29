@@ -3,6 +3,25 @@ import * as vscode from 'vscode';
 
 import { ExtensionCore } from './core/extension-core';
 import { Jinja2Variable } from './jinja2-nunjucks-processor';
+import { Jinja2VariableValue } from './jinja2-editor/types.js';
+
+/**
+ * WebView 消息类型
+ */
+interface WebViewMessage {
+  command: string;
+  text?: string;
+  message?: string;
+  data?: unknown;
+  config?: unknown;
+  values?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+/**
+ * WebView变量值的类型
+ */
+type WebViewVariableValue = string | number | boolean | null | undefined;
 
 /**
  * WebView变量值接口
@@ -10,7 +29,7 @@ import { Jinja2Variable } from './jinja2-nunjucks-processor';
 interface VariableValue {
   name: string;
   type: string;
-  value: any;
+  value: WebViewVariableValue;
   isEmpty: boolean;
 }
 
@@ -19,7 +38,7 @@ interface VariableValue {
  */
 interface WebViewResult {
   success: boolean;
-  values?: Record<string, any>;
+  values?: Record<string, WebViewVariableValue>;
   error?: string;
 }
 
@@ -31,8 +50,8 @@ export class Jinja2WebviewEditor {
   private static readonly viewType = 'sqlsugar.jinja2Editor';
   private static activeInstances: Jinja2WebviewEditor[] = [];
   private panel: vscode.WebviewPanel | undefined;
-  private resolvePromise: ((values: Record<string, any>) => void) | undefined;
-  private rejectPromise: ((reason?: any) => void) | undefined;
+  private resolvePromise: ((values: Record<string, WebViewVariableValue>) => void) | undefined;
+  private rejectPromise: ((reason?: unknown) => void) | undefined;
   private extensionPath: string;
   private context: vscode.ExtensionContext;
   private currentTemplate: string = '';
@@ -68,7 +87,7 @@ export class Jinja2WebviewEditor {
     template: string,
     variables: Jinja2Variable[],
     title: string = 'Jinja2模板编辑器'
-  ): Promise<Record<string, any>> {
+  ): Promise<Record<string, WebViewVariableValue>> {
     return new Promise((resolve, reject) => {
       const editor = new Jinja2WebviewEditor();
 
@@ -156,11 +175,32 @@ export class Jinja2WebviewEditor {
     });
   }
 
-  private async handleWebviewMessage(message: any): Promise<void> {
-    switch (message.command) {
+  /**
+   * 将Jinja2VariableValue转换为WebViewVariableValue
+   */
+  private convertToWebViewValue(value: Jinja2VariableValue): WebViewVariableValue {
+    if (value === null || value === undefined) {
+      return value;
+    }
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+      return value;
+    }
+    if (value instanceof Date) {
+      return value.toISOString();
+    }
+    // 对于复杂对象，转换为JSON字符串
+    return JSON.stringify(value);
+  }
+
+  private async handleWebviewMessage(message: WebViewMessage): Promise<void> {
+    if (!message || !message.command) {
+      return;
+    }
+    const msg = message;
+    switch (msg.command) {
       case 'submit':
-        if (this.resolvePromise && message.values) {
-          this.resolvePromise(message.values);
+        if (this.resolvePromise && msg.values) {
+          this.resolvePromise(msg.values as Record<string, WebViewVariableValue>);
           this.panel?.dispose();
         }
         break;
@@ -281,9 +321,9 @@ export class Jinja2WebviewEditor {
     );
 
     // 构建变量初始值 - 使用安全的方式创建对象
-    const initialValuesObj: Record<string, any> = {};
+    const initialValuesObj: Record<string, WebViewVariableValue> = {};
     variables.forEach(v => {
-      initialValuesObj[v.name] = v.defaultValue;
+      initialValuesObj[v.name] = this.convertToWebViewValue(v.defaultValue);
     });
     const initialValues = JSON.stringify(initialValuesObj);
 
@@ -845,8 +885,8 @@ export class Jinja2WebviewEditor {
             document.getElementById('copyButton').addEventListener('click', copyToClipboard);
         });
 
-        
-  
+
+
         // 显示模板
         function displayTemplate() {
             const templateElement = document.getElementById('templateOriginal');
@@ -1812,7 +1852,7 @@ export class Jinja2WebviewEditor {
 </html>`;
   }
 
-  private sanitizeJsonString(value: any): string {
+  private sanitizeJsonString(value: WebViewVariableValue): string {
     if (value === null || value === undefined) {
       return 'null';
     }

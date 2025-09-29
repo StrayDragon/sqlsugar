@@ -2,6 +2,16 @@
  * SQLAlchemy占位符处理器
  * 支持:value形式的占位符与Jinja2模板的混合使用
  */
+
+/**
+ * SQLAlchemy占位符值的类型
+ */
+export type SQLAlchemyValue = string | number | boolean | Date | SQLAlchemyValue[] | null | undefined;
+
+/**
+ * SQLAlchemy上下文类型
+ */
+export type SQLAlchemyContext = Record<string, SQLAlchemyValue>;
 export class SQLAlchemyPlaceholderProcessor {
   /**
    * 检测SQL字符串中的占位符类型
@@ -79,15 +89,15 @@ export class SQLAlchemyPlaceholderProcessor {
    */
   public static convertMixedPlaceholders(
     sql: string,
-    context: Record<string, any>
+    context: SQLAlchemyContext
   ): {
     convertedSQL: string;
     usedPlaceholders: string[];
-    placeholderMap: Record<string, any>;
+    placeholderMap: SQLAlchemyContext;
   } {
     const detection = this.detectPlaceholderTypes(sql);
     const usedPlaceholders: string[] = [];
-    const placeholderMap: Record<string, any> = {};
+    const placeholderMap: SQLAlchemyContext = {};
 
     // 如果没有SQLAlchemy占位符，直接返回
     if (!detection.hasSQLAlchemy) {
@@ -126,7 +136,7 @@ export class SQLAlchemyPlaceholderProcessor {
   /**
    * 格式化值为SQL字面量
    */
-  private static formatSQLValue(value: any): string {
+  private static formatSQLValue(value: SQLAlchemyValue): string {
     if (value === null || value === undefined) {
       return 'NULL';
     }
@@ -161,8 +171,8 @@ export class SQLAlchemyPlaceholderProcessor {
    */
   public static generatePreview(
     originalSQL: string,
-    jinja2Context: Record<string, any>,
-    sqlalchemyContext: Record<string, any>
+    jinja2Context: Record<string, unknown>,
+    sqlalchemyContext: SQLAlchemyContext
   ): string {
     const detection = this.detectPlaceholderTypes(originalSQL);
 

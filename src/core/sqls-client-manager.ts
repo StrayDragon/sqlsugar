@@ -11,6 +11,19 @@ import {
 } from 'vscode-languageclient/node';
 
 /**
+ * SSH 配置接口
+ */
+export interface SSHConfig {
+  host?: string;
+  port?: number;
+  user?: string;
+  password?: string;
+  privateKey?: string;
+  passphrase?: string;
+  [key: string]: unknown; // 允许其他SSH配置选项
+}
+
+/**
  * 数据库连接接口
  */
 export interface DatabaseConnection {
@@ -24,7 +37,7 @@ export interface DatabaseConnection {
   port?: string;
   dbName?: string;
   params?: Record<string, string>;
-  sshConfig?: any;
+  sshConfig?: SSHConfig;
 }
 
 /**

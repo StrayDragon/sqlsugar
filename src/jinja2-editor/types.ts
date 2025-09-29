@@ -2,6 +2,27 @@
  * Jinja2 Variable Type Definitions
  */
 
+/**
+ * 变量值的类型联合
+ */
+export type Jinja2VariableValue =
+  | string
+  | number
+  | boolean
+  | Date
+  | null
+  | undefined
+  | Record<string, unknown>
+  | unknown[];
+
+/**
+ * 枚举值的类型
+ */
+export type Jinja2EnumValue = string | number;
+
+/**
+ * 支持的变量类型
+ */
 export type Jinja2VariableType =
   | 'string'
   | 'number'
@@ -20,10 +41,10 @@ export interface Jinja2Variable {
   name: string;
   type: Jinja2VariableType;
   description?: string;
-  defaultValue?: any;
+  defaultValue?: Jinja2VariableValue;
   filters?: string[];
   isRequired?: boolean;
-  enumValues?: any[];
+  enumValues?: Jinja2EnumValue[];
   pattern?: string;
   format?: string;
   subType?: string;
@@ -43,13 +64,13 @@ export interface Jinja2Template {
 
 export interface VariableChangeEvent {
   name: string;
-  value: any;
+  value: Jinja2VariableValue;
   type?: Jinja2VariableType;
 }
 
 export interface TemplateRenderEvent {
   template: string;
-  values: Record<string, any>;
+  values: Record<string, Jinja2VariableValue>;
   result: string;
   error?: string;
 }

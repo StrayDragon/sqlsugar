@@ -1,23 +1,45 @@
 import * as vscode from 'vscode';
 
 /**
+ * Disposable interface for services that need cleanup
+ */
+export interface Disposable {
+  dispose(): void;
+}
+
+/**
+ * Type guard to check if an object has a dispose method
+ */
+function isDisposable(obj: unknown): obj is Disposable {
+  return obj !== null &&
+         obj !== undefined &&
+         typeof obj === 'object' &&
+         'dispose' in obj &&
+         typeof (obj as Record<string, unknown>).dispose === 'function';
+}
+
+/**
  * Dependency Injection Container for managing singleton and transient services
  * Provides clean dependency management and service lifecycle control
  */
+type ServiceFactory<T = unknown> = () => T;
+type ContextAwareFactory<T = unknown> = (context: vscode.ExtensionContext) => T;
+
+interface ServiceEntry<T = unknown> {
+  factory: ServiceFactory<T> | ContextAwareFactory<T>;
+  instance?: T;
+  type: 'singleton' | 'transient';
+  isContextAware?: boolean;
+}
+
 export class DIContainer {
   private static instance: DIContainer | undefined;
-  private services = new Map<
-    string,
-    {
-      factory: (...args: any[]) => any;
-      instance: any;
-      type: 'singleton' | 'transient';
-      isContextAware?: boolean;
-    }
-  >();
+  private services = new Map<string, ServiceEntry>();
   private disposables: vscode.Disposable[] = [];
 
-  private constructor() {}
+  private constructor() {
+    // Private constructor for singleton pattern
+  }
 
   /**
    * Get the singleton instance of DIContainer
@@ -32,10 +54,9 @@ export class DIContainer {
   /**
    * Register a singleton service (created once and reused)
    */
-  public registerSingleton<T>(key: string, factory: () => T): void {
+  public registerSingleton<T>(key: string, factory: ServiceFactory<T>): void {
     this.services.set(key, {
       factory,
-      instance: undefined,
       type: 'singleton',
     });
   }
@@ -43,10 +64,9 @@ export class DIContainer {
   /**
    * Register a transient service (created each time it's requested)
    */
-  public registerTransient<T>(key: string, factory: () => T): void {
+  public registerTransient<T>(key: string, factory: ServiceFactory<T>): void {
     this.services.set(key, {
       factory,
-      instance: undefined,
       type: 'transient',
     });
   }
@@ -56,11 +76,10 @@ export class DIContainer {
    */
   public registerWithContext<T>(
     key: string,
-    factory: (context: vscode.ExtensionContext) => T
+    factory: ContextAwareFactory<T>
   ): void {
     this.services.set(key, {
       factory,
-      instance: undefined,
       type: 'singleton',
       isContextAware: true,
     });
@@ -70,19 +89,19 @@ export class DIContainer {
    * Get a service instance
    */
   public get<T>(key: string): T {
-    const service = this.services.get(key);
+    const service = this.services.get(key) as ServiceEntry<T> | undefined;
     if (!service) {
       throw new Error(`Service '${key}' not registered`);
     }
 
     if (service.type === 'singleton') {
       if (!service.instance) {
-        service.instance = service.factory();
+        service.instance = (service.factory as ServiceFactory<T>)();
       }
-      return service.instance;
+      return service.instance!;
     } else {
       // Transient service - create new instance each time
-      return service.factory();
+      return (service.factory as ServiceFactory<T>)();
     }
   }
 
@@ -90,7 +109,7 @@ export class DIContainer {
    * Get a service that requires VS Code context
    */
   public getWithContext<T>(key: string, context: vscode.ExtensionContext): T {
-    const service = this.services.get(key);
+    const service = this.services.get(key) as ServiceEntry<T> | undefined;
     if (!service) {
       throw new Error(`Service '${key}' not registered`);
     }
@@ -100,8 +119,8 @@ export class DIContainer {
     }
 
     // For services requiring context, we need to handle them specially
-    const contextAwareFactory = service.factory as any;
-    if (typeof contextAwareFactory === 'function' && contextAwareFactory.length > 0) {
+    const contextAwareFactory = service.factory as ContextAwareFactory<T>;
+    if (service.isContextAware && typeof contextAwareFactory === 'function') {
       const instance = contextAwareFactory(context);
       if (service.type === 'singleton') {
         service.instance = instance;
@@ -109,7 +128,8 @@ export class DIContainer {
       return instance;
     }
 
-    return service.factory();
+    // Fallback for non-context-aware services
+    return (service.factory as ServiceFactory<T>)();
   }
 
   /**
@@ -125,7 +145,7 @@ export class DIContainer {
   public remove(key: string): void {
     const service = this.services.get(key);
     if (service && service.instance) {
-      if (typeof service.instance.dispose === 'function') {
+      if (isDisposable(service.instance)) {
         try {
           service.instance.dispose();
         } catch (error) {
@@ -141,7 +161,7 @@ export class DIContainer {
    */
   public clear(): void {
     this.services.forEach((service, key) => {
-      if (service.instance && typeof service.instance.dispose === 'function') {
+      if (service.instance && isDisposable(service.instance)) {
         try {
           service.instance.dispose();
         } catch (error) {
@@ -189,10 +209,10 @@ export function getContainer(): DIContainer {
  * Decorator for injecting dependencies
  */
 export function inject(key: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = function (...args: any[]) {
+    descriptor.value = function (...args: unknown[]) {
       const container = getContainer();
       const dependency = container.get(key);
       return originalMethod.apply(this, [dependency, ...args]);
@@ -206,10 +226,10 @@ export function inject(key: string) {
  * Decorator for injecting services that require context
  */
 export function injectWithContext(key: string) {
-  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  return function (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) {
     const originalMethod = descriptor.value;
 
-    descriptor.value = function (context: vscode.ExtensionContext, ...args: any[]) {
+    descriptor.value = function (context: vscode.ExtensionContext, ...args: unknown[]) {
       const container = getContainer();
       const dependency = container.getWithContext(key, context);
       return originalMethod.apply(this, [dependency, ...args]);

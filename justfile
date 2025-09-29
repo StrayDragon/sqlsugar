@@ -13,10 +13,6 @@ default:
 install:
     pnpm install --frozen-lockfile
 
-# Run development watch mode
-dev:
-    pnpm run watch
-
 # Build the extension
 build:
     pnpm run compile
@@ -33,20 +29,12 @@ build-declarations:
 test:
     pnpm run test
 
-# Format code
-format:
-    pnpm run format
-
-# Format check (dry run)
-format-check:
-    pnpm run format:check
-
-# Run linting (main files only - default)
-lint:
-    pnpm run lint:main
+# Fix lint issues automatically
+lint-fix:
+    pnpm run lint:fix
 
 # Run linting on all files (including jinja2-editor)
-lint-all:
+lint:
     pnpm run lint
 
 # =============================================================================
@@ -84,21 +72,6 @@ deep-clean: clean
     rm -rf node_modules/
     rm -rf .vscode-test/
     rm -rf .vscode/sqlsugar/temp/
-
-# =============================================================================
-# Aliases and Shortcuts
-# =============================================================================
-
-# Common aliases
-alias pv := package-vsix
-alias c := clean
-alias dc := deep-clean
-alias lm := lint
-alias la := lint-all
-alias bd := build-declarations
-alias tc := type-check
-alias f := format
-alias fc := format-check
 
 # =============================================================================
 # Help and Information

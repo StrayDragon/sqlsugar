@@ -3,6 +3,16 @@ import * as vscode from 'vscode';
 import { Jinja2Variable } from './jinja2-nunjucks-processor';
 
 /**
+ * 变量值的类型联合
+ */
+import { Jinja2VariableValue } from './jinja2-editor/types.js';
+
+/**
+ * 变量配置上下文的类型
+ */
+type VariableConfigContext = Record<string, Jinja2VariableValue>;
+
+/**
  * 变量值输入界面
  * 提供类型选择和自定义值输入
  */
@@ -12,8 +22,8 @@ export class Jinja2VariableInput {
    */
   public static async configureVariables(
     variables: Jinja2Variable[]
-  ): Promise<Record<string, any> | undefined> {
-    const context: Record<string, any> = {};
+  ): Promise<VariableConfigContext | undefined> {
+    const context: VariableConfigContext = {};
 
     for (const variable of variables) {
       const result = await this.configureVariable(variable);
@@ -29,7 +39,7 @@ export class Jinja2VariableInput {
   /**
    * 配置单个变量
    */
-  private static async configureVariable(variable: Jinja2Variable): Promise<any | undefined> {
+  private static async configureVariable(variable: Jinja2Variable): Promise<Jinja2VariableValue | undefined> {
     // 创建类型选择和值输入的界面
     const typeOptions = [
       { label: '📝 String', value: 'string', description: 'Text value' },
@@ -59,8 +69,8 @@ export class Jinja2VariableInput {
   private static async inputValue(
     variableName: string,
     type: 'string' | 'number' | 'date' | 'boolean',
-    defaultValue?: any
-  ): Promise<any | undefined> {
+    defaultValue?: Jinja2VariableValue
+  ): Promise<Jinja2VariableValue | undefined> {
     const placeholder = this.formatDefaultValue(type, defaultValue);
     const prompt = this.getInputPrompt(type);
 
@@ -130,7 +140,7 @@ export class Jinja2VariableInput {
    */
   private static formatDefaultValue(
     type: 'string' | 'number' | 'date' | 'boolean',
-    defaultValue?: any
+    defaultValue?: Jinja2VariableValue
   ): string {
     if (defaultValue === undefined) {
       switch (type) {
@@ -166,8 +176,8 @@ export class Jinja2VariableInput {
   /**
    * 快速模式 - 使用默认类型
    */
-  public static async quickConfigure(variables: Jinja2Variable[]): Promise<Record<string, any>> {
-    const context: Record<string, any> = {};
+  public static async quickConfigure(variables: Jinja2Variable[]): Promise<VariableConfigContext> {
+    const context: VariableConfigContext = {};
 
     for (const variable of variables) {
       context[variable.name] = variable.defaultValue;
@@ -181,8 +191,8 @@ export class Jinja2VariableInput {
    */
   public static async smartConfigure(
     variables: Jinja2Variable[]
-  ): Promise<Record<string, any> | undefined> {
-    const context: Record<string, any> = {};
+  ): Promise<VariableConfigContext | undefined> {
+    const context: VariableConfigContext = {};
 
     for (const variable of variables) {
       // 提供选项：使用默认值、修改类型、自定义输入
@@ -210,7 +220,7 @@ export class Jinja2VariableInput {
         return undefined; // 用户取消
       }
 
-      let value: any;
+      let value: Jinja2VariableValue;
 
       switch (choice.value) {
         case 'default':
@@ -270,7 +280,7 @@ export class Jinja2VariableInput {
   /**
    * 获取类型的默认值
    */
-  private static getDefaultValueForType(type: 'string' | 'number' | 'date' | 'boolean'): any {
+  private static getDefaultValueForType(type: 'string' | 'number' | 'date' | 'boolean'): Jinja2VariableValue {
     switch (type) {
       case 'number':
         return 42;

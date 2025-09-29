@@ -2,7 +2,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { Jinja2Variable, VariableChangeEvent, TemplateRenderEvent } from '../types.js';
+import { Jinja2Variable, VariableChangeEvent, TemplateRenderEvent, Jinja2VariableValue } from '../types.js';
 import './variable-input.js';
 import './sql-preview.js';
 
@@ -15,7 +15,7 @@ export class Jinja2Editor extends LitElement {
   @property({ type: Boolean }) showOriginal = true;
   @property({ type: String }) title = 'Jinja2 Template Editor';
 
-  @state() private values: Record<string, any> = {};
+  @state() private values: Record<string, Jinja2VariableValue> = {};
   @state() private selectedVariable: string | null = null;
   @state() private isProcessing = false;
   @state() private processingTime = 0;
@@ -409,7 +409,7 @@ export class Jinja2Editor extends LitElement {
   }
 
   private initializeValues() {
-    const newValues: Record<string, any> = {};
+    const newValues: Record<string, Jinja2VariableValue> = {};
 
     this.variables.forEach(variable => {
       // Preserve existing values if they exist
@@ -424,8 +424,8 @@ export class Jinja2Editor extends LitElement {
     this.values = newValues;
   }
 
-  private generateDefaultValue(type: string): any {
-    const defaults: Record<string, any> = {
+  private generateDefaultValue(type: string): Jinja2VariableValue {
+    const defaults: Record<string, Jinja2VariableValue> = {
       string: 'demo_value',
       number: 42,
       integer: 42,
@@ -539,7 +539,7 @@ export class Jinja2Editor extends LitElement {
     return result;
   }
 
-  private formatValue(value: any): string {
+  private formatValue(value: Jinja2VariableValue): string {
     if (value == null) return 'NULL';
     if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
     if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';

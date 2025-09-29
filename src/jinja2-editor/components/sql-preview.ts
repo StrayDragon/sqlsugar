@@ -2,12 +2,12 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
-import { Jinja2Variable } from '../types.js';
+import { Jinja2Variable, Jinja2VariableValue } from '../types.js';
 
 @customElement('jinja-sql-preview')
 export class JinjaSqlPreview extends LitElement {
   @property({ type: String }) template: string = '';
-  @property({ type: Object }) values: Record<string, any> = {};
+  @property({ type: Object }) values: Record<string, Jinja2VariableValue> = {};
   @property({ type: Array }) variables: Jinja2Variable[] = [];
   @property({ type: String }) theme: string = 'vscode-dark';
   @property({ type: Boolean }) showOriginal = true;
@@ -409,7 +409,7 @@ export class JinjaSqlPreview extends LitElement {
     }
   }
 
-  private simulateTemplateRendering(template: string, values: Record<string, any>): string {
+  private simulateTemplateRendering(template: string, values: Record<string, Jinja2VariableValue>): string {
     // Simple template rendering simulation
     let result = template;
 
@@ -431,34 +431,34 @@ export class JinjaSqlPreview extends LitElement {
     return result;
   }
 
-  private renderWithNunjucks(template: string, values: Record<string, any>): string {
+  private renderWithNunjucks(template: string, values: Record<string, Jinja2VariableValue>): string {
     try {
       // Configure nunjucks environment
       const env = nunjucks.configure({ autoescape: false });
 
       // Add all filters from the main WebView implementation
-      env.addFilter('float', (value: any) => {
+      env.addFilter('float', (value: unknown) => {
         const num = parseFloat(value);
         return isNaN(num) ? 0 : num;
       });
 
-      env.addFilter('int', (value: any) => {
+      env.addFilter('int', (value: unknown) => {
         const num = parseInt(value, 10);
         return isNaN(num) ? 0 : num;
       });
 
-      env.addFilter('default', (value: any, defaultValue: any) => {
+      env.addFilter('default', (value: unknown, defaultValue: unknown) => {
         return value !== null && value !== undefined && value !== '' ? value : defaultValue;
       });
 
-      env.addFilter('length', (value: any) => {
+      env.addFilter('length', (value: unknown) => {
         if (Array.isArray(value)) return value.length;
         if (typeof value === 'string') return value.length;
         if (typeof value === 'object' && value !== null) return Object.keys(value).length;
         return 0;
       });
 
-      env.addFilter('bool', (value: any) => {
+      env.addFilter('bool', (value: unknown) => {
         if (typeof value === 'boolean') return value;
         if (typeof value === 'string') {
           const lowerValue = value.toLowerCase();
@@ -467,55 +467,55 @@ export class JinjaSqlPreview extends LitElement {
         return Boolean(value);
       });
 
-      env.addFilter('string', (value: any) => {
+      env.addFilter('string', (value: unknown) => {
         return String(value);
       });
 
-      env.addFilter('abs', (value: any) => {
+      env.addFilter('abs', (value: unknown) => {
         return Math.abs(Number(value));
       });
 
-      env.addFilter('round', (value: any) => {
+      env.addFilter('round', (value: unknown) => {
         return Math.round(Number(value));
       });
 
-      env.addFilter('sum', (value: any) => {
+      env.addFilter('sum', (value: unknown) => {
         if (Array.isArray(value)) {
           return value.reduce((sum, item) => sum + Number(item), 0);
         }
         return Number(value);
       });
 
-      env.addFilter('min', (value: any) => {
+      env.addFilter('min', (value: unknown) => {
         if (Array.isArray(value)) {
           return Math.min(...value.map(item => Number(item)));
         }
         return Number(value);
       });
 
-      env.addFilter('max', (value: any) => {
+      env.addFilter('max', (value: unknown) => {
         if (Array.isArray(value)) {
           return Math.max(...value.map(item => Number(item)));
         }
         return Number(value);
       });
 
-      env.addFilter('striptags', (value: any) => {
+      env.addFilter('striptags', (value: unknown) => {
         return String(value).replace(/<[^>]*>/g, '');
       });
 
-      env.addFilter('truncate', (value: any) => {
+      env.addFilter('truncate', (value: unknown) => {
         return String(value).substring(0, 255) + '...';
       });
 
-      env.addFilter('unique', (value: any) => {
+      env.addFilter('unique', (value: unknown) => {
         if (Array.isArray(value)) {
           return [...new Set(value)];
         }
         return value;
       });
 
-      env.addFilter('reverse', (value: any) => {
+      env.addFilter('reverse', (value: unknown) => {
         if (Array.isArray(value)) {
           return [...value].reverse();
         } else if (typeof value === 'string') {
@@ -524,28 +524,28 @@ export class JinjaSqlPreview extends LitElement {
         return value;
       });
 
-      env.addFilter('first', (value: any) => {
+      env.addFilter('first', (value: unknown) => {
         if (Array.isArray(value)) {
           return value[0];
         }
         return value;
       });
 
-      env.addFilter('last', (value: any) => {
+      env.addFilter('last', (value: unknown) => {
         if (Array.isArray(value)) {
           return value[value.length - 1];
         }
         return value;
       });
 
-      env.addFilter('slice', (value: any) => {
+      env.addFilter('slice', (value: unknown) => {
         if (Array.isArray(value)) {
           return value.slice(0, 10);
         }
         return value;
       });
 
-      env.addFilter('wordwrap', (value: any, width = 80) => {
+      env.addFilter('wordwrap', (value: unknown, width: unknown = 80) => {
         const text = String(value);
         const result = [];
         for (let i = 0; i < text.length; i += width) {
@@ -554,11 +554,11 @@ export class JinjaSqlPreview extends LitElement {
         return result.join('\n');
       });
 
-      env.addFilter('urlencode', (value: any) => {
+      env.addFilter('urlencode', (value: unknown) => {
         return encodeURIComponent(String(value));
       });
 
-      env.addFilter('sql_quote', (value: any) => {
+      env.addFilter('sql_quote', (value: unknown) => {
         if (value == null) return 'NULL';
         if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
         if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
@@ -567,26 +567,26 @@ export class JinjaSqlPreview extends LitElement {
         return String(value);
       });
 
-      env.addFilter('sql_identifier', (value: any) => {
+      env.addFilter('sql_identifier', (value: unknown) => {
         if (typeof value !== 'string') return String(value);
         return `"${value.replace(/"/g, '""')}"`;
       });
 
-      env.addFilter('sql_date', (value: any) => {
+      env.addFilter('sql_date', (value: unknown) => {
         if (value == null) return 'NULL';
         const date = new Date(value);
         if (isNaN(date.getTime())) return `'${value}'`;
         return `'${date.toISOString().split('T')[0]}'`;
       });
 
-      env.addFilter('sql_datetime', (value: any) => {
+      env.addFilter('sql_datetime', (value: unknown) => {
         if (value == null) return 'NULL';
         const date = new Date(value);
         if (isNaN(date.getTime())) return `'${value}'`;
         return `'${date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')}'`;
       });
 
-      env.addFilter('sql_in', (value: any) => {
+      env.addFilter('sql_in', (value: unknown) => {
         if (value == null) return 'NULL';
         if (Array.isArray(value)) {
           return `(${value.map(v => {
@@ -611,7 +611,7 @@ export class JinjaSqlPreview extends LitElement {
     }
   }
 
-  private formatValue(value: any): string {
+  private formatValue(value: Jinja2VariableValue): string {
     if (value == null) return 'NULL';
     if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
     if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';

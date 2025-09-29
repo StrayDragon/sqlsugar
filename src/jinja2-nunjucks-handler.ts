@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
 import { Jinja2VariableInput } from './jinja2-variable-input';
 import { Jinja2WebviewEditor } from './jinja2-webview';
-import { SQLAlchemyPlaceholderProcessor } from './sqlalchemy-placeholder-processor';
+import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy-placeholder-processor';
 
 /**
  * 占位符检测结果
@@ -133,7 +133,7 @@ export class Jinja2NunjucksHandler {
    */
   private async handleSQLAlchemyOnly(template: string, sqlalchemyVars: string[]): Promise<boolean> {
     try {
-      const context: Record<string, any> = {};
+      const context: SQLAlchemyContext = {};
 
       // 为每个SQLAlchemy变量收集输入
       for (const varName of sqlalchemyVars) {
@@ -174,7 +174,7 @@ export class Jinja2NunjucksHandler {
 
       // 处理SQLAlchemy占位符
       if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context);
+        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
         sql = result.convertedSQL;
       }
 
@@ -208,7 +208,7 @@ export class Jinja2NunjucksHandler {
 
       // 处理SQLAlchemy占位符
       if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context);
+        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
         sql = result.convertedSQL;
       }
 
@@ -235,7 +235,7 @@ export class Jinja2NunjucksHandler {
       const title = `Jinja2 Template: ${preview}`;
 
       // 显示WebView编辑器
-      const userValues = await Jinja2WebviewEditor.showEditor(template, variables as any, title);
+      const userValues = await Jinja2WebviewEditor.showEditor(template, variables, title);
 
       // 渲染模板
       let sql = this.processor.renderWithCustomVariables(template, userValues);
@@ -265,7 +265,7 @@ export class Jinja2NunjucksHandler {
     placeholderDetection: PlaceholderDetection
   ): Promise<boolean> {
     try {
-      const context: Record<string, any> = {};
+      const context: Record<string, unknown> = {};
 
       // 显示默认值并允许用户选择
       for (const variable of variables) {
@@ -301,7 +301,7 @@ export class Jinja2NunjucksHandler {
 
       // 处理SQLAlchemy占位符
       if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context);
+        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
         sql = result.convertedSQL;
       }
 
@@ -322,7 +322,7 @@ export class Jinja2NunjucksHandler {
     sql: string,
     template: string,
     variables: Jinja2Variable[],
-    userValues?: Record<string, any>
+    userValues?: Record<string, unknown>
   ): Promise<void> {
     try {
       await this.copyToClipboardWithFallback(sql);
@@ -392,7 +392,7 @@ export class Jinja2NunjucksHandler {
   /**
    * 提示输入变量值
    */
-  private async promptForVariable(variable: Jinja2Variable): Promise<any> {
+  private async promptForVariable(variable: Jinja2Variable): Promise<unknown> {
     const prompt = `Enter ${variable.type} value for "${variable.name}"`;
 
     switch (variable.type) {
@@ -452,7 +452,7 @@ export class Jinja2NunjucksHandler {
   /**
    * 提示输入SQLAlchemy变量值
    */
-  private async promptForSQLAlchemyVariable(varName: string): Promise<any> {
+  private async promptForSQLAlchemyVariable(varName: string): Promise<SQLAlchemyValue | undefined> {
     const result = await vscode.window.showQuickPick(
       [
         { label: 'String', value: 'string', description: 'Text value' },
@@ -537,7 +537,7 @@ export class Jinja2NunjucksHandler {
   /**
    * 格式化默认值显示
    */
-  private formatDefaultValue(defaultValue: any): string {
+  private formatDefaultValue(defaultValue: unknown): string {
     if (defaultValue === undefined || defaultValue === null) {
       return 'undefined';
     }

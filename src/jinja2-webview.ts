@@ -143,6 +143,8 @@ export class Jinja2WebviewEditor {
         localResourceRoots: [
           vscode.Uri.joinPath(this.context.extensionUri, 'resources'),
           vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources'),
+          vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview'),
+          vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'jinja2-editor'),
         ],
         enableCommandUris: false,
 
@@ -345,13 +347,12 @@ export class Jinja2WebviewEditor {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
   <title>Jinja2 Template Editor - ${templatePreview}</title>
   <link rel="stylesheet" href="${highlightCssUri}">
 </head>
 <body>
   <sqlsugar-webview-app></sqlsugar-webview-app>
-  <script nonce="${nonce}">(function(){try{window.vscode = acquireVsCodeApi?acquireVsCodeApi():undefined;}catch(e){window.vscode=undefined;}})();</script>
   <script src="${nunjucksUri}"></script>
   <script src="${highlightJsUri}"></script>
   <script src="${jinjaEditorUri}"></script>

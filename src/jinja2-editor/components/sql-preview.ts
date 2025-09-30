@@ -1,23 +1,23 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { Jinja2Variable, Jinja2VariableValue } from '../types.js';
+declare const nunjucks: any;
 
 @customElement('jinja-sql-preview')
 export class JinjaSqlPreview extends LitElement {
-  @property({ type: String }) template: string = '';
-  @property({ type: Object }) values: Record<string, Jinja2VariableValue> = {};
-  @property({ type: Array }) variables: Jinja2Variable[] = [];
-  @property({ type: String }) theme: string = 'vscode-dark';
-  @property({ type: Boolean }) showOriginal = true;
-  @property({ type: Boolean }) autoRender = true;
-  @property({ type: Boolean }) highlightSyntax = true;
-
-  @state() private renderedSQL: string = '';
-  @state() private renderError: string | null = null;
-  @state() private isRendering = false;
-  @state() private lastRenderTime = 0;
+  @property({ type: String }) accessor template: string = '';
+  @property({ attribute: false }) accessor values: Record<string, Jinja2VariableValue> = {};
+  @property({ attribute: false }) accessor variables: Jinja2Variable[] = [];
+  @property({ type: String }) accessor theme: string = 'vscode-dark';
+  @property({ type: Boolean }) accessor showOriginal: boolean = true;
+  @property({ type: Boolean }) accessor autoRender: boolean = true;
+  @property({ type: Boolean }) accessor highlightSyntax: boolean = true;
+  @state() accessor renderedSQL: string = '';
+  @state() accessor renderError: string | null = null;
+  @state() accessor isRendering = false;
+  @state() accessor lastRenderTime = 0;
 
   static styles = css`
     :host {
@@ -393,7 +393,6 @@ export class JinjaSqlPreview extends LitElement {
     const startTime = performance.now();
 
     try {
-
       if (typeof nunjucks !== 'undefined') {
         this.renderedSQL = this.renderWithNunjucks(this.template, this.values);
       } else {
@@ -410,203 +409,130 @@ export class JinjaSqlPreview extends LitElement {
   }
 
   private simulateTemplateRendering(template: string, values: Record<string, Jinja2VariableValue>): string {
-
     let result = template;
-
-
     Object.entries(values).forEach(([key, value]) => {
-      const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
+      const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s*}}`, 'g');
       result = result.replace(regex, this.formatValue(value));
     });
-
-
     result = result.replace(/{% if (.*?) %}/g, (match, condition) => {
       const varName = condition.trim();
       const value = values[varName];
       return value ? '' : '-- ';
     });
-
     result = result.replace(/{% endif %}/g, '');
-
     return result;
   }
 
   private renderWithNunjucks(template: string, values: Record<string, Jinja2VariableValue>): string {
     try {
-
       const env = nunjucks.configure({ autoescape: false });
-
-
       env.addFilter('float', (value: unknown) => {
-        const num = parseFloat(value);
+        const num = parseFloat(value as string);
         return isNaN(num) ? 0 : num;
       });
-
       env.addFilter('int', (value: unknown) => {
-        const num = parseInt(value, 10);
+        const num = parseInt(value as string, 10);
         return isNaN(num) ? 0 : num;
       });
-
       env.addFilter('default', (value: unknown, defaultValue: unknown) => {
         return value !== null && value !== undefined && value !== '' ? value : defaultValue;
       });
-
       env.addFilter('length', (value: unknown) => {
         if (Array.isArray(value)) return value.length;
         if (typeof value === 'string') return value.length;
-        if (typeof value === 'object' && value !== null) return Object.keys(value).length;
+        if (typeof value === 'object' && value !== null) return Object.keys(value as object).length;
         return 0;
       });
-
       env.addFilter('bool', (value: unknown) => {
         if (typeof value === 'boolean') return value;
         if (typeof value === 'string') {
           const lowerValue = value.toLowerCase();
-          return lowerValue === 'true' || lowerValue === '1' || lowerValue !== 'false' && lowerValue !== '0' && value !== '';
+          return lowerValue === 'true' || lowerValue === '1' || (lowerValue !== 'false' && lowerValue !== '0' && value !== '');
         }
         return Boolean(value);
       });
-
-      env.addFilter('string', (value: unknown) => {
-        return String(value);
-      });
-
-      env.addFilter('abs', (value: unknown) => {
-        return Math.abs(Number(value));
-      });
-
-      env.addFilter('round', (value: unknown) => {
-        return Math.round(Number(value));
-      });
-
+      env.addFilter('string', (value: unknown) => String(value));
+      env.addFilter('abs', (value: unknown) => Math.abs(Number(value)));
+      env.addFilter('round', (value: unknown) => Math.round(Number(value)));
       env.addFilter('sum', (value: unknown) => {
         if (Array.isArray(value)) {
-          return value.reduce((sum, item) => sum + Number(item), 0);
+          return (value as unknown[]).reduce((acc: number, item: unknown) => acc + Number(item), 0);
         }
         return Number(value);
       });
-
       env.addFilter('min', (value: unknown) => {
         if (Array.isArray(value)) {
-          return Math.min(...value.map(item => Number(item)));
+          return Math.min(...(value as unknown[]).map(item => Number(item)));
         }
         return Number(value);
       });
-
       env.addFilter('max', (value: unknown) => {
         if (Array.isArray(value)) {
-          return Math.max(...value.map(item => Number(item)));
+          return Math.max(...(value as unknown[]).map(item => Number(item)));
         }
         return Number(value);
       });
-
-      env.addFilter('striptags', (value: unknown) => {
-        return String(value).replace(/<[^>]*>/g, '');
-      });
-
-      env.addFilter('truncate', (value: unknown) => {
-        return String(value).substring(0, 255) + '...';
-      });
-
-      env.addFilter('unique', (value: unknown) => {
-        if (Array.isArray(value)) {
-          return [...new Set(value)];
-        }
-        return value;
-      });
-
+      env.addFilter('striptags', (value: unknown) => String(value).replace(/<[^>]*>/g, ''));
+      env.addFilter('truncate', (value: unknown) => String(value).substring(0, 255) + '...');
+      env.addFilter('unique', (value: unknown) => Array.isArray(value) ? [...new Set(value as unknown[])] : value);
       env.addFilter('reverse', (value: unknown) => {
-        if (Array.isArray(value)) {
-          return [...value].reverse();
-        } else if (typeof value === 'string') {
-          return value.split('').reverse().join('');
-        }
+        if (Array.isArray(value)) return [...(value as unknown[])].reverse();
+        if (typeof value === 'string') return (value as string).split('').reverse().join('');
         return value;
       });
-
-      env.addFilter('first', (value: unknown) => {
-        if (Array.isArray(value)) {
-          return value[0];
-        }
-        return value;
-      });
-
-      env.addFilter('last', (value: unknown) => {
-        if (Array.isArray(value)) {
-          return value[value.length - 1];
-        }
-        return value;
-      });
-
-      env.addFilter('slice', (value: unknown) => {
-        if (Array.isArray(value)) {
-          return value.slice(0, 10);
-        }
-        return value;
-      });
-
+      env.addFilter('first', (value: unknown) => Array.isArray(value) ? (value as unknown[])[0] : value);
+      env.addFilter('last', (value: unknown) => Array.isArray(value) ? (value as unknown[])[(value as unknown[]).length - 1] : value);
+      env.addFilter('slice', (value: unknown) => Array.isArray(value) ? (value as unknown[]).slice(0, 10) : value);
       env.addFilter('wordwrap', (value: unknown, width: unknown = 80) => {
         const text = String(value);
-        const result = [];
-        for (let i = 0; i < text.length; i += width) {
-          result.push(text.substring(i, i + width));
+        const w = typeof width === 'number' ? width : 80;
+        const result: string[] = [];
+        for (let i = 0; i < text.length; i += w) {
+          result.push(text.substring(i, i + w));
         }
         return result.join('\n');
       });
-
-      env.addFilter('urlencode', (value: unknown) => {
-        return encodeURIComponent(String(value));
-      });
-
+      env.addFilter('urlencode', (value: unknown) => encodeURIComponent(String(value)));
       env.addFilter('sql_quote', (value: unknown) => {
         if (value == null) return 'NULL';
-        if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+        if (typeof value === 'string') return `'${(value as string).replace(/'/g, "''")}'`;
         if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
         if (typeof value === 'number') return String(value);
         if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
         return String(value);
       });
-
-      env.addFilter('sql_identifier', (value: unknown) => {
-        if (typeof value !== 'string') return String(value);
-        return `"${value.replace(/"/g, '""')}"`;
-      });
-
+      env.addFilter('sql_identifier', (value: unknown) => typeof value !== 'string' ? String(value) : `"${(value as string).replace(/"/g, '""')}"`);
       env.addFilter('sql_date', (value: unknown) => {
         if (value == null) return 'NULL';
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return `'${value}'`;
+        const date = new Date(value as string | number | Date);
+        if (isNaN(date.getTime())) return `'${String(value)}'`;
         return `'${date.toISOString().split('T')[0]}'`;
       });
-
       env.addFilter('sql_datetime', (value: unknown) => {
         if (value == null) return 'NULL';
-        const date = new Date(value);
-        if (isNaN(date.getTime())) return `'${value}'`;
+        const date = new Date(value as string | number | Date);
+        if (isNaN(date.getTime())) return `'${String(value)}'`;
         return `'${date.toISOString().replace('T', ' ').replace(/\.\d{3}Z$/, '')}'`;
       });
-
       env.addFilter('sql_in', (value: unknown) => {
         if (value == null) return 'NULL';
         if (Array.isArray(value)) {
-          return `(${value.map(v => {
+          return `(${(value as unknown[]).map(v => {
             if (v == null) return 'NULL';
-            if (typeof v === 'string') return `'${v.replace(/'/g, "''")}'`;
+            if (typeof v === 'string') return `'${(v as string).replace(/'/g, "''")}'`;
             if (typeof v === 'boolean') return v ? 'TRUE' : 'FALSE';
             return String(v);
           }).join(', ')})`;
         }
-        if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+        if (typeof value === 'string') return `'${(value as string).replace(/'/g, "''")}'`;
         if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
         return String(value);
       });
 
-      // Render the template with nunjucks
       const rendered = nunjucks.renderString(template, values);
       return rendered;
     } catch (error) {
       console.error('Nunjucks rendering failed:', error);
-      // Fall back to simulation if nunjucks fails
       return this.simulateTemplateRendering(template, values);
     }
   }
@@ -622,32 +548,20 @@ export class JinjaSqlPreview extends LitElement {
 
   private highlightSQL(sql: string): string {
     if (!this.highlightSyntax) return sql;
-
-    // Use simple string matching to avoid regex compilation issues
     const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'TRUE', 'FALSE', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'TABLE', 'INDEX', 'CREATE', 'ALTER', 'DROP', 'DATABASE', 'SCHEMA', 'VIEW', 'TRIGGER', 'PROCEDURE', 'FUNCTION'];
-
-    // Convert to HTML entities first to avoid XSS
     let result = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-    // Sort keywords by length (longest first) to ensure proper matching
     keywords.sort((a, b) => b.length - a.length);
-
-    // Use string matching for keywords to avoid regex issues
     keywords.forEach(keyword => {
       const upperKeyword = keyword.toUpperCase();
       const upperResult = result.toUpperCase();
       let lastIndex = 0;
       let highlighted = '';
-
       while (true) {
         const index = upperResult.indexOf(upperKeyword, lastIndex);
         if (index === -1) break;
-
-        // Check word boundaries
         const beforeChar = index > 0 ? result[index - 1] : ' ';
         const afterChar = index + keyword.length < result.length ? result[index + keyword.length] : ' ';
         const isWordBoundary = !/[a-zA-Z0-9_]/.test(beforeChar) && !/[a-zA-Z0-9_]/.test(afterChar);
-
         if (isWordBoundary) {
           highlighted += result.substring(lastIndex, index);
           highlighted += '<span class="sql-keyword">' + result.substring(index, index + keyword.length) + '</span>';
@@ -657,50 +571,37 @@ export class JinjaSqlPreview extends LitElement {
           lastIndex = index + 1;
         }
       }
-
       if (highlighted) {
         highlighted += result.substring(lastIndex);
         result = highlighted;
       }
     });
-
-    // Use simple regex patterns for strings, numbers, and comments
     result = result.replace(/'[^']*'/g, match => '<span class="sql-string">' + match + '</span>');
     result = result.replace(/`[^`]*`/g, match => '<span class="sql-identifier">' + match + '</span>');
     result = result.replace(/"[^"]*"/g, match => '<span class="sql-identifier">' + match + '</span>');
     result = result.replace(/\b\d+(\.\d+)?\b/g, match => '<span class="sql-number">' + match + '</span>');
     result = result.replace(/--.*$/gm, match => '<span class="sql-comment">' + match + '</span>');
     result = result.replace(/\/\*[\s\S]*?\*\//g, match => '<span class="sql-comment">' + match + '</span>');
-
     return result;
   }
 
   private async copyToClipboard() {
     try {
-      // Try the standard clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(this.renderedSQL);
         this.showCopySuccess();
       } else {
-        // Fallback to the parent extension
         await this.fallbackCopyToExtension();
       }
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
-      // Try fallback method
       await this.fallbackCopyToExtension();
     }
   }
 
   private async fallbackCopyToExtension() {
     try {
-      // Send message to parent extension to handle clipboard operations
-      const message = {
-        command: 'copyToClipboard',
-        text: this.renderedSQL
-      };
-
-      // Post message to the parent window (extension host)
+      const message = { command: 'copyToClipboard', text: this.renderedSQL };
       window.parent.postMessage(message, '*');
       this.showCopySuccess();
     } catch (error) {
@@ -714,9 +615,8 @@ export class JinjaSqlPreview extends LitElement {
       const originalText = button.textContent;
       button.textContent = 'Copied!';
       button.classList.add('copied');
-
       setTimeout(() => {
-        button.textContent = originalText;
+        button.textContent = originalText as string;
         button.classList.remove('copied');
       }, 2000);
     }
@@ -736,13 +636,11 @@ export class JinjaSqlPreview extends LitElement {
 
   private getTemplateComplexity(): string {
     if (!this.template) return 'empty';
-
     let score = 0;
     if (this.template.includes('{{')) score += 1;
     if (this.template.includes('{%')) score += 2;
     if (this.template.includes('for ') || this.template.includes('endfor')) score += 2;
     if (this.template.includes('if ') || this.template.includes('elif ')) score += 1;
-
     if (score <= 2) return 'simple';
     if (score <= 5) return 'medium';
     return 'complex';
@@ -764,40 +662,20 @@ export class JinjaSqlPreview extends LitElement {
               warning: !hasContent
             })}"></span>
           </div>
-
           <div class="preview-actions">
             ${this.showOriginal ? html`
-              <button
-                class="toggle-button"
-                @click=${this.toggleOriginalTemplate}
-                title="Toggle original template"
-              >
-                Hide Template
-              </button>
+              <button class="toggle-button" @click=${this.toggleOriginalTemplate} title="Toggle original template">Hide Template</button>
             ` : html`
-              <button
-                class="toggle-button"
-                @click=${this.toggleOriginalTemplate}
-                title="Show original template"
-              >
-                Show Template
-              </button>
+              <button class="toggle-button" @click=${this.toggleOriginalTemplate} title="Show original template">Show Template</button>
             `}
-
             ${!this.autoRender ? html`
-              <button
-                class="render-button"
-                @click=${this.handleManualRender}
-                ?disabled=${this.isRendering}
-                title="Render template"
-              >
+              <button class="render-button" @click=${this.handleManualRender} ?disabled=${this.isRendering} title="Render template">
                 ${this.isRendering ? html`<span class="spinner"></span>` : '▶'}
                 Render
               </button>
             ` : ''}
           </div>
         </div>
-
         <div class="preview-content">
           ${this.showOriginal && this.template ? html`
             <div class="template-section">
@@ -808,7 +686,6 @@ export class JinjaSqlPreview extends LitElement {
               <div class="template-content">${this.template}</div>
             </div>
           ` : ''}
-
           <div class="sql-section">
             ${hasError ? html`
               <div class="error-section">
@@ -819,9 +696,7 @@ export class JinjaSqlPreview extends LitElement {
                 </div>
               </div>
             ` : hasContent ? html`
-              <div class="sql-content ${classMap({
-                [`theme-${this.theme}`]: true
-              })}" .innerHTML=${this.highlightSQL(this.renderedSQL)}></div>
+              <div class="sql-content ${classMap({ [`theme-${this.theme}`]: true })}" .innerHTML=${this.highlightSQL(this.renderedSQL)}></div>
             ` : html`
               <div class="empty-state">
                 <div class="empty-icon">📄</div>
@@ -831,7 +706,6 @@ export class JinjaSqlPreview extends LitElement {
             `}
           </div>
         </div>
-
         <div class="status-bar">
           <div class="status-info">
             <div class="status-item">
@@ -842,30 +716,12 @@ export class JinjaSqlPreview extends LitElement {
               })}"></span>
               <span>${this.getVariableCount()} variables</span>
             </div>
-            ${this.lastRenderTime > 0 ? html`
-              <div class="status-item">
-                <span>${Math.round(this.lastRenderTime)}ms</span>
-              </div>
-            ` : ''}
+            ${this.lastRenderTime > 0 ? html`<div class="status-item"><span>${Math.round(this.lastRenderTime)}ms</span></div>` : ''}
           </div>
-
-          ${hasContent && !hasError ? html`
-            <button
-              class="copy-button"
-              @click=${this.copyToClipboard}
-              title="Copy SQL to clipboard"
-            >
-              Copy
-            </button>
-          ` : ''}
+          ${hasContent && !hasError ? html`<button class="copy-button" @click=${this.copyToClipboard} title="Copy SQL to clipboard">Copy</button>` : ''}
         </div>
       </div>
     `;
   }
 }
 
-declare global {
-  interface HTMLElementTagNameMap {
-    'jinja-sql-preview': JinjaSqlPreview;
-  }
-}

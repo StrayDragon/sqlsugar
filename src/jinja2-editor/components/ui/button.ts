@@ -3,12 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('jinja-button')
 export class JinjaButton extends LitElement {
-  @property({ type: String }) variant: 'primary' | 'secondary' | 'danger' = 'secondary';
-  @property({ type: String }) size: 'small' | 'medium' | 'large' = 'medium';
-  @property({ type: Boolean }) disabled = false;
-  @property({ type: Boolean }) loading = false;
-  @property({ type: String }) type: 'button' | 'submit' | 'reset' = 'button';
-
   static styles = css`
     :host {
       display: inline-block;
@@ -118,6 +112,12 @@ export class JinjaButton extends LitElement {
     }
   `;
 
+  @property({ type: String }) accessor variant: 'primary' | 'secondary' | 'danger' = 'secondary';
+  @property({ type: String }) accessor size: 'small' | 'medium' | 'large' = 'medium';
+  @property({ type: Boolean }) accessor disabled: boolean = false;
+  @property({ type: Boolean }) accessor loading: boolean = false;
+  @property({ type: String }) accessor type: 'button' | 'submit' | 'reset' = 'button';
+
   render() {
     const classes = [
       `variant-${this.variant}`,
@@ -152,8 +152,3 @@ export class JinjaButton extends LitElement {
   }
 }
 
-declare global {
-  interface HTMLElementTagNameMap {
-    'jinja-button': JinjaButton;
-  }
-}

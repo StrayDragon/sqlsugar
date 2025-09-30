@@ -1,16 +1,16 @@
 import { LitElement, html, css } from 'lit';
-import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
+import { customElement, property, state } from 'lit/decorators.js';
 import { Jinja2Variable, Jinja2VariableType, Jinja2VariableValue } from '../types.js';
 
 @customElement('jinja-variable-input')
 export class JinjaVariableInput extends LitElement {
-  @property({ type: Object }) variable!: Jinja2Variable;
-  @property({ type: Object }) value: Jinja2VariableValue = undefined;
+  @property({ attribute: false }) accessor variable!: Jinja2Variable;
+  @property({ attribute: false }) accessor value: Jinja2VariableValue = undefined;
 
-  @state() private localValue: Jinja2VariableValue = undefined;
-  @state() private localType: Jinja2VariableType = 'string';
-  @state() private showQuickOptions = false;
+  @state() accessor localValue: Jinja2VariableValue = undefined;
+  @state() accessor localType: Jinja2VariableType = 'string';
+  @state() accessor showQuickOptions = false;
 
 
   private quickOptions = {
@@ -338,6 +338,7 @@ export class JinjaVariableInput extends LitElement {
       integer: 'int',
       boolean: 'bool',
       date: 'date',
+      time: 'time',
       datetime: 'datetime',
       json: 'json',
       uuid: 'uuid',
@@ -394,6 +395,7 @@ export class JinjaVariableInput extends LitElement {
       integer: 42,
       boolean: true,
       date: new Date().toISOString().split('T')[0],
+      time: '00:00:00',
       datetime: new Date().toISOString(),
       json: {},
       uuid: '00000000-0000-0000-0000-000000000000',
@@ -409,15 +411,17 @@ export class JinjaVariableInput extends LitElement {
       return `${this.variable.name} is required`;
     }
 
-    if (type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+    const asString = typeof value === 'string' ? value : String(value ?? '');
+
+    if (type === 'email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(asString)) {
       return 'Invalid email format';
     }
 
-    if (type === 'url' && value && !/^https?:\/\/.+/.test(value)) {
+    if (type === 'url' && value && !/^https?:\/\/.+/.test(asString)) {
       return 'Invalid URL format';
     }
 
-    if (type === 'uuid' && value && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
+    if (type === 'uuid' && value && !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(asString)) {
       return 'Invalid UUID format';
     }
 
@@ -433,7 +437,8 @@ export class JinjaVariableInput extends LitElement {
   private getOptionTitle(option: Jinja2VariableValue, type: Jinja2VariableType): string {
     if (type === 'json') {
       try {
-        return JSON.stringify(JSON.parse(option), null, 2);
+        const text = typeof option === 'string' ? option : JSON.stringify(option);
+        return JSON.stringify(JSON.parse(text), null, 2);
       } catch {
         return String(option);
       }
@@ -443,7 +448,7 @@ export class JinjaVariableInput extends LitElement {
 
   private formatOption(option: Jinja2VariableValue, type: Jinja2VariableType): string {
     if (type === 'json') {
-      const str = String(option);
+      const str = typeof option === 'string' ? option : JSON.stringify(option);
       return str.length > 20 ? str.substring(0, 17) + '...' : str;
     }
     if (type === 'date' || type === 'datetime') {
@@ -458,3 +463,4 @@ declare global {
     'jinja-variable-input': JinjaVariableInput;
   }
 }
+

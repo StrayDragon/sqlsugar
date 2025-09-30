@@ -10,15 +10,6 @@ export interface SelectOption {
 
 @customElement('jinja-select')
 export class JinjaSelect extends LitElement {
-  @property({ type: String }) label = '';
-  @property({ type: String }) placeholder = 'Select an option';
-  @property({ type: String }) value = '';
-  @property({ type: Boolean }) disabled = false;
-  @property({ type: Boolean }) required = false;
-  @property({ type: String }) error = '';
-  @property({ type: String }) helper = '';
-  @property({ type: Array }) options: SelectOption[] = [];
-
   static styles = css`
     :host {
       display: block;
@@ -133,6 +124,15 @@ export class JinjaSelect extends LitElement {
     }
   `;
 
+  @property({ type: String }) accessor label: string = '';
+  @property({ type: String }) accessor placeholder: string = 'Select an option';
+  @property({ type: String }) accessor value: string = '';
+  @property({ type: Boolean }) accessor disabled: boolean = false;
+  @property({ type: Boolean }) accessor required: boolean = false;
+  @property({ type: String }) accessor error: string = '';
+  @property({ type: String }) accessor helper: string = '';
+  @property({ attribute: false }) accessor options: SelectOption[] = [];
+
   private groupedOptions: Map<string, SelectOption[]> = new Map();
 
   willUpdate() {
@@ -190,7 +190,7 @@ export class JinjaSelect extends LitElement {
               </option>
             ` : ''}
 
-            ${this.renderOptions()}
+            ${this.renderOptionNodes()}
           </select>
 
           <span class="select-arrow">▼</span>
@@ -210,8 +210,8 @@ export class JinjaSelect extends LitElement {
     `;
   }
 
-  private renderOptions() {
-    const options: Array<JSX.Element> = [];
+  private renderOptionNodes() {
+    const options: unknown[] = [];
 
     this.groupedOptions.forEach((groupOptions, group) => {
       if (group) {
@@ -277,12 +277,10 @@ export class JinjaSelect extends LitElement {
     }));
   }
 
-
   focus() {
     const select = this.shadowRoot?.querySelector('.select-field') as HTMLSelectElement;
     select?.focus();
   }
-
 
   getSelectedOption(): SelectOption | undefined {
     return this.options.find(opt => opt.value === this.value);
@@ -298,11 +296,5 @@ export class JinjaSelect extends LitElement {
 
   removeOption(value: string) {
     this.options = this.options.filter(opt => opt.value !== value);
-  }
-}
-
-declare global {
-  interface HTMLElementTagNameMap {
-    'jinja-select': JinjaSelect;
   }
 }

@@ -8,18 +8,18 @@ import './sql-preview.js';
 
 @customElement('jinja2-editor')
 export class Jinja2Editor extends LitElement {
-  @property({ type: String }) template: string = '';
-  @property({ type: Array }) variables: Jinja2Variable[] = [];
-  @property({ type: String }) theme: string = 'vscode-dark';
-  @property({ type: Boolean }) autoRender = true;
-  @property({ type: Boolean }) showOriginal = true;
-  @property({ type: String }) title = 'Jinja2 Template Editor';
+  @property({ type: String }) accessor template: string = '';
+  @property({ type: Array }) accessor variables: Jinja2Variable[] = [];
+  @property({ type: String }) accessor theme: string = 'vscode-dark';
+  @property({ type: Boolean }) accessor autoRender = true;
+  @property({ type: Boolean }) accessor showOriginal = true;
+  @property({ type: String }) accessor title = 'Jinja2 Template Editor';
 
-  @state() private values: Record<string, Jinja2VariableValue> = {};
-  @state() private selectedVariable: string | null = null;
-  @state() private isProcessing = false;
-  @state() private processingTime = 0;
-  @state() private renderCount = 0;
+  @state() accessor values: Record<string, Jinja2VariableValue> = {};
+  @state() accessor selectedVariable: string | null = null;
+  @state() accessor isProcessing = false;
+  @state() accessor processingTime = 0;
+  @state() accessor renderCount = 0;
 
   static styles = css`
     :host {

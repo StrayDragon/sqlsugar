@@ -3,16 +3,6 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('jinja-input')
 export class JinjaInput extends LitElement {
-  @property({ type: String }) type: 'text' | 'number' | 'email' | 'url' | 'password' = 'text';
-  @property({ type: String }) placeholder = '';
-  @property({ type: String }) label = '';
-  @property({ type: String }) value = '';
-  @property({ type: Boolean }) disabled = false;
-  @property({ type: Boolean }) readonly = false;
-  @property({ type: Boolean }) required = false;
-  @property({ type: String }) error = '';
-  @property({ type: String }) helper = '';
-
   static styles = css`
     :host {
       display: block;
@@ -137,6 +127,16 @@ export class JinjaInput extends LitElement {
     }
   `;
 
+  @property({ type: String }) accessor type: 'text' | 'number' | 'email' | 'url' | 'password' = 'text';
+  @property({ type: String }) accessor placeholder: string = '';
+  @property({ type: String }) accessor label: string = '';
+  @property({ type: String }) accessor value: string = '';
+  @property({ type: Boolean }) accessor disabled: boolean = false;
+  @property({ type: Boolean }) accessor readonly: boolean = false;
+  @property({ type: Boolean }) accessor required: boolean = false;
+  @property({ type: String }) accessor error: string = '';
+  @property({ type: String }) accessor helper: string = '';
+
   render() {
     const wrapperClasses = [
       'input-wrapper',
@@ -254,7 +254,6 @@ export class JinjaInput extends LitElement {
     }));
   }
 
-
   focus() {
     const input = this.shadowRoot?.querySelector('.input-field') as HTMLInputElement;
     input?.focus();
@@ -271,8 +270,3 @@ export class JinjaInput extends LitElement {
   }
 }
 
-declare global {
-  interface HTMLElementTagNameMap {
-    'jinja-input': JinjaInput;
-  }
-}

@@ -3,11 +3,11 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('jinja-card')
 export class JinjaCard extends LitElement {
-  @property({ type: String }) title = '';
-  @property({ type: String }) subtitle = '';
-  @property({ type: Boolean }) bordered = true;
-  @property({ type: Boolean }) elevation = false;
-  @property({ type: String }) size: 'small' | 'medium' | 'large' = 'medium';
+  @property({ type: String }) accessor title = '';
+  @property({ type: String }) accessor subtitle = '';
+  @property({ type: Boolean }) accessor bordered = true;
+  @property({ type: Boolean }) accessor elevation = false;
+  @property({ type: String }) accessor size: 'small' | 'medium' | 'large' = 'medium';
 
   static styles = css`
     :host {
@@ -188,7 +188,7 @@ export class JinjaCard extends LitElement {
 
 @customElement('jinja-card-actions')
 export class JinjaCardActions extends LitElement {
-  @property({ type: String }) alignment: 'start' | 'center' | 'end' | 'stretch' = 'end';
+  @property({ type: String }) accessor alignment: 'start' | 'center' | 'end' | 'stretch' = 'end';
 
   static styles = css`
     :host {

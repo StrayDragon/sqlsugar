@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 /**
  * Disposable interface for services that need cleanup
@@ -148,7 +149,7 @@ export class DIContainer {
         try {
           service.instance.dispose();
         } catch (error) {
-          console.error(`Error disposing service ${key}:`, error);
+          Logger.error(`Error disposing service ${key}:`, error);
         }
       }
       this.services.delete(key);
@@ -164,7 +165,7 @@ export class DIContainer {
         try {
           service.instance.dispose();
         } catch (error) {
-          console.error(`Error disposing service ${key}:`, error);
+          Logger.error(`Error disposing service ${key}:`, error);
         }
       }
     });

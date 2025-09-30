@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
 import { Jinja2VariableInput } from './jinja2-variable-input';
@@ -44,7 +45,7 @@ export class Jinja2NunjucksHandler {
       const handler = Jinja2NunjucksHandler.getInstance();
       return await handler.processTemplate(mode);
     } catch (error) {
-      console.error('Failed to handle Jinja2 template:', error);
+      Logger.error('Failed to handle Jinja2 template:', error);
       vscode.window.showErrorMessage(
         `Failed to process Jinja2 template: ${error instanceof Error ? error.message : String(error)}`
       );
@@ -552,7 +553,7 @@ export class Jinja2NunjucksHandler {
 
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
-      console.warn('VS Code clipboard failed, trying fallback:', error);
+      Logger.warn('VS Code clipboard failed, trying fallback:', error);
 
 
       const config = vscode.workspace.getConfiguration('sqlsugar');
@@ -578,9 +579,9 @@ export class Jinja2NunjucksHandler {
     try {
 
       await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
-      console.log('Text copied to clipboard using wl-copy');
+      Logger.info('Text copied to clipboard using wl-copy');
     } catch (error) {
-      console.error('wl-copy failed:', error);
+      Logger.error('wl-copy failed:', error);
       throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
     }
   }

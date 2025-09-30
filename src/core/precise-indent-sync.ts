@@ -1,3 +1,5 @@
+import { Logger } from './logger';
+
 /**
  * 精确缩进同步器 - 追求100%一致的缩进保持
  *
@@ -36,7 +38,7 @@ export class PreciseIndentSyncManager {
     };
 
     this.trackers.set(tempFilePath, tracker);
-    console.log('DEBUG: Created precise indent tracker with', fingerprints.length, 'fingerprints');
+    Logger.debug('DEBUG: Created precise indent tracker with', fingerprints.length, 'fingerprints');
     return tracker;
   }
 
@@ -79,14 +81,14 @@ export class PreciseIndentSyncManager {
   syncIndent(tempFilePath: string, formattedSql: string): string {
     const tracker = this.trackers.get(tempFilePath);
     if (!tracker || tracker.isEmpty) {
-      console.log('DEBUG: No tracker found or empty, returning formatted SQL as-is');
+      Logger.debug('DEBUG: No tracker found or empty, returning formatted SQL as-is');
       return formattedSql;
     }
 
     const formattedLines = formattedSql.split('\n');
     const result: string[] = [];
 
-    console.log('DEBUG: Syncing indent for', formattedLines.length, 'lines');
+    Logger.debug('DEBUG: Syncing indent for', formattedLines.length, 'lines');
 
     for (let i = 0; i < formattedLines.length; i++) {
       const formattedLine = formattedLines[i];
@@ -104,7 +106,7 @@ export class PreciseIndentSyncManager {
       if (fingerprint) {
 
         result.push(fingerprint.originalIndent + trimmed);
-        console.log(
+        Logger.debug(
           `DEBUG: Line ${i}: Matched fingerprint, using indent with`,
           fingerprint.originalIndent.length,
           'spaces'
@@ -113,7 +115,7 @@ export class PreciseIndentSyncManager {
 
         const inferredIndent = this.inferIndentFromContext(formattedLines, i, tracker);
         result.push(inferredIndent + trimmed);
-        console.log(
+        Logger.debug(
           `DEBUG: Line ${i}: No fingerprint match, inferred indent with`,
           inferredIndent.length,
           'spaces'
@@ -122,7 +124,7 @@ export class PreciseIndentSyncManager {
     }
 
     const finalResult = result.join('\n');
-    console.log('DEBUG: Final synced SQL:', JSON.stringify(finalResult, null, 2));
+    Logger.debug('DEBUG: Final synced SQL:', JSON.stringify(finalResult, null, 2));
     return finalResult;
   }
 

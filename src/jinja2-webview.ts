@@ -72,12 +72,17 @@ export class Jinja2WebviewEditor {
    */
   private refreshTheme(): void {
     if (this.panel && this.currentTemplate && this.currentVariables.length > 0) {
-
-      this.panel.webview.html = this.getHtmlContent(
+      this.panel.webview.html = this.getAppHtml(
         this.panel.webview,
         this.currentTemplate,
         this.currentVariables
       );
+
+      this.panel.webview.postMessage({
+        command: 'init',
+        template: this.currentTemplate,
+        variables: this.currentVariables,
+      });
     }
   }
 
@@ -145,8 +150,15 @@ export class Jinja2WebviewEditor {
       }
     );
 
-    this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
+    this.panel.webview.html = this.getAppHtml(this.panel.webview, template, variables);
     this.setupWebviewListeners();
+
+
+    this.panel.webview.postMessage({
+      command: 'init',
+      template,
+      variables,
+    });
 
 
     Jinja2WebviewEditor.activeInstances.push(this);
@@ -274,11 +286,78 @@ export class Jinja2WebviewEditor {
       return;
     }
 
-
     this.currentTemplate = template;
     this.currentVariables = variables;
 
-    this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
+    this.panel.webview.postMessage({
+      command: 'init',
+      template,
+      variables,
+    });
+  }
+
+  /**
+   * 新版 WebView HTML：仅挂载App并加载外部脚本
+   */
+  private getAppHtml(
+    webview: vscode.Webview,
+    template: string,
+    variables: Jinja2Variable[]
+  ): string {
+    const nonce = getNonce();
+    const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
+
+    const config = vscode.workspace.getConfiguration('sqlsugar');
+    const theme = config.get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
+
+    const themeMap: Record<string, string> = {
+      'vscode-dark': 'vs2015.min.css',
+      'vscode-light': 'vscode-light.min.css',
+      'github-dark': 'github-dark.min.css',
+      'github-light': 'github.min.css',
+      'solarized-dark': 'solarized-dark.min.css',
+      'solarized-light': 'solarized-light.min.css',
+    };
+
+    const nunjucksUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'nunjucks.min.js')
+    );
+    const highlightJsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js')
+    );
+    const highlightCssUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(
+        this.context.extensionUri,
+        'dist',
+        'resources',
+        themeMap[theme] || themeMap['vscode-dark']
+      )
+    );
+    const jinjaEditorUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'jinja2-editor', 'jinja2-editor.js')
+    );
+    const appJsUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview', 'app.js')
+    );
+
+    return `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src 'nonce-${nonce}' ${webview.cspSource}; style-src ${webview.cspSource} 'unsafe-inline';">
+  <title>Jinja2 Template Editor - ${templatePreview}</title>
+  <link rel="stylesheet" href="${highlightCssUri}">
+</head>
+<body>
+  <sqlsugar-webview-app></sqlsugar-webview-app>
+  <script nonce="${nonce}">(function(){try{window.vscode = acquireVsCodeApi?acquireVsCodeApi():undefined;}catch(e){window.vscode=undefined;}})();</script>
+  <script src="${nunjucksUri}"></script>
+  <script src="${highlightJsUri}"></script>
+  <script src="${jinjaEditorUri}"></script>
+  <script src="${appJsUri}"></script>
+</body>
+</html>`;
   }
 
   private getHtmlContent(

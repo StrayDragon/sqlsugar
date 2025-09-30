@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 import { Result } from '../types/result';
 import { LanguageHandler, LanguageType, QuoteType } from './language-handler';
@@ -90,18 +91,18 @@ export class TempFileManager {
    */
   private async ensureTempDirectory(originalEditor: vscode.TextEditor): Promise<string> {
     let workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    console.log('Initial workspacePath:', workspacePath);
+    Logger.debug('Initial workspacePath:', workspacePath);
 
 
     if (!workspacePath && originalEditor.document.uri.scheme === 'file') {
       workspacePath = path.dirname(originalEditor.document.uri.fsPath);
-      console.log('Using document directory:', workspacePath);
+      Logger.debug('Using document directory:', workspacePath);
     }
 
 
     if (!workspacePath) {
       workspacePath = process.cwd();
-      console.log('Using cwd as fallback:', workspacePath);
+      Logger.debug('Using cwd as fallback:', workspacePath);
     }
 
 
@@ -109,19 +110,19 @@ export class TempFileManager {
       const docDir = path.dirname(originalEditor.document.uri.fsPath);
       if (docDir.includes('test-workspace')) {
         workspacePath = docDir;
-        console.log('Test environment detected, using test workspace:', workspacePath);
+        Logger.debug('Test environment detected, using test workspace:', workspacePath);
       }
     }
 
     const tempDir = path.join(workspacePath, '.vscode/sqlsugar/temp');
-    console.log('Temp directory will be:', tempDir);
+    Logger.debug('Temp directory will be:', tempDir);
 
     if (!fs.existsSync(tempDir)) {
-      console.log('Temp directory does not exist, creating it...');
+      Logger.debug('Temp directory does not exist, creating it...');
       fs.mkdirSync(tempDir, { recursive: true });
-      console.log('Temp directory created successfully:', tempDir);
+      Logger.debug('Temp directory created successfully:', tempDir);
     } else {
-      console.log('Temp directory already exists:', tempDir);
+      Logger.debug('Temp directory already exists:', tempDir);
     }
 
     return tempDir;
@@ -170,7 +171,7 @@ export class TempFileManager {
    */
   private async handleTempFileChange(tempFileInfo: TempFileInfo): Promise<void> {
     if (tempFileInfo.isProcessing) {
-      console.log('Sync already in progress, skipping');
+      Logger.debug('Sync already in progress, skipping');
       return;
     }
 
@@ -179,11 +180,11 @@ export class TempFileManager {
     try {
       const result = await this.syncTempFileChanges(tempFileInfo);
       if (!result.ok) {
-        console.error('Sync failed:', result.error);
+        Logger.error('Sync failed:', result.error);
         vscode.window.showErrorMessage(`Failed to sync changes: ${result.error}`);
       }
     } catch (error) {
-      console.error('Sync error:', error);
+      Logger.error('Sync error:', error);
       vscode.window.showErrorMessage(`Failed to sync changes: ${error}`);
     } finally {
       tempFileInfo.isProcessing = false;

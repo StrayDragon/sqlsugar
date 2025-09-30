@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 import { Jinja2WebviewEditor } from '../jinja2-webview';
 import { TempFileManager } from './temp-file-manager';
@@ -74,7 +75,7 @@ export class EventHandler {
    * 处理终端关闭
    */
   private handleTerminalClose(terminal: vscode.Terminal): void {
-    console.log('Terminal closed:', terminal.name);
+    Logger.info('Terminal closed:', terminal.name);
 
   }
 
@@ -82,7 +83,7 @@ export class EventHandler {
    * 处理工作区变化
    */
   private handleWorkspaceChange(): void {
-    console.log('Workspace folders changed');
+    Logger.info('Workspace folders changed');
 
   }
 
@@ -91,11 +92,11 @@ export class EventHandler {
    */
   private handleConfigurationChange(e: vscode.ConfigurationChangeEvent): void {
     if (e.affectsConfiguration('sqlsugar')) {
-      console.log('SQLSugar configuration changed');
+      Logger.info('SQLSugar configuration changed');
 
 
       if (e.affectsConfiguration('sqlsugar.sqlSyntaxHighlightTheme')) {
-        console.log('SQLSugar theme configuration changed, refreshing WebView instances');
+        Logger.info('SQLSugar theme configuration changed, refreshing WebView instances');
         this.refreshWebviewThemes();
       }
     }
@@ -108,7 +109,7 @@ export class EventHandler {
     try {
       Jinja2WebviewEditor.refreshAllInstances();
     } catch (error) {
-      console.log('Failed to refresh WebView themes:', error);
+      Logger.warn('Failed to refresh WebView themes:', error);
     }
   }
 

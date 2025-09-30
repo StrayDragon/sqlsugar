@@ -1,4 +1,5 @@
 import * as nunjucks from 'nunjucks';
+import { Logger } from './core/logger';
 import * as vscode from 'vscode';
 import { Jinja2VariableValue } from './jinja2-editor/types.js';
 
@@ -116,7 +117,7 @@ export class Jinja2NunjucksProcessor {
 
         const filterMatch = errorMessage.match(/filter not found: (\w+)/);
         if (filterMatch) {
-          console.warn(`Unknown filter "${filterMatch[1]}" ignored, returning original value`);
+          Logger.warn(`Unknown filter "${filterMatch[1]}" ignored, returning original value`);
         }
 
         const contentMatch = template.match(/\{\{\s*([^}]+)\s*\}\}/);
@@ -144,7 +145,7 @@ export class Jinja2NunjucksProcessor {
         }
         return '';
       }
-      console.error('nunjucks 渲染失败:', error);
+      Logger.error('nunjucks 渲染失败:', error);
       throw new Error(`模板渲染失败: ${errorMessage}`);
     }
   }
@@ -569,13 +570,13 @@ export class Jinja2NunjucksProcessor {
 
       return this.extractVariablesFromAST(template);
     } catch (error) {
-      console.warn('nunjucks AST 解析失败，尝试 nunjucks 编译验证:', error);
+      Logger.warn('nunjucks AST 解析失败，尝试 nunjucks 编译验证:', error);
 
       try {
 
         return this.extractVariablesWithNunjucksValidation(template);
       } catch (fallbackError) {
-        console.warn('nunjucks 验证失败，回退到正则表达式方法:', fallbackError);
+        Logger.warn('nunjucks 验证失败，回退到正则表达式方法:', fallbackError);
 
         return this.extractVariablesWithRegex(template);
       }
@@ -591,7 +592,7 @@ export class Jinja2NunjucksProcessor {
       nunjucks.compile(template, this.env);
     } catch (validationError) {
 
-      console.warn(
+      Logger.warn(
         '模板语法警告:',
         validationError instanceof Error ? validationError.message : String(validationError)
       );
@@ -1270,7 +1271,7 @@ export class Jinja2NunjucksProcessor {
       } catch (error) {
 
         this.env.addFilter(filterName, (value: unknown, ...args: unknown[]) => {
-          console.warn(`Unknown filter "${filterName}" ignored, returning original value`);
+          Logger.warn(`Unknown filter "${filterName}" ignored, returning original value`);
           return value;
         });
       }

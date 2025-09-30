@@ -50,7 +50,7 @@ export class CommandManager {
           vscode.commands.registerCommand(`sqlsugar.${name}`, callback.bind(this))
         );
       } catch (error) {
-        // Ignore duplicate command registration errors in test environment
+
         if (error instanceof Error && error.message.includes('already exists')) {
           console.warn(`Command sqlsugar.${name} already registered, skipping`);
         } else {
@@ -83,7 +83,7 @@ export class CommandManager {
     }
 
     try {
-      // 获取语言处理器检查SQL
+
       const languageHandler = new LanguageHandler();
 
       if (!languageHandler.looksLikeSQL(selectedText)) {
@@ -98,7 +98,7 @@ export class CommandManager {
         }
       }
 
-      // 创建临时文件
+
       const result = await this.extensionCore.createTempSQLFile(editor, selection, selectedText);
 
       if (!result.ok) {
@@ -110,7 +110,7 @@ export class CommandManager {
         throw new Error('Failed to create temporary file - no URI returned');
       }
 
-      // 打开临时文件
+
       const doc = await vscode.workspace.openTextDocument(tempUri);
       await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
     } catch (error) {
@@ -124,11 +124,11 @@ export class CommandManager {
    */
   private async handleSwitchConnection(): Promise<void> {
     try {
-      // 获取SQLs客户端管理器
+
       const extensionCore = ExtensionCore.getInstance(this.context);
       const sqlsClientManager = extensionCore.getSQLsClientManager();
 
-      // 显示连接选择器
+
       await sqlsClientManager.showConnectionPicker();
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to switch connection: ${error}`);
@@ -195,7 +195,7 @@ export class CommandManager {
    */
   private async handleGetMetrics(): Promise<void> {
     try {
-      // 获取扩展核心实例和指标
+
       const extensionCore = ExtensionCore.getInstance(this.context);
       const metrics = extensionCore.getMetrics();
 
@@ -215,7 +215,7 @@ export class CommandManager {
    */
   private async handleToggleDebugMode(): Promise<void> {
     try {
-      // TODO: 实现调试模式切换逻辑
+
       vscode.window.showInformationMessage('Debug mode toggle feature coming soon');
     } catch (error) {
       vscode.window.showErrorMessage(`Failed to toggle debug mode: ${error}`);

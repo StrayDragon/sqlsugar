@@ -277,13 +277,13 @@ export class JinjaSelect extends LitElement {
     }));
   }
 
-  // Public methods for programmatic access
+
   focus() {
     const select = this.shadowRoot?.querySelector('.select-field') as HTMLSelectElement;
     select?.focus();
   }
 
-  // Utility methods
+
   getSelectedOption(): SelectOption | undefined {
     return this.options.find(opt => opt.value === this.value);
   }

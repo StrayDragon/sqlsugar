@@ -393,7 +393,7 @@ export class JinjaSqlPreview extends LitElement {
     const startTime = performance.now();
 
     try {
-      // Use actual nunjucks rendering if available, otherwise fall back to simulation
+
       if (typeof nunjucks !== 'undefined') {
         this.renderedSQL = this.renderWithNunjucks(this.template, this.values);
       } else {
@@ -410,16 +410,16 @@ export class JinjaSqlPreview extends LitElement {
   }
 
   private simulateTemplateRendering(template: string, values: Record<string, Jinja2VariableValue>): string {
-    // Simple template rendering simulation
+
     let result = template;
 
-    // Replace variables
+
     Object.entries(values).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
       result = result.replace(regex, this.formatValue(value));
     });
 
-    // Handle simple conditionals (very basic simulation)
+
     result = result.replace(/{% if (.*?) %}/g, (match, condition) => {
       const varName = condition.trim();
       const value = values[varName];
@@ -433,10 +433,10 @@ export class JinjaSqlPreview extends LitElement {
 
   private renderWithNunjucks(template: string, values: Record<string, Jinja2VariableValue>): string {
     try {
-      // Configure nunjucks environment
+
       const env = nunjucks.configure({ autoescape: false });
 
-      // Add all filters from the main WebView implementation
+
       env.addFilter('float', (value: unknown) => {
         const num = parseFloat(value);
         return isNaN(num) ? 0 : num;

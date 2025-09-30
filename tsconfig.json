@@ -3,7 +3,8 @@
 		"module": "CommonJS", // Important: Use CommonJS for VS Code and Cursor compatibility
 		"target": "ES2022",
 		"lib": [
-			"ES2022"
+			"ES2022",
+			"DOM"
 		],
 		"sourceMap": true,
 		"rootDir": "src",

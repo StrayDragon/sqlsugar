@@ -28,7 +28,7 @@ export class Jinja2VariableInput {
     for (const variable of variables) {
       const result = await this.configureVariable(variable);
       if (result === undefined) {
-        return undefined; // 用户取消
+        return undefined;
       }
       context[variable.name] = result;
     }
@@ -40,14 +40,14 @@ export class Jinja2VariableInput {
    * 配置单个变量
    */
   private static async configureVariable(variable: Jinja2Variable): Promise<Jinja2VariableValue | undefined> {
-    // 创建类型选择和值输入的界面
+
     const typeOptions = [
       { label: '📝 String', value: 'string', description: 'Text value' },
       { label: '🔢 Number', value: 'number', description: 'Numeric value' },
       { label: '📅 Date', value: 'date', description: 'Date value (YYYY-MM-DD)' },
     ];
 
-    // 首先选择类型
+
     const selectedType = await vscode.window.showQuickPick(typeOptions, {
       placeHolder: `Select type for "${variable.name}"`,
       title: `Configure Variable: ${variable.name}`,
@@ -55,10 +55,10 @@ export class Jinja2VariableInput {
     });
 
     if (!selectedType) {
-      return undefined; // 用户取消
+      return undefined;
     }
 
-    // 然后输入值
+
     const type = selectedType.value as 'string' | 'number' | 'date';
     return await this.inputValue(variable.name, type, variable.defaultValue);
   }
@@ -195,7 +195,7 @@ export class Jinja2VariableInput {
     const context: VariableConfigContext = {};
 
     for (const variable of variables) {
-      // 提供选项：使用默认值、修改类型、自定义输入
+
       const options = [
         {
           label: `Use default: ${this.formatDefaultValue(variable.type, variable.defaultValue)} (${variable.type})`,
@@ -217,7 +217,7 @@ export class Jinja2VariableInput {
       });
 
       if (!choice) {
-        return undefined; // 用户取消
+        return undefined;
       }
 
       let value: Jinja2VariableValue;

@@ -48,14 +48,14 @@ export class TempFileManager {
       const quoteType = this.languageHandler.detectQuoteType(originalQuotedSQL);
       const sqlContent = this.languageHandler.stripQuotes(originalQuotedSQL);
 
-      // 转换ORM占位符为sqls兼容格式
+
       const { convertedSQL, hasPlaceholders } = this.convertPlaceholdersToTemp(sqlContent);
 
-      // 创建临时文件
+
       const tempDir = await this.ensureTempDirectory(originalEditor);
       const tempUri = await this.createTempFile(tempDir, convertedSQL, hasPlaceholders);
 
-      // 保存临时文件信息
+
       const tempFileInfo: TempFileInfo = {
         uri: tempUri,
         originalEditor,
@@ -70,13 +70,13 @@ export class TempFileManager {
 
       this.tempFiles.set(tempUri.fsPath, tempFileInfo);
 
-      // 初始化精确缩进同步器
+
       const originalSQL = this.languageHandler.stripQuotes(originalQuotedSQL);
       if (originalSQL.includes('\n')) {
         this.preciseIndentSync.createTracker(tempUri.fsPath, originalSQL);
       }
 
-      // 注册临时文件保存监听器
+
       this.registerSaveListener(tempFileInfo);
 
       return Result.ok(tempUri);
@@ -92,19 +92,19 @@ export class TempFileManager {
     let workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     console.log('Initial workspacePath:', workspacePath);
 
-    // If no workspace folder is found, try to use the document's directory
+
     if (!workspacePath && originalEditor.document.uri.scheme === 'file') {
       workspacePath = path.dirname(originalEditor.document.uri.fsPath);
       console.log('Using document directory:', workspacePath);
     }
 
-    // If still no path, use current working directory as fallback
+
     if (!workspacePath) {
       workspacePath = process.cwd();
       console.log('Using cwd as fallback:', workspacePath);
     }
 
-    // Special handling for test environment
+
     if (process.env.VSCODE_TEST) {
       const docDir = path.dirname(originalEditor.document.uri.fsPath);
       if (docDir.includes('test-workspace')) {
@@ -195,7 +195,7 @@ export class TempFileManager {
    */
   private async syncTempFileChanges(tempFileInfo: TempFileInfo): Promise<Result<void, Error>> {
     try {
-      // 检查原始编辑器是否仍然打开
+
       if (!tempFileInfo.originalEditor || tempFileInfo.originalEditor.document.isClosed) {
         console.log('Original editor is closed, skipping sync');
         return Result.ok(undefined);
@@ -204,34 +204,34 @@ export class TempFileManager {
       const doc = await vscode.workspace.openTextDocument(tempFileInfo.uri);
       const modifiedSQL = doc.getText();
 
-      // 转换回ORM占位符格式
+
       let finalSQL = this.convertPlaceholdersFromTemp(modifiedSQL);
 
-      // 处理缩进同步
+
       finalSQL = await this.syncIndentation(tempFileInfo, finalSQL);
 
-      // 包装内容
+
       const wrappedContent = await this.wrapContent(tempFileInfo, finalSQL);
 
-      // 验证并更新选择范围
+
       const targetSelection = await this.validateAndUpdateSelection(tempFileInfo);
       if (!targetSelection) {
         console.log('Invalid selection, skipping sync');
         return Result.ok(undefined);
       }
 
-      // 再次检查编辑器是否仍然有效
+
       if (tempFileInfo.originalEditor.document.isClosed) {
         console.log('Original editor closed before edit, skipping sync');
         return Result.ok(undefined);
       }
 
-      // 替换选中的内容
+
       await tempFileInfo.originalEditor.edit(editBuilder => {
         editBuilder.replace(targetSelection, wrappedContent);
       });
 
-      // 更新上次同步的内容
+
       tempFileInfo.lastSyncedContent = wrappedContent;
 
       return Result.ok(undefined);
@@ -244,7 +244,7 @@ export class TempFileManager {
    * 同步缩进
    */
   private async syncIndentation(tempFileInfo: TempFileInfo, finalSQL: string): Promise<string> {
-    // 对于Python多行SQL，使用精确缩进同步保留原始缩进
+
     if (tempFileInfo.language === 'python' && finalSQL.includes('\n')) {
       return this.preciseIndentSync.syncIndent(tempFileInfo.uri.fsPath, finalSQL);
     }
@@ -255,7 +255,7 @@ export class TempFileManager {
    * 包装内容
    */
   private async wrapContent(tempFileInfo: TempFileInfo, finalSQL: string): Promise<string> {
-    // 对于markdown和generic语言，使用完全不同的同步策略
+
     if (tempFileInfo.language === 'markdown' || tempFileInfo.language === 'generic') {
       return this.languageHandler.reconstructMarkdownContent(
         tempFileInfo.originalQuotedSQL,
@@ -263,7 +263,7 @@ export class TempFileManager {
       );
     }
 
-    // 智能包装内容（根据内容升级引号类型）
+
     return this.languageHandler.wrapLikeIntelligent(
       tempFileInfo.originalQuotedSQL,
       finalSQL,
@@ -280,18 +280,18 @@ export class TempFileManager {
     const currentDocument = tempFileInfo.originalEditor.document;
     const currentSelection = tempFileInfo.originalSelection;
 
-    // 检查选择范围是否仍然有效
+
     let targetSelection = currentSelection;
     const currentSelectedText = currentDocument.getText(currentSelection);
 
-    // 如果当前选择的内容与上次同步的内容不匹配，尝试查找上次同步内容的位置
+
     if (currentSelectedText !== tempFileInfo.lastSyncedContent) {
       const fullText = currentDocument.getText();
       const searchStr = tempFileInfo.lastSyncedContent;
       let originalIndex = this.findContentIndex(fullText, searchStr);
 
       if (originalIndex !== -1) {
-        // 找到上次同步的内容，更新选择范围
+
         const startPos = currentDocument.positionAt(originalIndex);
         const endPos = currentDocument.positionAt(
           originalIndex + tempFileInfo.lastSyncedContent.length
@@ -307,7 +307,7 @@ export class TempFileManager {
    * 查找内容索引
    */
   private findContentIndex(fullText: string, searchStr: string): number {
-    // Strategy 1: Look for exact match with word boundaries
+
     const escapedOriginal = searchStr.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const exactRegex = new RegExp(`\\b${escapedOriginal}\\b`, 'm');
     const exactMatch = fullText.match(exactRegex);
@@ -316,11 +316,11 @@ export class TempFileManager {
     if (exactMatch && exactMatch.index !== undefined) {
       originalIndex = exactMatch.index;
     } else {
-      // Strategy 2: Use lastIndexOf to find the most recent occurrence
+
       originalIndex = fullText.lastIndexOf(searchStr);
     }
 
-    // Validation: ensure the match is not a partial substring
+
     if (originalIndex !== -1) {
       const beforeChar = originalIndex > 0 ? fullText[originalIndex - 1] : '';
       const afterChar =
@@ -328,7 +328,7 @@ export class TempFileManager {
           ? fullText[originalIndex + searchStr.length]
           : '';
 
-      // Check if it's a standalone match
+
       const isValidMatch =
         (beforeChar === '' || /\s/.test(beforeChar) || beforeChar === '=' || beforeChar === '(') &&
         (afterChar === '' || /\s/.test(afterChar) || afterChar === ';' || afterChar === ')');
@@ -355,15 +355,15 @@ export class TempFileManager {
     if (placeholderRegex.test(sql)) {
       hasPlaceholders = true;
       convertedSQL = sql.replace(placeholderRegex, (match, offset, str) => {
-        // 检查前面是否是:: (PostgreSQL类型转换)
+
         if (offset > 0 && str[offset - 1] === ':') {
-          return match; // 不转换PostgreSQL类型转换
+          return match;
         }
-        // 检查是否是时间格式中的冒号
+
         if (offset > 0 && /\d/.test(str[offset - 1])) {
-          return match; // 不转换时间格式中的冒号
+          return match;
         }
-        return '__:' + match.substring(1); // 转换ORM占位符
+        return '__:' + match.substring(1);
       });
     }
 
@@ -384,14 +384,14 @@ export class TempFileManager {
   public cleanupTempFile(uri: vscode.Uri): void {
     const tempInfo = this.tempFiles.get(uri.fsPath);
     if (tempInfo) {
-      // 清理所有disposables
+
       tempInfo.disposables.forEach(d => d.dispose());
       this.tempFiles.delete(uri.fsPath);
 
-      // 清理精确缩进同步器
+
       this.preciseIndentSync.cleanupTracker(uri.fsPath);
 
-      // 删除临时文件
+
       this.deleteTempFile(uri);
     }
   }
@@ -407,7 +407,7 @@ export class TempFileManager {
       .getConfiguration('sqlsugar')
       .get<boolean>('cleanupOnClose', true);
 
-    // 在测试环境中禁用自动删除
+
     if (tempFileCleanup && cleanupOnClose && !process.env.VSCODE_TEST) {
       vscode.workspace.fs.delete(uri).then(undefined, err => {
         console.error('Failed to delete temp file:', err);
@@ -438,7 +438,7 @@ export class TempFileManager {
       } catch (error) {
         console.error('Failed to delete temp file:', error);
       }
-      // 清理精确缩进同步器
+
       this.preciseIndentSync.cleanupTracker(path);
     });
 

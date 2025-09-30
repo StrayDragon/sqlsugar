@@ -42,12 +42,12 @@ export class Jinja2WebviewIntegrated {
         return new Promise((resolve, reject) => {
             const editor = new Jinja2WebviewIntegrated();
 
-            // Get extension path from ExtensionCore
+
             try {
                 const extensionCore = ExtensionCore.getInstance();
                 editor.extensionPath = extensionCore['context'].extensionPath;
             } catch (error) {
-                // Fallback: use current working directory
+
                 editor.extensionPath = process.cwd();
             }
 
@@ -58,12 +58,12 @@ export class Jinja2WebviewIntegrated {
     }
 
     private getContextPath(): string {
-        // 使用扩展路径，在开发和生产环境中都有效
+
         return this.extensionPath;
     }
 
     private async show(template: string, variables: Jinja2Variable[], title: string): Promise<void> {
-        // Create or show webview panel
+
         if (this.panel) {
             this.panel.reveal();
             await this.updateContent(template, variables);
@@ -95,12 +95,12 @@ export class Jinja2WebviewIntegrated {
             return;
         }
 
-        // Handle panel disposal
+
         this.panel.onDidDispose(() => {
             this.dispose();
         });
 
-        // Handle webview messages
+
         this.panel.webview.onDidReceiveMessage(async (message) => {
             await this.handleWebviewMessage(message);
         });
@@ -113,7 +113,7 @@ export class Jinja2WebviewIntegrated {
         const msg = message as { command: string; [key: string]: unknown };
         switch (msg.command) {
             case 'ready':
-                // WebView is ready, we can send initial data
+
                 if (this.panel) {
                     this.panel.webview.postMessage({
                         command: 'initialize',
@@ -148,15 +148,15 @@ export class Jinja2WebviewIntegrated {
                 break;
 
             case 'variable-change':
-                // Handle variable changes for real-time updates
+
                 if (message.data) {
-                    // Broadcast to other parts of the extension if needed
+
                     console.log('Variable changed:', message.data);
                 }
                 break;
 
             case 'template-render':
-                // Handle template rendering events
+
                 if (message.data && !message.data.error) {
                     console.log('Template rendered successfully:', message.data);
                 }
@@ -175,7 +175,7 @@ export class Jinja2WebviewIntegrated {
                 break;
 
             case 'import-config':
-                // Handle configuration import if needed
+
                 break;
 
             default:
@@ -195,16 +195,16 @@ export class Jinja2WebviewIntegrated {
         const nonce = this.getNonce();
         const theme = vscode.workspace.getConfiguration('sqlsugar').get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
 
-        // Get URIs for Lit components and dependencies
+
         const litCoreUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'node_modules', 'lit', 'index.js'));
         const litDecoratorsUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'node_modules', 'lit', 'decorators.js'));
         const litDirectivesUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'node_modules', 'lit', 'directives', 'index.js'));
         const nunjucksUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'node_modules', 'nunjucks', 'browser', 'nunjucks.min.js'));
 
-        // Get URIs for our web components
+
         const componentsUri = webview.asWebviewUri(vscode.Uri.joinPath(vscode.Uri.file(this.getContextPath()), 'dist', 'jinja2-editor', 'jinja2-editor.js'));
 
-        // Build initial values
+
         const initialValues: Record<string, Jinja2VariableValue> = {};
         variables.forEach(v => {
             initialValues[v.name] = v.defaultValue ?? this.getDefaultValue(v.type);
@@ -218,9 +218,9 @@ export class Jinja2WebviewIntegrated {
     <meta http-equiv="Content-Security-Policy" content="
         default-src 'none';
         img-src ${webview.cspSource} https: data:;
-        script-src 'nonce-${nonce}' 'unsafe-eval' 'unsafe-inline' ${webview.cspSource} ${litCoreUri} ${litDecoratorsUri} ${litDirectivesUri} ${nunjucksUri} https://cdn.jsdelivr.net;
+        script-src 'nonce-${nonce}' 'unsafe-eval' 'unsafe-inline' ${webview.cspSource} ${litCoreUri} ${litDecoratorsUri} ${litDirectivesUri} ${nunjucksUri} https:
         style-src ${webview.cspSource} 'unsafe-inline';
-        font-src ${webview.cspSource} https://fonts.gstatic.com;
+        font-src ${webview.cspSource} https:
         connect-src ${webview.cspSource};
     ">
     <title>Jinja2 Template Editor</title>
@@ -372,7 +372,7 @@ export class Jinja2WebviewIntegrated {
 
     <!-- Load Lit and dependencies -->
     <script nonce="${nonce}">
-        // Configuration passed from VS Code
+
         window.vscodeConfig = {
             template: ${JSON.stringify(template)},
             variables: ${JSON.stringify(variables)},
@@ -381,7 +381,7 @@ export class Jinja2WebviewIntegrated {
             nonce: '${nonce}'
         };
 
-        // VS Code API placeholder
+
         window.vscode = {
             postMessage: (message) => {
                 if (window.acquireVsCodeApi) {
@@ -391,7 +391,7 @@ export class Jinja2WebviewIntegrated {
             }
         };
 
-        // Error handling
+
         window.addEventListener('error', (event) => {
             console.error('Global error:', event.error);
             showError('Failed to initialize editor: ' + event.error.message);
@@ -417,21 +417,21 @@ export class Jinja2WebviewIntegrated {
 
         function initializeEditor() {
             try {
-                // Check if nunjucks is loaded
+
                 if (typeof nunjucks === 'undefined') {
                     throw new Error('nunjucks library not loaded. Filters may not work properly.');
                 }
 
                 const editor = document.getElementById('mainEditor');
 
-                // Set initial data
+
                 editor.template = window.vscodeConfig.template;
                 editor.variables = window.vscodeConfig.variables;
                 editor.values = window.vscodeConfig.values;
                 editor.theme = window.vscodeConfig.theme;
                 editor.autoRender = true;
 
-                // Set up event listeners
+
                 editor.addEventListener('variable-change', (event) => {
                     const { detail } = event;
                     window.vscode.postMessage({
@@ -448,7 +448,7 @@ export class Jinja2WebviewIntegrated {
                     });
                 });
 
-                // Handle submit action
+
                 const handleUserSubmit = (values) => {
                     window.vscode.postMessage({
                         command: 'submit',
@@ -456,7 +456,7 @@ export class Jinja2WebviewIntegrated {
                     });
                 };
 
-                // Simulate a submit button or action
+
                 document.addEventListener('keydown', (event) => {
                     if (event.ctrlKey && event.key === 'Enter') {
                         const currentValues = editor.values || {};
@@ -464,7 +464,7 @@ export class Jinja2WebviewIntegrated {
                     }
                 });
 
-                // Notify VS Code that we're ready
+
                 window.vscode.postMessage({
                     command: 'ready',
                     currentTemplate: window.vscodeConfig.template,
@@ -472,7 +472,7 @@ export class Jinja2WebviewIntegrated {
                     currentValues: window.vscodeConfig.values
                 });
 
-                // Show the app
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('app').classList.add('ready');
 
@@ -483,17 +483,17 @@ export class Jinja2WebviewIntegrated {
             }
         }
 
-        // Load Lit components dynamically
+
         function loadComponents() {
             return new Promise((resolve, reject) => {
-                // Check if custom elements are already defined
+
                 if (customElements.get('jinja2-editor')) {
                     initializeEditor();
                     resolve();
                     return;
                 }
 
-                // Load component scripts and dependencies
+
                 const scripts = [
                     '${nunjucksUri}',
                     '${componentsUri}'
@@ -505,7 +505,7 @@ export class Jinja2WebviewIntegrated {
                 scripts.forEach(scriptSrc => {
                     const script = document.createElement('script');
                     script.src = scriptSrc;
-                    // Only set type='module' for component scripts, not for libraries
+
                     if (scriptSrc.includes('jinja2-editor')) {
                         script.type = 'module';
                     }
@@ -513,7 +513,7 @@ export class Jinja2WebviewIntegrated {
                     script.onload = () => {
                         loadedCount++;
                         if (loadedCount === totalScripts) {
-                            // Wait a bit for custom elements to be defined
+
                             setTimeout(() => {
                                 if (customElements.get('jinja2-editor')) {
                                     initializeEditor();
@@ -532,14 +532,14 @@ export class Jinja2WebviewIntegrated {
             });
         }
 
-        // Start loading components when DOM is ready
+
         if (document.readyState === 'loading') {
             document.addEventListener('DOMContentLoaded', loadComponents);
         } else {
             loadComponents();
         }
 
-        // Handle VS Code messages
+
         window.addEventListener('message', (event) => {
             const message = event.data;
             const editor = document.getElementById('mainEditor');
@@ -572,19 +572,19 @@ export class Jinja2WebviewIntegrated {
             }
         });
 
-        // Set theme
+
         document.body.setAttribute('data-theme', '${theme}');
     </script>
 
     <!-- Load Lit and dependencies as modules -->
     <script type="module" nonce="${nonce}">
-        // Import Lit core functionality
+
         import { LitElement, html, css } from '${litCoreUri}';
         import { customElement, property, state } from '${litDecoratorsUri}';
         import { classMap } from '${litDirectivesUri}/class-map.js';
         import { styleMap } from '${litDirectivesUri}/style-map.js';
 
-        // Make Lit available globally for components
+
         window.LitElement = LitElement;
         window.html = html;
         window.css = css;
@@ -648,17 +648,17 @@ export class Jinja2WebviewIntegrated {
     }
 
     private dispose(): void {
-        // Clean up panel
+
         if (this.panel) {
             this.panel.dispose();
             this.panel = undefined;
         }
 
-        // Clean up disposables
+
         this.disposables.forEach(d => d.dispose());
         this.disposables = [];
 
-        // Clean up promises
+
         if (this.rejectPromise) {
             this.rejectPromise(new Error('Editor was closed'));
             this.rejectPromise = undefined;

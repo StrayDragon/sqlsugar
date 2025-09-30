@@ -20,7 +20,7 @@ export interface SSHConfig {
   password?: string;
   privateKey?: string;
   passphrase?: string;
-  [key: string]: unknown; // 允许其他SSH配置选项
+  [key: string]: unknown;
 }
 
 /**
@@ -116,31 +116,31 @@ export class SQLsClientManager {
    * 重启客户端
    */
   public async restartClient(): Promise<void> {
-    // 如果客户端不存在或已经停止，直接启动新的客户端
+
     if (!this.client) {
       await this.startClient();
       return;
     }
 
     try {
-      // 检查客户端状态，如果正在启动则等待
+
       if (this.client.state === LanguageClientState.Starting) {
         console.log('Client is starting, waiting before restart...');
         await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      // 尝试停止客户端
+
       if (this.client.state !== LanguageClientState.Stopped) {
         await this.client.stop();
       }
     } catch (error) {
-      // 忽略停止错误，这通常是因为客户端已经处于停止状态
+
       console.warn('Error stopping client during restart:', error);
     } finally {
       this.client = undefined;
     }
 
-    // 等待确保资源完全清理
+
     await new Promise(resolve => setTimeout(resolve, 300));
 
     try {
@@ -160,7 +160,7 @@ export class SQLsClientManager {
    * 3. $XDG_CONFIG_HOME/sqls/config.yml 或 $HOME/.config/sqls/config.yml
    */
   private getConfigPath(): string {
-    // 1. 检查用户指定的配置文件路径
+
     const userConfigPath = vscode.workspace
       .getConfiguration('sqlsugar')
       .get<string>('sqlsConfigPath');
@@ -168,13 +168,13 @@ export class SQLsClientManager {
       return this.resolveConfigPath(userConfigPath);
     }
 
-    // 2. 检查默认配置文件路径
+
     const defaultConfigPath = this.getDefaultConfigPath();
     if (defaultConfigPath && fs.existsSync(defaultConfigPath)) {
       return defaultConfigPath;
     }
 
-    // 3. 如果都没有找到，使用空配置（让 sqls 使用内置默认配置）
+
     return '';
   }
 
@@ -182,13 +182,13 @@ export class SQLsClientManager {
    * 获取默认配置文件路径
    */
   private getDefaultConfigPath(): string | null {
-    // 优先使用 XDG_CONFIG_HOME
+
     const xdgConfigHome = process.env.XDG_CONFIG_HOME;
     if (xdgConfigHome) {
       return path.join(xdgConfigHome, 'sqls', 'config.yml');
     }
 
-    // 回退到 HOME/.config
+
     const home = process.env.HOME;
     if (home) {
       return path.join(home, '.config', 'sqls', 'config.yml');
@@ -203,7 +203,7 @@ export class SQLsClientManager {
   private resolveConfigPath(configPath: string): string {
     let resolved = configPath;
 
-    // 替换 ${workspaceFolder} 变量
+
     if (resolved.includes('${workspaceFolder}')) {
       const workspaceFolder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
       if (workspaceFolder) {
@@ -213,7 +213,7 @@ export class SQLsClientManager {
       }
     }
 
-    // 替换 ${env:VAR_NAME} 变量
+
     const envVarMatch = resolved.match(/\$\{env:([^}]+)\}/);
     if (envVarMatch) {
       const envValue = process.env[envVarMatch[1]];
@@ -269,7 +269,7 @@ export class SQLsClientManager {
   public async loadConnections(): Promise<DatabaseConnection[]> {
     const configPath = this.getConfigPath();
 
-    // 如果没有配置文件，返回空数组
+
     if (!configPath) {
       return [];
     }
@@ -369,7 +369,7 @@ export class SQLsClientManager {
         return;
       }
 
-      // 使用第一个连接作为默认连接
+
       const defaultConnection = connections[0];
       await this.switchToConnection(defaultConnection);
     } catch (error) {

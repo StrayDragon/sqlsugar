@@ -72,7 +72,7 @@ export class Jinja2WebviewEditor {
    */
   private refreshTheme(): void {
     if (this.panel && this.currentTemplate && this.currentVariables.length > 0) {
-      // 重新创建WebView内容以应用新主题
+
       this.panel.webview.html = this.getHtmlContent(
         this.panel.webview,
         this.currentTemplate,
@@ -92,13 +92,13 @@ export class Jinja2WebviewEditor {
     return new Promise((resolve, reject) => {
       const editor = new Jinja2WebviewEditor();
 
-      // Get extension context from ExtensionCore
+
       try {
         const extensionCore = ExtensionCore.getInstance();
         editor.context = extensionCore['context'];
         editor.extensionPath = extensionCore['context'].extensionPath;
       } catch (error) {
-        // Fallback: use current working directory
+
         editor.extensionPath = process.cwd();
       }
 
@@ -112,16 +112,16 @@ export class Jinja2WebviewEditor {
    * 获取扩展上下文路径
    */
   private getContextPath(): string {
-    // 使用扩展路径，在开发和生产环境中都有效
+
     return this.extensionPath;
   }
 
   private show(template: string, variables: Jinja2Variable[], title: string): void {
-    // 存储当前模板和变量用于主题刷新
+
     this.currentTemplate = template;
     this.currentVariables = variables;
 
-    // 创建或显示 webview 面板
+
     if (this.panel) {
       this.panel.reveal();
       this.updateContent(template, variables);
@@ -140,7 +140,7 @@ export class Jinja2WebviewEditor {
           vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources'),
         ],
         enableCommandUris: false,
-        // Explicit sandbox settings to prevent security warnings
+
         enableForms: false,
       }
     );
@@ -148,7 +148,7 @@ export class Jinja2WebviewEditor {
     this.panel.webview.html = this.getHtmlContent(this.panel.webview, template, variables);
     this.setupWebviewListeners();
 
-    // 添加到活跃实例列表
+
     Jinja2WebviewEditor.activeInstances.push(this);
   }
 
@@ -159,7 +159,7 @@ export class Jinja2WebviewEditor {
 
     this.panel.onDidDispose(() => {
       this.panel = undefined;
-      // 从活跃实例列表中移除
+
       const index = Jinja2WebviewEditor.activeInstances.indexOf(this);
       if (index > -1) {
         Jinja2WebviewEditor.activeInstances.splice(index, 1);
@@ -189,7 +189,7 @@ export class Jinja2WebviewEditor {
     if (value instanceof Date) {
       return value.toISOString();
     }
-    // 对于复杂对象，转换为JSON字符串
+
     return JSON.stringify(value);
   }
 
@@ -233,19 +233,19 @@ export class Jinja2WebviewEditor {
    */
   private async copyToClipboardWithFallback(text: string): Promise<void> {
     try {
-      // 首先尝试使用 VS Code 的剪贴板 API
+
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
           Logger.warn('VS Code clipboard failed, trying fallback:', error);
 
-      // 检查是否启用了 wl-copy fallback
+
       const config = vscode.workspace.getConfiguration('sqlsugar');
       const enableWlCopyFallback = config.get<boolean>('enableWlCopyFallback', false);
 
       if (enableWlCopyFallback && process.platform === 'linux') {
         await this.copyWithWlCopy(text);
       } else {
-        // 如果没有启用 fallback 或者不是 Linux 系统，显示错误
+
         throw new Error('剪贴板操作失败，请检查系统权限或启用 wl-copy fallback');
       }
     }
@@ -260,7 +260,7 @@ export class Jinja2WebviewEditor {
     const execAsync = promisify(exec);
 
     try {
-      // 使用 wl-copy 复制文本
+
       await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
       Logger.info('Text copied to clipboard using wl-copy');
     } catch (error) {
@@ -274,7 +274,7 @@ export class Jinja2WebviewEditor {
       return;
     }
 
-    // 更新存储的模板和变量
+
     this.currentTemplate = template;
     this.currentVariables = variables;
 
@@ -289,13 +289,13 @@ export class Jinja2WebviewEditor {
     const nonce = getNonce();
     const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
 
-    // 获取配置
+
     const config = vscode.workspace.getConfiguration('sqlsugar');
     const theme = config.get<string>('sqlSyntaxHighlightTheme', 'vscode-dark');
     const fontSize = config.get<number>('sqlSyntaxHighlightFontSize', 14);
     const logLevel = config.get<string>('logLevel', 'error');
 
-    // 主题映射配置
+
     const themeMap: Record<string, string> = {
       'vscode-dark': 'vs2015.min.css',
       'vscode-light': 'vscode-light.min.css',
@@ -305,7 +305,7 @@ export class Jinja2WebviewEditor {
       'solarized-light': 'solarized-light.min.css',
     };
 
-    // 获取本地资源URI - 在已安装的扩展中，资源文件始终位于 dist/resources 目录
+
     const nunjucksUri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'nunjucks.min.js')
     );
@@ -321,14 +321,14 @@ export class Jinja2WebviewEditor {
       )
     );
 
-    // 构建变量初始值 - 使用安全的方式创建对象
+
     const initialValuesObj: Record<string, WebViewVariableValue> = {};
     variables.forEach(v => {
       initialValuesObj[v.name] = this.convertToWebViewValue(v.defaultValue);
     });
     const initialValues = JSON.stringify(initialValuesObj);
 
-    // 构建变量配置 - 使用安全的方式创建数组
+
     const variableConfigs = JSON.stringify(
       variables.map(v => ({
         name: v.name,

@@ -12,7 +12,7 @@ export class JinjaVariableInput extends LitElement {
   @state() private localType: Jinja2VariableType = 'string';
   @state() private showQuickOptions = false;
 
-  // Type-specific options
+
   private quickOptions = {
     string: ['demo_string', 'sample_text', 'example_value', '', 'null'],
     number: [42, 100, 0, -1, 3.14],
@@ -330,7 +330,7 @@ export class JinjaVariableInput extends LitElement {
     }));
   }
 
-  // Helper methods
+
   private getDisplayType(type: Jinja2VariableType): string {
     const typeMap: Record<Jinja2VariableType, string> = {
       string: 'text',
@@ -447,7 +447,7 @@ export class JinjaVariableInput extends LitElement {
       return str.length > 20 ? str.substring(0, 17) + '...' : str;
     }
     if (type === 'date' || type === 'datetime') {
-      return String(option).split('T')[0]; // Just show date part
+      return String(option).split('T')[0];
     }
     return String(option).length > 15 ? String(option).substring(0, 12) + '...' : String(option);
   }

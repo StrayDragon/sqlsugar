@@ -254,7 +254,7 @@ export class JinjaInput extends LitElement {
     }));
   }
 
-  // Public methods for programmatic access
+
   focus() {
     const input = this.shadowRoot?.querySelector('.input-field') as HTMLInputElement;
     input?.focus();

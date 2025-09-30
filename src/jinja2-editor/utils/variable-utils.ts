@@ -44,19 +44,19 @@ export function isJinja2Variable(obj: unknown): obj is Jinja2Variable {
 export function validateJinja2Variable(variable: Jinja2Variable): string[] {
   const errors: string[] = [];
 
-  // Validate name
+
   if (!variable.name || typeof variable.name !== 'string') {
     errors.push('Variable name is required and must be a string');
   } else if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(variable.name)) {
     errors.push('Variable name must be a valid identifier (letters, numbers, underscores, cannot start with number)');
   }
 
-  // Validate type
+
   if (!variable.type || !isValidJinja2VariableType(variable.type)) {
     errors.push(`Invalid variable type: ${variable.type}`);
   }
 
-  // Validate filters
+
   if (variable.filters) {
     if (!Array.isArray(variable.filters)) {
       errors.push('Filters must be an array');

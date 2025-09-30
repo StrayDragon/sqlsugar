@@ -58,10 +58,10 @@ export interface Jinja2Variable {
   description?: string;
   required?: boolean;
   filters?: string[];
-  // 新增字段：nunjucks验证信息
+
   valid?: boolean;
   validationError?: string;
-  // 新增字段：提取方法标识
+
   extractionMethod?: 'nunjucks' | 'regex' | 'fallback';
 }
 
@@ -74,22 +74,22 @@ export class Jinja2NunjucksProcessor {
   private env: nunjucks.Environment;
 
   private constructor() {
-    // 创建nunjucks环境，启用Jinja2兼容模式，支持字符串模板
+
     this.env = new nunjucks.Environment(null, {
       autoescape: false,
       throwOnUndefined: false,
     });
 
-    // 启用官方的Jinja2兼容模式
+
     nunjucks.installJinjaCompat();
 
-    // 添加自定义过滤器
+
     this.addCustomFilters();
 
-    // 添加自定义全局函数
+
     this.addCustomGlobals();
 
-    // 设置过滤器容错处理
+
     this.setupFilterFallback();
   }
 
@@ -106,40 +106,40 @@ export class Jinja2NunjucksProcessor {
    */
   public renderTemplate(template: string, context: Record<string, unknown>): string {
     try {
-      // 构建嵌套上下文对象，支持 user.id 这样的属性访问
+
       const nestedContext = this.buildNestedContext(context);
       return this.env.renderString(template, nestedContext);
     } catch (error) {
-      // 检查是否是未知过滤器错误
+
       const errorMessage = error instanceof Error ? error.message : String(error);
       if (errorMessage.includes('filter not found')) {
-        // 对于未知过滤器，返回原始值
+
         const filterMatch = errorMessage.match(/filter not found: (\w+)/);
         if (filterMatch) {
           console.warn(`Unknown filter "${filterMatch[1]}" ignored, returning original value`);
         }
-        // 尝试提取变量名或字面量
+
         const contentMatch = template.match(/\{\{\s*([^}]+)\s*\}\}/);
         if (contentMatch) {
           const fullContent = contentMatch[1].trim();
-          // 分离变量和过滤器
+
           const variablePart = fullContent.split('|')[0].trim();
 
-          // 检查是否是字符串字面量
+
           const stringMatch = variablePart.match(/^["'](.*)["']$/);
           if (stringMatch) {
             return stringMatch[1];
           }
-          // 检查是否是数字字面量
+
           const numMatch = variablePart.match(/^(\d+(?:\.\d+)?)$/);
           if (numMatch) {
             return numMatch[1];
           }
-          // 检查是否是变量名
+
           if (context.hasOwnProperty(variablePart)) {
             return String(context[variablePart]);
           }
-          // 返回原始内容
+
           return variablePart;
         }
         return '';
@@ -168,16 +168,16 @@ export class Jinja2NunjucksProcessor {
   private buildNestedContext(flatContext: Record<string, unknown>): Record<string, unknown> {
     const nested: Record<string, unknown> = {};
 
-    // 先处理嵌套属性，确保它们优先
+
     const nestedKeys = Object.keys(flatContext).filter(key => key.includes('.'));
     const simpleKeys = Object.keys(flatContext).filter(key => !key.includes('.'));
 
-    // 首先处理嵌套属性
+
     nestedKeys.forEach(key => {
       const parts = key.split('.');
       let current = nested;
 
-      // 遍历路径，创建嵌套结构
+
       for (let i = 0; i < parts.length - 1; i++) {
         const part = parts[i];
         if (!current[part]) {
@@ -186,14 +186,14 @@ export class Jinja2NunjucksProcessor {
         current = current[part] as Record<string, unknown>;
       }
 
-      // 设置最终值
+
       const lastPart = parts[parts.length - 1];
       current[lastPart] = flatContext[key];
     });
 
-    // 然后处理简单属性，但要避免覆盖嵌套结构
+
     simpleKeys.forEach(key => {
-      // 只有当这个键没有被嵌套属性使用时，才直接设置
+
       if (!(key in nested)) {
         nested[key] = flatContext[key];
       }
@@ -206,7 +206,7 @@ export class Jinja2NunjucksProcessor {
    * 添加自定义过滤器
    */
   private addCustomFilters(): void {
-    // SQL相关的过滤器
+
     this.env.addFilter('sql_quote', (value: unknown) => {
       if (value === null || value === undefined) {
         return 'null';
@@ -221,7 +221,7 @@ export class Jinja2NunjucksProcessor {
       return `"${value.replace(/"/g, '""')}"`;
     });
 
-    // 日期格式化过滤器
+
     this.env.addFilter('sql_date', (value: unknown, format: string = 'YYYY-MM-DD') => {
       const date = new Date(value as string | number | Date);
       return this.formatSQLDate(date, format);
@@ -232,7 +232,7 @@ export class Jinja2NunjucksProcessor {
       return date.toISOString().replace('T', ' ').replace('Z', '');
     });
 
-    // 数组处理过滤器
+
     this.env.addFilter('sql_in', (values: unknown[]) => {
       if (Array.isArray(values)) {
         return values
@@ -250,7 +250,7 @@ export class Jinja2NunjucksProcessor {
       return `'${String(values).replace(/'/g, "''")}'`;
     });
 
-    // 常用类型转换过滤器
+
     this.env.addFilter('float', (value: unknown) => {
       if (value === null || value === undefined) {
         return 'NaN';
@@ -295,7 +295,7 @@ export class Jinja2NunjucksProcessor {
       return Boolean(value);
     });
 
-    // 默认值过滤器
+
     this.env.addFilter('default', (value: unknown, defaultValue: unknown, boolean: boolean = false) => {
       if (boolean) {
         return value ? value : defaultValue;
@@ -303,7 +303,7 @@ export class Jinja2NunjucksProcessor {
       return value !== undefined && value !== null ? value : defaultValue;
     });
 
-    // 字符串过滤器
+
     this.env.addFilter('striptags', (value: string) => {
       if (value === null || value === undefined) {
         return 'null';
@@ -328,19 +328,19 @@ export class Jinja2NunjucksProcessor {
         const truncatedLength = length - end.length;
 
         if (!killwords) {
-          // Default behavior: don't break words (truncate at word boundaries)
+
           const lastSpaceIndex = str.lastIndexOf(' ', truncatedLength);
           if (lastSpaceIndex === -1) {
-            // No space found, truncate at character boundary
+
             const truncated = str.substring(0, truncatedLength);
             return truncated + end;
           } else {
-            // Truncate at word boundary
+
             const truncated = str.substring(0, lastSpaceIndex);
             return truncated + end;
           }
         } else {
-          // When killwords=true, break words (exact character truncation)
+
           const truncated = str.substring(0, truncatedLength);
           return truncated + end;
         }
@@ -377,7 +377,7 @@ export class Jinja2NunjucksProcessor {
       return encodeURIComponent(value);
     });
 
-    // 数学和统计过滤器
+
     this.env.addFilter('abs', (value: unknown) => {
       if (value === null || value === undefined || value === '') {
         return '0';
@@ -434,7 +434,7 @@ export class Jinja2NunjucksProcessor {
       return String(Math.max(...value.map(item => Number(item || 0))));
     });
 
-    // 列表过滤器
+
     this.env.addFilter('unique', (value: unknown[]) => {
       return [...new Set(value)];
     });
@@ -474,7 +474,7 @@ export class Jinja2NunjucksProcessor {
         .join(separator);
     });
 
-    // 字典过滤器
+
     this.env.addFilter(
       'dictsort',
       (
@@ -505,7 +505,7 @@ export class Jinja2NunjucksProcessor {
             return aValue - bValue;
           }
 
-          // For other types, convert to string for comparison
+
           const aStr = String(aValue);
           const bStr = String(bValue);
           if (aStr < bStr) {
@@ -520,17 +520,17 @@ export class Jinja2NunjucksProcessor {
       }
     );
 
-    // JSON过滤器
+
     this.env.addFilter('tojson', (value: unknown, indent: number = 0) => {
       return JSON.stringify(value, null, indent);
     });
 
-    // 测试过滤器
+
     this.env.addFilter('equalto', (value: unknown, other: unknown) => {
       return value === other;
     });
 
-    // 实用过滤器
+
     this.env.addFilter('filesizeformat', (value: number, binary: boolean = false) => {
       const base = binary ? 1024 : 1000;
       const units = binary
@@ -552,7 +552,7 @@ export class Jinja2NunjucksProcessor {
    * 添加自定义全局函数
    */
   private addCustomGlobals(): void {
-    // 添加一些常用的SQL函数
+
     this.env.addGlobal('now', () => new Date());
     this.env.addGlobal('uuid', () => this.generateUUID());
   }
@@ -566,17 +566,17 @@ export class Jinja2NunjucksProcessor {
    */
   public extractVariables(template: string): Jinja2Variable[] {
     try {
-      // 主要方法：使用 nunjucks AST 解析进行变量提取
+
       return this.extractVariablesFromAST(template);
     } catch (error) {
       console.warn('nunjucks AST 解析失败，尝试 nunjucks 编译验证:', error);
 
       try {
-        // 备选方法：使用 nunjucks 编译验证 + 正则表达式提取
+
         return this.extractVariablesWithNunjucksValidation(template);
       } catch (fallbackError) {
         console.warn('nunjucks 验证失败，回退到正则表达式方法:', fallbackError);
-        // 最后备选：使用正则表达式
+
         return this.extractVariablesWithRegex(template);
       }
     }
@@ -586,21 +586,21 @@ export class Jinja2NunjucksProcessor {
    * 使用 nunjucks 编译验证 + 正则表达式提取 (备选方法)
    */
   private extractVariablesWithNunjucksValidation(template: string): Jinja2Variable[] {
-    // 尝试编译模板以验证语法
+
     try {
       nunjucks.compile(template, this.env);
     } catch (validationError) {
-      // 模板有语法错误，但我们仍然尝试提取变量
+
       console.warn(
         '模板语法警告:',
         validationError instanceof Error ? validationError.message : String(validationError)
       );
     }
 
-    // 使用正则表达式提取变量
+
     const extractedVariables = this.extractVariablesWithRegex(template);
 
-    // 使用 nunjucks 进行额外的验证和处理
+
     return this.enrichVariablesWithNunjucksContext(extractedVariables, template);
   }
 
@@ -613,7 +613,7 @@ export class Jinja2NunjucksProcessor {
     const processedNames = new Set<string>();
 
     try {
-      // 尝试访问nunjucks的内部parser
+
       const nunjucksInternal = nunjucks as unknown as NunjucksInternal;
       const parser = nunjucksInternal.parser as NunjucksParser | undefined;
       const nodes = nunjucksInternal.nodes;
@@ -622,18 +622,18 @@ export class Jinja2NunjucksProcessor {
         throw new Error('nunjucks内部API不可用');
       }
 
-      // 解析模板为AST
+
       const ast = parser.parse(template, [], {});
 
-      // 遍历AST提取变量
+
       this.extractVariablesFromNode(ast, variables, processedNames);
 
-      // 如果没有提取到变量，抛出错误以触发回退到正则表达式方法
+
       if (variables.length === 0) {
         throw new Error('AST解析未找到任何变量');
       }
 
-      // 标记为使用AST提取
+
       return variables.map(v => ({
         ...v,
         extractionMethod: 'nunjucks' as const,
@@ -656,10 +656,10 @@ export class Jinja2NunjucksProcessor {
       return;
     }
 
-    // 处理不同类型的节点
+
     switch (node.typename) {
       case 'Symbol':
-        // 变量引用节点
+
         if (typeof node.value === 'string') {
           const varName = node.value;
           if (!processedNames.has(varName)) {
@@ -677,20 +677,20 @@ export class Jinja2NunjucksProcessor {
         break;
 
       case 'LookupVal':
-        // 对象属性访问节点，如 user.id
-        // 提取完整的属性访问路径作为变量名
+
+
         this.extractVariablesFromLookupVal(node, variables, processedNames);
         break;
 
       case 'Filter':
-        // 过滤器节点，特殊处理
+
         this.extractVariablesFromFilter(node, variables, processedNames);
-        // Also process children to ensure we don't miss anything
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'FunCall':
-        // 普通函数调用节点
+
         if (isNunjucksNode(node.name)) {
           this.extractVariablesFromNode(node.name, variables, processedNames);
         }
@@ -704,68 +704,68 @@ export class Jinja2NunjucksProcessor {
         break;
 
       case 'If':
-        // 条件语句节点
+
         if (isNunjucksNode(node.cond)) this.extractVariablesFromNode(node.cond, variables, processedNames);
         if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
         if (isNunjucksNode(node.else_)) this.extractVariablesFromNode(node.else_, variables, processedNames);
         break;
 
       case 'For':
-        // 循环语句节点
+
         if (isNunjucksNode(node.arr)) this.extractVariablesFromNode(node.arr, variables, processedNames);
         if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
         break;
 
       case 'Output':
-        // 输出节点 {{ variable }}
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'TemplateData':
-        // 模板根节点
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'Group':
-        // 分组节点
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'Array':
-        // 数组节点
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'Pair':
-        // 键值对节点
+
         if (isNunjucksNode(node.key)) this.extractVariablesFromNode(node.key, variables, processedNames);
         if (isNunjucksNode(node.value)) this.extractVariablesFromNode(node.value, variables, processedNames);
         break;
 
       case 'Dict':
-        // 字典节点
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'UnaryOp':
-        // 一元操作符节点
+
         if (isNunjucksNode(node.target)) this.extractVariablesFromNode(node.target, variables, processedNames);
         break;
 
       case 'BinaryOp':
-        // 二元操作符节点
+
         if (isNunjucksNode(node.left)) this.extractVariablesFromNode(node.left, variables, processedNames);
         if (isNunjucksNode(node.right)) this.extractVariablesFromNode(node.right, variables, processedNames);
         break;
 
       case 'Compare':
-        // 比较操作符节点
+
         if (isNunjucksNode(node.left)) this.extractVariablesFromNode(node.left, variables, processedNames);
         if (isNunjucksNode(node.right)) this.extractVariablesFromNode(node.right, variables, processedNames);
         break;
 
       default:
-        // 处理其他可能的节点类型
+
         forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
         if (isNunjucksNode(node.cond)) this.extractVariablesFromNode(node.cond, variables, processedNames);
@@ -803,8 +803,8 @@ export class Jinja2NunjucksProcessor {
         processedNames.add(fullVarName);
       }
     }
-    // 不再递归处理目标对象，避免重复添加基础变量名
-    // this.extractVariablesFromNode(node.target, variables, processedNames);
+
+
   }
 
   /**
@@ -815,7 +815,7 @@ export class Jinja2NunjucksProcessor {
     variables: Jinja2Variable[],
     processedNames: Set<string>
   ): void {
-    // 过滤器节点结构：name是过滤器名，args.children是被过滤的变量
+
     let filterName: string | undefined;
     const maybeNameValue = (node.name as Record<string, unknown> | undefined)?.value;
     if (typeof maybeNameValue === 'string') {
@@ -823,13 +823,13 @@ export class Jinja2NunjucksProcessor {
     }
 
     if (node.args && Array.isArray(node.args.children)) {
-      // 处理被过滤的变量（在args.children中）
+
       node.args.children.forEach((arg) => {
         if (isNunjucksNode(arg)) {
           if (arg.typename === 'Symbol' && arg.value) {
             const varName = arg.value as string;
             if (!processedNames.has(varName)) {
-              // Create the variable with the filter
+
               variables.push({
                 name: varName,
                 type: this.inferVariableType(varName),
@@ -840,20 +840,20 @@ export class Jinja2NunjucksProcessor {
               });
               processedNames.add(varName);
             } else if (typeof filterName === 'string') {
-              // Variable already exists, add the filter
+
               const existingVar = variables.find(v => v.name === varName);
               if (existingVar && existingVar.filters && !existingVar.filters.includes(filterName)) {
                 existingVar.filters.push(filterName);
               }
             }
           } else {
-            // Recursively process other node types
+
             this.extractVariablesFromNode(arg, variables, processedNames);
           }
         }
       });
     }
-    // 过滤器名称不算作变量，不处理node.name
+
   }
 
   /**
@@ -865,7 +865,7 @@ export class Jinja2NunjucksProcessor {
     const conditionRegex = /\{%\s*(if|elif|for)\s+([^%]+)\s*%}/g;
     const processedNames = new Set<string>();
 
-    // 提取变量引用
+
     let match;
     while ((match = regex.exec(template)) !== null) {
       const expr = match[1].trim();
@@ -884,7 +884,7 @@ export class Jinja2NunjucksProcessor {
       }
     }
 
-    // 提取条件语句中的变量
+
     while ((match = conditionRegex.exec(template)) !== null) {
       const condition = match[2].trim();
       const vars = this.extractVariablesFromExpression(condition);
@@ -913,24 +913,24 @@ export class Jinja2NunjucksProcessor {
     variables: Jinja2Variable[],
     template: string
   ): Jinja2Variable[] {
-    // 尝试使用nunjucks渲染测试变量，以提供更好的类型推断
+
     return variables.map(variable => {
-      // 创建测试上下文来验证变量类型
+
       const testContext = this.createTestContextForVariable(variable);
 
       try {
-        // 尝试渲染模板的一部分来验证变量处理
+
         const testTemplate = `{{ ${variable.name}${variable.filters && variable.filters.length > 0 ? '|' + variable.filters.join('|') : ''} }}`;
         this.env.renderString(testTemplate, testContext);
 
-        // 如果成功，变量定义是有效的
+
         return {
           ...variable,
           valid: true,
           extractionMethod: 'nunjucks' as const,
         };
       } catch (error) {
-        // 如果渲染失败，可能需要调整类型推断
+
         return {
           ...variable,
           valid: false,
@@ -947,7 +947,7 @@ export class Jinja2NunjucksProcessor {
   private createTestContextForVariable(variable: Jinja2Variable): Record<string, unknown> {
     const context: Record<string, unknown> = {};
 
-    // 根据变量类型创建合适的测试值
+
     switch (variable.type) {
       case 'number':
         context[variable.name] = 42;
@@ -966,15 +966,15 @@ export class Jinja2NunjucksProcessor {
    * 解析表达式并提取变量名和过滤器
    */
   private parseExpressionWithFilters(expr: string): { variableName: string; filters: string[] } {
-    // 分割管道符表达式：variable|filter1|filter2
+
     const parts = expr.split('|').map(part => part.trim());
 
-    // 第一个部分是变量名
+
     const variableName = parts[0];
 
-    // 剩下的部分是过滤器
+
     const filters = parts.slice(1).map(filterPart => {
-      // 处理带参数的过滤器：filter(arg1, arg2)
+
       const filterMatch = filterPart.match(/^([a-zA-Z_][a-zA-Z0-9_]*)(?:\([^)]*\))?/);
       return filterMatch ? filterMatch[1] : filterPart;
     });
@@ -988,18 +988,18 @@ export class Jinja2NunjucksProcessor {
   private extractVariablesFromExpression(expr: string): string[] {
     const variables: string[] = [];
 
-    // 首先检查是否是过滤器表达式，如果是，只提取变量部分
+
     if (expr.includes('|')) {
-      // 这是过滤器表达式，只提取管道符前面的变量名
+
       const parts = expr.split('|');
       const variablePart = parts[0].trim();
 
-      // 检查变量部分是否有效
+
       if (variablePart && !variablePart.includes('(')) {
-        // 提取简单的变量名（不支持点号访问）
+
         const varName = variablePart;
 
-        // 只排除关键字，不排除过滤器名
+
         const excludedKeywords = [
           'if',
           'elif',
@@ -1022,14 +1022,14 @@ export class Jinja2NunjucksProcessor {
         }
       }
     } else {
-      // 不是过滤器表达式，处理简单的变量引用
+
       const varRegex = /([a-zA-Z_][a-zA-Z0-9_.]*)/g;
       let match;
 
       while ((match = varRegex.exec(expr)) !== null) {
         const varName = match[1];
 
-        // 只排除关键字，变量名即使是过滤器名也不排除
+
         const excludedKeywords = [
           'if',
           'elif',
@@ -1047,7 +1047,7 @@ export class Jinja2NunjucksProcessor {
           'null',
         ];
 
-        // 排除函数名
+
         if (varName.includes('(')) {
           continue;
         }
@@ -1058,7 +1058,7 @@ export class Jinja2NunjucksProcessor {
       }
     }
 
-    // 安全地去重 - 避免使用 spread syntax
+
     const uniqueVariables = Array.from(new Set(variables));
     return uniqueVariables;
   }
@@ -1069,9 +1069,9 @@ export class Jinja2NunjucksProcessor {
   private inferVariableType(varName: string): 'string' | 'number' | 'date' | 'boolean' {
     const name = varName.toLowerCase();
 
-    // 基于命名惯例推断类型
 
-    // 布尔类型推断
+
+
     if (
       name.startsWith('is_') ||
       name.startsWith('has_') ||
@@ -1093,7 +1093,7 @@ export class Jinja2NunjucksProcessor {
       return 'boolean';
     }
 
-    // 数字类型推断
+
     if (
       name.includes('id') ||
       name.includes('num') ||
@@ -1103,7 +1103,7 @@ export class Jinja2NunjucksProcessor {
       return 'number';
     }
 
-    // 日期类型推断
+
     if (
       name.includes('date') ||
       name.includes('time') ||
@@ -1113,7 +1113,7 @@ export class Jinja2NunjucksProcessor {
       return 'date';
     }
 
-    // 默认为字符串类型
+
     return 'string';
   }
 
@@ -1129,15 +1129,15 @@ export class Jinja2NunjucksProcessor {
       case 'date':
         return new Date().toISOString().split('T')[0];
       case 'boolean':
-        // 对于布尔变量，根据名称推断合理的默认值
+
         const name = varName.toLowerCase();
 
-        // 特殊处理一些常见的布尔变量模式
+
         if (name.includes('deleted') || name.includes('remove') || name.includes('clear')) {
-          // 包含删除、移除、清除相关词的变量，默认为false
+
           return false;
         } else if (name.includes('include') && !name.includes('deleted')) {
-          // 只有包含"include"但不包含"deleted"的变量，默认为true
+
           return true;
         } else if (name.includes('show') || name.includes('enable') || name.includes('active')) {
           return true;
@@ -1149,7 +1149,7 @@ export class Jinja2NunjucksProcessor {
         ) {
           return false;
         } else {
-          return true; // 默认为true，以便条件语句能够执行
+          return true;
         }
       default:
         return `demo_${varName}`;
@@ -1171,12 +1171,12 @@ export class Jinja2NunjucksProcessor {
     const variables = this.extractVariables(template);
     const context: Record<string, unknown> = {};
 
-    // 构建演示上下文
+
     variables.forEach(variable => {
       context[variable.name] = variable.defaultValue;
     });
 
-    // 渲染模板
+
     const sql = this.renderTemplate(template, context);
 
     return { sql, variables };
@@ -1196,12 +1196,12 @@ export class Jinja2NunjucksProcessor {
     const errors: string[] = [];
 
     try {
-      // 基本语法检查
+
       if (!template.includes('{{') && !template.includes('{%')) {
         return { valid: true, errors: [] };
       }
 
-      // 尝试编译模板
+
       nunjucks.compile(template, this.env);
 
       return { valid: true, errors: [] };
@@ -1260,15 +1260,15 @@ export class Jinja2NunjucksProcessor {
    * 设置过滤器容错处理
    */
   private setupFilterFallback(): void {
-    // 为常见的未实现过滤器提供默认实现
-    // 使用 try-catch 来检测过滤器是否存在
+
+
     const unknownFilters = ['tojson', 'filesizeformat', 'equalto'];
 
     unknownFilters.forEach(filterName => {
       try {
         this.env.getFilter(filterName);
       } catch (error) {
-        // 如果过滤器不存在，添加一个默认实现
+
         this.env.addFilter(filterName, (value: unknown, ...args: unknown[]) => {
           console.warn(`Unknown filter "${filterName}" ignored, returning original value`);
           return value;
@@ -1282,20 +1282,20 @@ export class Jinja2NunjucksProcessor {
    */
   public getSupportedFilters(): string[] {
     return [
-      // SQL相关过滤器
+
       'sql_quote',
       'sql_identifier',
       'sql_date',
       'sql_datetime',
       'sql_in',
 
-      // 类型转换过滤器
+
       'int',
       'float',
       'string',
       'bool',
 
-      // 字符串过滤器 (Nunjucks内置)
+
       'title',
       'upper',
       'lower',
@@ -1307,14 +1307,14 @@ export class Jinja2NunjucksProcessor {
       'wordwrap',
       'urlencode',
 
-      // 数学和统计过滤器
+
       'abs',
       'round',
       'sum',
       'min',
       'max',
 
-      // 列表过滤器
+
       'length',
       'join',
       'replace',
@@ -1326,16 +1326,16 @@ export class Jinja2NunjucksProcessor {
       'reverse',
       'sort',
 
-      // 字典过滤器
+
       'dictsort',
 
-      // JSON过滤器
+
       'tojson',
 
-      // 测试过滤器
+
       'equalto',
 
-      // 实用过滤器
+
       'filesizeformat',
     ];
   }

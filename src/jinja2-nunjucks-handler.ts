@@ -67,16 +67,16 @@ export class Jinja2NunjucksHandler {
     const selectedText = editor.document.getText(editor.selection);
     const processor = this.processor;
 
-    // 检测占位符类型
+
     const placeholderDetection =
       SQLAlchemyPlaceholderProcessor.detectPlaceholderTypes(selectedText);
 
-    // 如果只有SQLAlchemy占位符，没有Jinja2语法
+
     if (!placeholderDetection.hasJinja2 && placeholderDetection.hasSQLAlchemy) {
       return await this.handleSQLAlchemyOnly(selectedText, placeholderDetection.sqlalchemyVars);
     }
 
-    // 验证模板语法
+
     const validation = processor.validateTemplate(selectedText);
     if (!validation.valid) {
       vscode.window.showErrorMessage(
@@ -86,7 +86,7 @@ export class Jinja2NunjucksHandler {
       return false;
     }
 
-    // 验证混合占位符
+
     const mixedValidation = SQLAlchemyPlaceholderProcessor.validateMixedPlaceholders(selectedText);
     if (!mixedValidation.valid) {
       vscode.window.showErrorMessage(
@@ -96,14 +96,14 @@ export class Jinja2NunjucksHandler {
       return false;
     }
 
-    // 显示警告
+
     if (mixedValidation.warnings.length > 0) {
       vscode.window.showWarningMessage(`Warnings:\n${mixedValidation.warnings.join('\n')}`, {
         modal: false,
       });
     }
 
-    // 提取变量
+
     const variables = processor.extractVariables(selectedText);
     if (variables.length === 0 && !placeholderDetection.hasSQLAlchemy) {
       vscode.window.showInformationMessage(
@@ -113,7 +113,7 @@ export class Jinja2NunjucksHandler {
       return false;
     }
 
-    // 根据模式处理
+
     switch (mode) {
       case 'quick':
         return await this.handleQuickMode(selectedText, variables, placeholderDetection);
@@ -135,16 +135,16 @@ export class Jinja2NunjucksHandler {
     try {
       const context: SQLAlchemyContext = {};
 
-      // 为每个SQLAlchemy变量收集输入
+
       for (const varName of sqlalchemyVars) {
         const value = await this.promptForSQLAlchemyVariable(varName);
         if (value === undefined) {
-          return false; // 用户取消
+          return false;
         }
         context[varName] = value;
       }
 
-      // 转换占位符
+
       const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(template, context);
       const sql = result.convertedSQL;
 
@@ -167,12 +167,12 @@ export class Jinja2NunjucksHandler {
     placeholderDetection: PlaceholderDetection
   ): Promise<boolean> {
     try {
-      // 使用快速配置获取默认值
+
       const context = await Jinja2VariableInput.quickConfigure(variables);
 
       let sql = this.processor.renderWithCustomVariables(template, context);
 
-      // 处理SQLAlchemy占位符
+
       if (placeholderDetection.hasSQLAlchemy) {
         const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
         sql = result.convertedSQL;
@@ -197,16 +197,16 @@ export class Jinja2NunjucksHandler {
     placeholderDetection: PlaceholderDetection
   ): Promise<boolean> {
     try {
-      // 使用智能配置界面
+
       const context = await Jinja2VariableInput.smartConfigure(variables);
       if (!context) {
-        return false; // 用户取消
+        return false;
       }
 
-      // 渲染模板
+
       let sql = this.processor.renderWithCustomVariables(template, context);
 
-      // 处理SQLAlchemy占位符
+
       if (placeholderDetection.hasSQLAlchemy) {
         const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
         sql = result.convertedSQL;
@@ -234,13 +234,13 @@ export class Jinja2NunjucksHandler {
       const preview = this.processor.getTemplatePreview(template);
       const title = `Jinja2 Template: ${preview}`;
 
-      // 显示WebView编辑器
+
       const userValues = await Jinja2WebviewEditor.showEditor(template, variables, title);
 
-      // 渲染模板
+
       let sql = this.processor.renderWithCustomVariables(template, userValues);
 
-      // 处理SQLAlchemy占位符
+
       if (placeholderDetection.hasSQLAlchemy) {
         const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, userValues);
         sql = result.convertedSQL;
@@ -267,7 +267,7 @@ export class Jinja2NunjucksHandler {
     try {
       const context: Record<string, unknown> = {};
 
-      // 显示默认值并允许用户选择
+
       for (const variable of variables) {
         const defaultValue = this.formatDefaultValue(variable.defaultValue);
         const result = await vscode.window.showQuickPick(
@@ -282,7 +282,7 @@ export class Jinja2NunjucksHandler {
         );
 
         if (!result) {
-          return false; // 用户取消
+          return false;
         }
 
         if (result.value === 'custom') {
@@ -296,10 +296,10 @@ export class Jinja2NunjucksHandler {
         }
       }
 
-      // 渲染模板
+
       let sql = this.processor.renderWithCustomVariables(template, context);
 
-      // 处理SQLAlchemy占位符
+
       if (placeholderDetection.hasSQLAlchemy) {
         const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
         sql = result.convertedSQL;
@@ -327,7 +327,7 @@ export class Jinja2NunjucksHandler {
     try {
       await this.copyToClipboardWithFallback(sql);
 
-      // 显示成功消息
+
       const variableCount = variables.length;
       const usedDefaults = userValues ? Object.keys(userValues).length : 0;
       const message = `Generated SQL copied to clipboard!\n• Found ${variableCount} variable${variableCount > 1 ? 's' : ''}`;
@@ -549,19 +549,19 @@ export class Jinja2NunjucksHandler {
    */
   private async copyToClipboardWithFallback(text: string): Promise<void> {
     try {
-      // 首先尝试使用 VS Code 的剪贴板 API
+
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
       console.warn('VS Code clipboard failed, trying fallback:', error);
 
-      // 检查是否启用了 wl-copy fallback
+
       const config = vscode.workspace.getConfiguration('sqlsugar');
       const enableWlCopyFallback = config.get<boolean>('enableWlCopyFallback', false);
 
       if (enableWlCopyFallback && process.platform === 'linux') {
         await this.copyWithWlCopy(text);
       } else {
-        // 如果没有启用 fallback 或者不是 Linux 系统，显示错误
+
         throw new Error('剪贴板操作失败，请检查系统权限或启用 wl-copy fallback');
       }
     }
@@ -576,7 +576,7 @@ export class Jinja2NunjucksHandler {
     const execAsync = promisify(exec);
 
     try {
-      // 使用 wl-copy 复制文本
+
       await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
       console.log('Text copied to clipboard using wl-copy');
     } catch (error) {

@@ -114,7 +114,7 @@ export class LanguageHandler {
       fileExtensions: ['.md'],
       languageIds: ['markdown'],
       quoteUpgradeRules: [
-        // Markdown通常包含代码示例，应该保持原有的引号类型
+
         {
           from: 'triple-single',
           to: 'triple-single',
@@ -128,12 +128,12 @@ export class LanguageHandler {
         {
           from: 'single',
           to: 'single',
-          condition: () => true, // 保持单引号
+          condition: () => true,
         },
         {
           from: 'double',
           to: 'double',
-          condition: () => true, // 保持双引号
+          condition: () => true,
         },
       ],
     },
@@ -146,14 +146,14 @@ export class LanguageHandler {
     const languageId = document.languageId.toLowerCase();
     const fileName = document.fileName.toLowerCase();
 
-    // 首先通过languageId匹配
+
     for (const config of LanguageHandler.languageConfigs) {
       if (config.languageIds.includes(languageId)) {
         return config.id;
       }
     }
 
-    // 然后通过文件扩展名匹配
+
     for (const config of LanguageHandler.languageConfigs) {
       if (config.fileExtensions.some((ext: string) => fileName.endsWith(ext))) {
         return config.id;
@@ -185,12 +185,12 @@ export class LanguageHandler {
       return 'single';
     }
 
-    // 检查是否为模板字符串
+
     if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.includes('${')) {
       return 'template';
     }
 
-    return 'double'; // 默认双引号
+    return 'double';
   }
 
   /**
@@ -218,14 +218,14 @@ export class LanguageHandler {
    * Python语言引号选择
    */
   private selectPythonQuote(originalQuote: QuoteType, content: string): QuoteType {
-    // 如果已经是三引号，保持不变
+
     if (originalQuote === 'triple-single' || originalQuote === 'triple-double') {
       return originalQuote;
     }
 
-    // 如果内容包含换行符，升级到三引号
+
     if (content.includes('\n')) {
-      // 智能选择三引号类型，避免与内容冲突
+
       const hasSingleQuote = content.includes("'");
       const hasDoubleQuote = content.includes('"');
 
@@ -234,11 +234,11 @@ export class LanguageHandler {
       } else if (hasDoubleQuote && !hasSingleQuote) {
         return 'triple-single';
       } else {
-        // 如果两种引号都有或都没有，选择更少出现的
+
         const singleCount = (content.match(/'/g) || []).length;
         const doubleCount = (content.match(/"/g) || []).length;
 
-        // 如果没有冲突，优先保持原始引号类型
+
         if (singleCount === 0 && doubleCount === 0) {
           return originalQuote === 'single' ? 'triple-single' : 'triple-double';
         }
@@ -247,7 +247,7 @@ export class LanguageHandler {
       }
     }
 
-    // 否则保持原有引号类型
+
     return originalQuote;
   }
 
@@ -255,8 +255,8 @@ export class LanguageHandler {
    * JavaScript/TypeScript语言引号选择
    */
   private selectJavaScriptQuote(originalQuote: QuoteType): QuoteType {
-    // 保守策略：保持原有引号类型
-    // 未来可以考虑升级到模板字符串
+
+
     return originalQuote;
   }
 
@@ -264,8 +264,8 @@ export class LanguageHandler {
    * Markdown语言引号选择 - 保持原始引号结构
    */
   private selectMarkdownQuote(originalQuote: QuoteType): QuoteType {
-    // 对于markdown文件，严格保持原始引号类型
-    // 这样可以避免重复包装引号的问题
+
+
     return originalQuote;
   }
 
@@ -273,7 +273,7 @@ export class LanguageHandler {
    * 通用语言引号选择 - 不进行任何引号处理，保持原始内容
    */
   private selectGenericQuote(originalQuote: QuoteType): QuoteType {
-    // 对于通用语言，完全保持原始引号类型，不做任何自动转换
+
     return originalQuote;
   }
 
@@ -295,7 +295,7 @@ export class LanguageHandler {
     const trimmed = text.trim();
     const prefix = this.extractPrefix(trimmed);
 
-    // 处理带前缀的三引号
+
     if (prefix) {
       const tripleDouble = prefix + '"""';
       const tripleSingle = prefix + "'''";
@@ -307,7 +307,7 @@ export class LanguageHandler {
       }
     }
 
-    // 处理普通三引号
+
     if (trimmed.startsWith('"""') && trimmed.endsWith('"""')) {
       return trimmed.slice(3, -3);
     }
@@ -315,7 +315,7 @@ export class LanguageHandler {
       return trimmed.slice(3, -3);
     }
 
-    // 处理带前缀的单引号和双引号
+
     if (prefix) {
       const singleQuote = prefix + "'";
       const doubleQuote = prefix + '"';
@@ -327,7 +327,7 @@ export class LanguageHandler {
       }
     }
 
-    // 处理普通的单引号和双引号
+
     if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
       return trimmed.slice(1, -1);
     }
@@ -335,7 +335,7 @@ export class LanguageHandler {
       return trimmed.slice(1, -1);
     }
 
-    // 处理反引号
+
     if (trimmed.startsWith('`') && trimmed.endsWith('`')) {
       return trimmed.slice(1, -1);
     }
@@ -368,7 +368,7 @@ export class LanguageHandler {
    * 智能包装文本
    */
   public wrapLikeIntelligent(original: string, content: string, language: LanguageType): string {
-    // 对于markdown和generic语言，重新构建原始引号结构
+
     if (language === 'markdown' || language === 'generic') {
       return this.reconstructOriginalQuoteStructure(original, content);
     }
@@ -386,7 +386,7 @@ export class LanguageHandler {
   private reconstructOriginalQuoteStructure(original: string, content: string): string {
     const trimmedOriginal = original.trim();
 
-    // 检查三引号
+
     if (trimmedOriginal.startsWith("'''") && trimmedOriginal.endsWith("'''")) {
       return "'''" + content + "'''";
     } else if (trimmedOriginal.startsWith('"""') && trimmedOriginal.endsWith('"""')) {
@@ -398,7 +398,7 @@ export class LanguageHandler {
     } else if (trimmedOriginal.startsWith("'") && trimmedOriginal.endsWith("'")) {
       return "'" + content + "'";
     } else {
-      // 如果无法识别引号模式，直接返回内容
+
       return content;
     }
   }
@@ -407,7 +407,7 @@ export class LanguageHandler {
    * 重新构建Markdown内容 - 直接返回原内容
    */
   public reconstructMarkdownContent(original: string, content: string): string {
-    // 直接返回内容，不做任何引号处理
+
     return content;
   }
 
@@ -437,7 +437,7 @@ export class LanguageHandler {
 
     const upperText = text.toUpperCase();
 
-    // 检查是否包含SQL关键字
+
     return sqlKeywords.some(keyword => upperText.includes(keyword));
   }
 }

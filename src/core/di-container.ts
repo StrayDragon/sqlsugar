@@ -37,9 +37,8 @@ export class DIContainer {
   private services = new Map<string, ServiceEntry>();
   private disposables: vscode.Disposable[] = [];
 
-  private constructor() {
-    // Private constructor for singleton pattern
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  private constructor() {}
 
   /**
    * Get the singleton instance of DIContainer
@@ -100,7 +99,7 @@ export class DIContainer {
       }
       return service.instance!;
     } else {
-      // Transient service - create new instance each time
+
       return (service.factory as ServiceFactory<T>)();
     }
   }
@@ -118,7 +117,7 @@ export class DIContainer {
       return service.instance;
     }
 
-    // For services requiring context, we need to handle them specially
+
     const contextAwareFactory = service.factory as ContextAwareFactory<T>;
     if (service.isContextAware && typeof contextAwareFactory === 'function') {
       const instance = contextAwareFactory(context);
@@ -128,7 +127,7 @@ export class DIContainer {
       return instance;
     }
 
-    // Fallback for non-context-aware services
+
     return (service.factory as ServiceFactory<T>)();
   }
 
@@ -193,7 +192,7 @@ export class DIContainer {
     this.clear();
     this.disposables.forEach(d => d.dispose());
     this.disposables = [];
-    // Reset the singleton instance to allow re-creation
+
     DIContainer.instance = undefined;
   }
 }

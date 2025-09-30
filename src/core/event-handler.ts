@@ -41,7 +41,7 @@ export class EventHandler {
    */
   private registerTerminalCloseListener(): void {
     const disposable = vscode.window.onDidCloseTerminal(terminal => {
-      // 清理与终端相关的资源
+
       this.handleTerminalClose(terminal);
     });
 
@@ -75,7 +75,7 @@ export class EventHandler {
    */
   private handleTerminalClose(terminal: vscode.Terminal): void {
     console.log('Terminal closed:', terminal.name);
-    // 可以在这里添加终端相关的资源清理逻辑
+
   }
 
   /**
@@ -83,7 +83,7 @@ export class EventHandler {
    */
   private handleWorkspaceChange(): void {
     console.log('Workspace folders changed');
-    // 可以在这里添加工作区变化时的处理逻辑
+
   }
 
   /**
@@ -93,7 +93,7 @@ export class EventHandler {
     if (e.affectsConfiguration('sqlsugar')) {
       console.log('SQLSugar configuration changed');
 
-      // 检查是否是主题配置变化
+
       if (e.affectsConfiguration('sqlsugar.sqlSyntaxHighlightTheme')) {
         console.log('SQLSugar theme configuration changed, refreshing WebView instances');
         this.refreshWebviewThemes();
@@ -115,10 +115,8 @@ export class EventHandler {
   /**
    * 注册开发者命令
    */
-  public registerDeveloperCommands(): void {
-    // 开发者命令已在CommandManager中注册
-    // 这里可以添加特定的事件相关命令
-  }
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
+  public registerDeveloperCommands(): void {}
 
   /**
    * 获取所有disposables的数量

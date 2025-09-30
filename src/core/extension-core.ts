@@ -31,7 +31,7 @@ export class ExtensionCore {
     this.context = context;
     this.container = getContainer();
 
-    // Initialize services using dependency injection
+
     this.initializeServices();
     this.registerServices();
     this.initialize();
@@ -84,7 +84,7 @@ export class ExtensionCore {
     if (ExtensionCore.instance) {
       ExtensionCore.instance.dispose();
       ExtensionCore.instance = undefined;
-      // Also reset the DI container
+
       getContainer().clear();
     }
   }
@@ -93,17 +93,17 @@ export class ExtensionCore {
    * 初始化扩展
    */
   private initialize(): void {
-    // 注册所有命令
+
     this.commandManager.registerCommands();
 
-    // 在测试环境中跳过SQLs客户端启动
+
     if (process.env.VSCODE_TEST !== 'true') {
-      // 启动SQLs客户端
+
       this.sqlsClientManager.startClient().catch(error => {
         Logger.error('Failed to start SQLs client:', error);
       });
 
-      // 初始化数据库连接
+
       this.sqlsClientManager.initializeConnection().catch(error => {
         Logger.error('Failed to initialize connection:', error);
       });
@@ -111,10 +111,10 @@ export class ExtensionCore {
       Logger.info('Test environment detected, skipping SQLs client startup');
     }
 
-    // 注册事件监听器
+
     this.eventHandler.registerEventListeners();
 
-    // 注册开发者命令
+
     this.eventHandler.registerDeveloperCommands();
   }
 
@@ -139,14 +139,14 @@ export class ExtensionCore {
     return result;
   }
 
-  // 所有临时文件管理逻辑已迁移到 TempFileManager 类
+
 
   /**
    * 获取开发指标
    */
   public getMetrics(): DevMetrics {
     const baseMetrics = this.metricsCollector.getMetrics();
-    // Update with current values
+
     baseMetrics.activeDisposables = this.eventHandler.getDisposablesCount();
     baseMetrics.activeTempFiles = this.tempFileManager.getActiveTempFilesCount();
     return baseMetrics;
@@ -163,27 +163,27 @@ export class ExtensionCore {
    * 销毁扩展资源
    */
   public dispose(): void {
-    // 清理临时文件
+
     this.tempFileManager.dispose();
 
-    // 清理事件监听器
+
     this.eventHandler.dispose();
 
-    // 清理SQLs客户端
+
     this.sqlsClientManager.dispose();
 
-    // 清理精确缩进同步器
+
     if (typeof this.preciseIndentSync.dispose === 'function') {
       this.preciseIndentSync.dispose();
     }
 
-    // 清理DI容器
+
     this.container.dispose();
 
     Logger.info('ExtensionCore disposed successfully');
   }
 
-  // 公共访问方法
+
   public getLanguageHandler(): LanguageHandler {
     return this.languageHandler;
   }

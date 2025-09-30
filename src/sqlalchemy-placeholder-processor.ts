@@ -30,14 +30,14 @@ export class SQLAlchemyPlaceholderProcessor {
 
     let match;
 
-    // 提取Jinja2变量
+
     while ((match = jinja2Regex.exec(sql)) !== null) {
       const expr = match[1].trim();
       const vars = this.extractVariablesFromExpression(expr);
       jinja2Vars.push(...vars);
     }
 
-    // 提取SQLAlchemy占位符
+
     while ((match = sqlalchemyRegex.exec(sql)) !== null) {
       sqlalchemyVars.push(match[1]);
     }
@@ -99,7 +99,7 @@ export class SQLAlchemyPlaceholderProcessor {
     const usedPlaceholders: string[] = [];
     const placeholderMap: SQLAlchemyContext = {};
 
-    // 如果没有SQLAlchemy占位符，直接返回
+
     if (!detection.hasSQLAlchemy) {
       return {
         convertedSQL: sql,
@@ -108,21 +108,21 @@ export class SQLAlchemyPlaceholderProcessor {
       };
     }
 
-    // 处理SQLAlchemy占位符
+
     let convertedSQL = sql;
     const sqlalchemyRegex = /:(\w+)\b/g;
 
     convertedSQL = convertedSQL.replace(sqlalchemyRegex, (match, placeholder) => {
-      // 检查是否有对应的值
+
       if (context[placeholder] !== undefined) {
         usedPlaceholders.push(placeholder);
         placeholderMap[placeholder] = context[placeholder];
 
-        // 根据值类型格式化SQL字面量
+
         return this.formatSQLValue(context[placeholder]);
       }
 
-      // 如果没有提供值，保持原样
+
       return match;
     });
 
@@ -142,7 +142,7 @@ export class SQLAlchemyPlaceholderProcessor {
     }
 
     if (typeof value === 'string') {
-      // 转义单引号
+
       return `'${value.replace(/'/g, "''")}'`;
     }
 
@@ -162,7 +162,7 @@ export class SQLAlchemyPlaceholderProcessor {
       return value.map(v => this.formatSQLValue(v)).join(', ');
     }
 
-    // 其他类型转换为字符串
+
     return `'${String(value).replace(/'/g, "''")}'`;
   }
 
@@ -199,10 +199,10 @@ export class SQLAlchemyPlaceholderProcessor {
 
     const detection = this.detectPlaceholderTypes(sql);
 
-    // 检查Jinja2语法
+
     if (detection.hasJinja2) {
       try {
-        // 简单的括号匹配检查
+
         const openJinja2 = (sql.match(/\{\{/g) || []).length;
         const closeJinja2 = (sql.match(/\}\}/g) || []).length;
         const openControl = (sql.match(/\{%/g) || []).length;
@@ -221,7 +221,7 @@ export class SQLAlchemyPlaceholderProcessor {
       }
     }
 
-    // 检查SQLAlchemy占位符
+
     if (detection.hasSQLAlchemy) {
       const invalidPlaceholders = detection.sqlalchemyVars.filter(
         variable => !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(variable)
@@ -232,7 +232,7 @@ export class SQLAlchemyPlaceholderProcessor {
       }
     }
 
-    // 检查潜在的冲突
+
     const conflictingVars = detection.jinja2Vars.filter(variable =>
       detection.sqlalchemyVars.includes(variable)
     );

@@ -112,11 +112,11 @@ export class Jinja2ConditionProcessor {
     /^\s*undefined\s*$/i,
     /^\s*none\s*$/i,
     /^\s*nil\s*$/i,
-    /^\[\s*\]$/, // Empty array
-    /^\{\s*\}$/, // Empty object
-    /^\(\s*\)$/, // Empty tuple
-    /^""$/, // Empty string
-    /^''$/, // Empty string
+    /^\[\s*\]$/,
+    /^\{\s*\}$/,
+    /^\(\s*\)$/,
+    /^""$/,
+    /^''$/,
   ];
 
   /**
@@ -131,7 +131,7 @@ export class Jinja2ConditionProcessor {
       decisions: [],
     };
 
-    // 从后往前处理，避免索引变化的问题
+
     const sortedBlocks = conditionalBlocks.sort((a, b) => b.startIndex - a.startIndex);
 
     for (const block of sortedBlocks) {
@@ -145,13 +145,13 @@ export class Jinja2ConditionProcessor {
 
       if (decision.action === 'remove') {
         result.removedBlocks.push(block);
-        // 移除整个条件块
+
         const before = result.processedTemplate.substring(0, block.startIndex);
         const after = result.processedTemplate.substring(block.endIndex + 1);
         result.processedTemplate = before + after;
       } else {
         result.keptBlocks.push(block);
-        // 保留条件内容，但移除条件标签
+
         const content = this.extractContentWithoutConditionals(block, decision);
         const before = result.processedTemplate.substring(0, block.startIndex);
         const after = result.processedTemplate.substring(block.endIndex + 1);
@@ -177,7 +177,7 @@ export class Jinja2ConditionProcessor {
         const block = this.parseConditionalBlock(lines, i, ifMatch[1]);
         if (block) {
           blocks.push(block);
-          i = block.endIndex; // 跳过已处理的块
+          i = block.endIndex;
         }
       }
     }
@@ -245,12 +245,12 @@ export class Jinja2ConditionProcessor {
       currentLine++;
     }
 
-    // 提取主内容
+
     if (contentEnd >= contentStart) {
       block.content = lines.slice(contentStart, contentEnd + 1).join('\n');
     }
 
-    // 提取elif内容
+
     for (let i = 0; i < elifBlocks.length; i++) {
       const elifBlock = elifBlocks[i];
       const elifStart = this.findLineIndex(lines, elifBlock.condition, currentLine);
@@ -268,7 +268,7 @@ export class Jinja2ConditionProcessor {
       }
     }
 
-    // 提取else内容
+
     if (elseStart !== -1 && block.endIndex > elseStart) {
       block.elseContent = lines.slice(elseStart + 1, block.endIndex).join('\n');
     }
@@ -297,10 +297,10 @@ export class Jinja2ConditionProcessor {
     context: ConditionContext
   ): { action: 'keep' | 'remove'; reason: string } {
     try {
-      // 解析条件
+
       const parsedCondition = this.parseConditionExpression(condition);
 
-      // 检查变量是否存在
+
       const variableCheck = this.checkVariablesExist(parsedCondition, context);
       if (!variableCheck.exists) {
         return {
@@ -309,7 +309,7 @@ export class Jinja2ConditionProcessor {
         };
       }
 
-      // 评估条件逻辑
+
       const evaluation = this.evaluateExpression(parsedCondition, context);
 
       if (evaluation.value) {
@@ -324,7 +324,7 @@ export class Jinja2ConditionProcessor {
         };
       }
     } catch (error) {
-      // 解析失败，保守起见保留
+
       return {
         action: 'keep',
         reason: `条件解析失败，保守保留 (${error})`,
@@ -336,10 +336,10 @@ export class Jinja2ConditionProcessor {
    * 解析条件表达式
    */
   private static parseConditionExpression(condition: string): ParsedCondition {
-    // 简单的条件解析器
+
     const trimmed = condition.trim();
 
-    // 检查是否为空值检查
+
     if (trimmed.includes('is not None') || trimmed.includes('is not null')) {
       return {
         type: 'existence_check',
@@ -356,7 +356,7 @@ export class Jinja2ConditionProcessor {
       };
     }
 
-    // 检查比较操作
+
     const comparisonMatch = trimmed.match(/^([^=<>!]+)\s*(==|!=|>=|<=|>|<)\s*(.+)$/);
     if (comparisonMatch) {
       return {
@@ -367,7 +367,7 @@ export class Jinja2ConditionProcessor {
       };
     }
 
-    // 检查成员检查
+
     const membershipMatch = trimmed.match(/^([^]+)\s+(in|not in)\s+(.+)$/);
     if (membershipMatch) {
       return {
@@ -378,7 +378,7 @@ export class Jinja2ConditionProcessor {
       };
     }
 
-    // 检查逻辑操作
+
     if (trimmed.includes(' and ') || trimmed.includes(' or ')) {
       const parts = trimmed.split(/\s+(and|or)\s+/);
       const operators = trimmed.match(/\s+(and|or)\s+/g) || [];
@@ -390,7 +390,7 @@ export class Jinja2ConditionProcessor {
       };
     }
 
-    // 默认作为变量存在性检查
+
     return {
       type: 'variable_check',
       variable: trimmed,
@@ -623,7 +623,7 @@ export class Jinja2ConditionProcessor {
    * 解析值
    */
   private static parseValue(value: string, context: ConditionContext): string | number | boolean | null | unknown {
-    // 移除引号
+
     if (
       (value.startsWith('"') && value.endsWith('"')) ||
       (value.startsWith("'") && value.endsWith("'"))
@@ -631,12 +631,12 @@ export class Jinja2ConditionProcessor {
       return value.slice(1, -1);
     }
 
-    // 检查是否为数字
+
     if (/^-?\d+(\.\d+)?$/.test(value)) {
       return parseFloat(value);
     }
 
-    // 检查是否为布尔值
+
     if (value.toLowerCase() === 'true') {
       return true;
     }
@@ -644,12 +644,12 @@ export class Jinja2ConditionProcessor {
       return false;
     }
 
-    // 检查是否为null
+
     if (value.toLowerCase() === 'null' || value.toLowerCase() === 'none') {
       return null;
     }
 
-    // 作为变量处理
+
     return context.variables[value] || value;
   }
 
@@ -657,7 +657,7 @@ export class Jinja2ConditionProcessor {
    * Python风格真值检查
    */
   private static isPythonTruthy(value: unknown): boolean {
-    // 检查明确的假值 - 使用更安全的方式检查 Set 成员
+
     if (value === false || value === 0 || value === 0.0 || value === '' ||
         value === '0' || value === 'false' || value === 'False' || value === 'FALSE' ||
         value === 'no' || value === 'No' || value === 'NO' || value === 'off' ||
@@ -665,27 +665,27 @@ export class Jinja2ConditionProcessor {
       return false;
     }
 
-    // 检查空字符串
+
     if (typeof value === 'string' && value.trim() === '') {
       return false;
     }
 
-    // 检查空数组
+
     if (Array.isArray(value) && value.length === 0) {
       return false;
     }
 
-    // 检查空对象
+
     if (typeof value === 'object' && value !== null && Object.keys(value).length === 0) {
       return false;
     }
 
-    // 检查NaN
+
     if (typeof value === 'number' && isNaN(value)) {
       return false;
     }
 
-    // 其他情况为真
+
     return true;
   }
 
@@ -700,14 +700,14 @@ export class Jinja2ConditionProcessor {
       return '';
     }
 
-    // 对于keep操作，我们需要决定保留哪个分支
+
     if (block.hasElif) {
-      // 复杂的elif逻辑，这里简化处理，保留第一个条件分支
+
       return block.content;
     }
 
     if (block.hasElse) {
-      // 保留if分支（因为我们已经判断为真）
+
       return block.content;
     }
 

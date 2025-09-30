@@ -412,11 +412,11 @@ export class Jinja2Editor extends LitElement {
     const newValues: Record<string, Jinja2VariableValue> = {};
 
     this.variables.forEach(variable => {
-      // Preserve existing values if they exist
+
       if (this.values[variable.name] !== undefined) {
         newValues[variable.name] = this.values[variable.name];
       } else {
-        // Use default value or generate based on type
+
         newValues[variable.name] = variable.defaultValue ?? this.generateDefaultValue(variable.type);
       }
     });
@@ -449,7 +449,7 @@ export class Jinja2Editor extends LitElement {
       [name]: value
     };
 
-    // Update the variable if type changed
+
     if (type) {
       const variableIndex = this.variables.findIndex(v => v.name === name);
       if (variableIndex >= 0) {
@@ -462,14 +462,14 @@ export class Jinja2Editor extends LitElement {
       }
     }
 
-    // Emit change event
+
     this.dispatchEvent(new CustomEvent<VariableChangeEvent>('variable-change', {
       detail: { name, value, type },
       bubbles: true,
       composed: true
     }));
 
-    // Auto-render if enabled
+
     if (this.autoRender) {
       this.debouncedRender();
     }
@@ -484,7 +484,7 @@ export class Jinja2Editor extends LitElement {
 
     this.renderTimeout = window.setTimeout(() => {
       this.performRender();
-    }, 300); // 300ms debounce
+    }, 300);
   }
 
   private async performRender() {
@@ -494,13 +494,13 @@ export class Jinja2Editor extends LitElement {
     const startTime = performance.now();
 
     try {
-      // Simulate rendering process
+
       await new Promise(resolve => setTimeout(resolve, 100));
 
       this.processingTime = performance.now() - startTime;
       this.renderCount++;
 
-      // Emit render event
+
       this.dispatchEvent(new CustomEvent<TemplateRenderEvent>('template-render', {
         detail: {
           template: this.template,
@@ -528,7 +528,7 @@ export class Jinja2Editor extends LitElement {
   }
 
   private getRenderedResult(): string {
-    // Simple template rendering simulation
+
     let result = this.template;
 
     Object.entries(this.values).forEach(([key, value]) => {
@@ -585,7 +585,7 @@ export class Jinja2Editor extends LitElement {
   }
 
   private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
-    // Create a temporary notification element
+
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;

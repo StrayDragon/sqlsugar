@@ -54,7 +54,7 @@ export class MetricsCollector {
   public recordPerformance(operationTime: number, hadError: boolean = false): void {
     const perf = this.metrics.performanceMetrics;
 
-    // 计算新的平均响应时间
+
     perf.totalOperations++;
     perf.avgResponseTime =
       (perf.avgResponseTime * (perf.totalOperations - 1) + operationTime) / perf.totalOperations;

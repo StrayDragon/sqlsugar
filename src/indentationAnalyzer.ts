@@ -122,7 +122,7 @@ export class IndentationPatternAnalyzer {
     const prevLine = lines[index - 1].trim();
     const currentLine = lines[index].trim();
 
-    // Check if previous line ends with comma or operator
+
     return (
       prevLine.endsWith(',') ||
       prevLine.endsWith('+') ||
@@ -138,7 +138,7 @@ export class IndentationPatternAnalyzer {
     const line = lines[index].trim();
     const prevLine = index > 0 ? lines[index - 1].trim() : '';
 
-    // If it's a simple field name with comma, it's likely a field definition in SELECT
+
     return (
       line.includes(',') &&
       prevLine.toUpperCase().includes('SELECT') &&
@@ -153,12 +153,12 @@ export class IndentationPatternAnalyzer {
       return 1.0;
     }
 
-    // Check for mixed tabs and spaces
+
     const hasTabs = nonEmptyLines.some(indent => indent.includes('\t'));
     const hasSpaces = nonEmptyLines.some(indent => indent.includes(' '));
     if (hasTabs && hasSpaces) {
       return 0.1;
-    } // Very low consistency for mixed tabs and spaces
+    }
 
     const indentLengths = nonEmptyLines.map(indent => indent.length);
     const uniqueLengths = new Set(indentLengths);
@@ -167,12 +167,12 @@ export class IndentationPatternAnalyzer {
       return 1.0;
     }
 
-    // Calculate variance-based consistency
+
     const mean = indentLengths.reduce((sum, len) => sum + len, 0) / indentLengths.length;
     const variance =
       indentLengths.reduce((sum, len) => sum + Math.pow(len - mean, 2), 0) / indentLengths.length;
 
-    // Higher variance = lower consistency (normalize to 0-1)
+
     return Math.max(0, 1 - variance / 100);
   }
 
@@ -188,13 +188,13 @@ export class IndentationPatternAnalyzer {
       return 'none';
     }
 
-    // Check for no indentation pattern (all lines have no indentation)
+
     const hasNoIndentation = nonEmptyIndents.every(indent => indent.length === 0);
     if (hasNoIndentation) {
       return 'none';
     }
 
-    // Check for mixed indentation (tabs and spaces)
+
     const hasTabs = nonEmptyIndents.some(indent => indent.includes('\t'));
     const hasSpaces = nonEmptyIndents.some(indent => indent.includes(' ') && indent.length > 0);
     if (hasTabs && hasSpaces) {
@@ -207,17 +207,17 @@ export class IndentationPatternAnalyzer {
 
     const uniqueIndents = new Set(nonEmptyIndents);
 
-    // Uniform pattern: all lines have exactly the same indentation
+
     if (uniqueIndents.size === 1) {
       return 'uniform';
     }
 
-    // Check if it's a simple pattern with just baseIndent + one continuation level
+
     const indentLengths = Array.from(uniqueIndents).map(indent => indent.length);
     const minIndent = Math.min(...indentLengths);
     const maxIndent = Math.max(...indentLengths);
 
-    // If we have exactly 2 indent levels and they're evenly spaced, and the only continuation lines are field definitions, it's uniform
+
     const hasOnlyFieldContinuations = Array.from(lineTypes.entries()).every(
       ([index, type]) => type !== 'continuation' || this.isFieldDefinition(lines, index)
     );
@@ -231,7 +231,7 @@ export class IndentationPatternAnalyzer {
       return 'keyword-aligned';
     }
 
-    // Check for hierarchical pattern (multiple levels with specific relationships)
+
     const hasHierarchicalPattern = this.hasHierarchicalPattern(lineTypes, lineIndents, lines);
     if (hasHierarchicalPattern && uniqueIndents.size >= 2) {
       return 'hierarchical';
@@ -251,7 +251,7 @@ export class IndentationPatternAnalyzer {
       return '';
     }
 
-    // Find the most common minimum indentation
+
     const minLength = Math.min(...nonEmptyIndents.map(indent => indent.length));
     const commonIndents = nonEmptyIndents.filter(indent => indent.length === minLength);
 
@@ -275,7 +275,7 @@ export class IndentationPatternAnalyzer {
         alignments.set(firstWord, indent.length);
       }
 
-      // Also check for AND/OR keywords that might be indented (not at line start)
+
       const andOrMatch = trimmed.match(/^(AND|OR)\s+/);
       if (andOrMatch) {
         const indent = lineIndents[index];
@@ -297,7 +297,7 @@ export class IndentationPatternAnalyzer {
       const lineType = lineTypes.get(index);
       if (lineType === 'content' || lineType === 'continuation') {
         const trimmed = line.trim();
-        // Check if this line starts with AND/OR (possibly with some indentation)
+
         const andOrMatch = trimmed.match(/^(AND|OR)\s+/);
         if (andOrMatch) {
           const indent = lineIndents[index];
@@ -374,13 +374,13 @@ export class IndentationPatternAnalyzer {
       return false;
     }
 
-    // Look for hierarchical patterns like:
-    // SELECT (level 0)
-    //   field (level 1)
-    //   field (level 1)
-    // FROM (level 0)
-    // WHERE (level 0)
-    //   AND (level 1)
+
+
+
+
+
+
+
 
     const selectLine = keywordLines.find(
       line =>
@@ -397,7 +397,7 @@ export class IndentationPatternAnalyzer {
       return false;
     }
 
-    // Check if there are content lines with more indentation than keywords
+
     const contentLines = Array.from(lineTypes.entries())
       .filter(([, type]) => type === 'content')
       .map(([index]) => lineIndents[index].length);
@@ -414,8 +414,8 @@ export class IndentationPatternAnalyzer {
   }
 
   private getLineTextFromPattern(): string {
-    // This method would need access to the original lines
-    // For now, return empty string since we don't have the lines in the pattern
+
+
     return '';
   }
 
@@ -425,12 +425,12 @@ export class IndentationPatternAnalyzer {
         return pattern.baseIndent;
       case 'AND':
       case 'OR':
-        // For AND/OR conditions, we need to find the indentation pattern from existing AND lines
-        // Look for lines that start with AND or OR and have more indentation than WHERE
+
+
         const whereIndent = pattern.keywordAlignments.get('WHERE') || 0;
         const andIndent = pattern.keywordAlignments.get('AND');
 
-        // Debug: Check what values we're getting
+
         console.log(
           `[DEBUG] getHierarchicalIndent for AND: whereIndent=${whereIndent}, andIndent=${andIndent}, pattern.type=${pattern.type}`
         );
@@ -440,17 +440,17 @@ export class IndentationPatternAnalyzer {
           return ' '.repeat(andIndent);
         }
 
-        // Check for AND/OR patterns in content/continuation lines
+
         const andOrPatternIndent =
           pattern.andOrPatterns.get('AND') || pattern.andOrPatterns.get('OR');
         if (andOrPatternIndent !== undefined && andOrPatternIndent > whereIndent) {
           return ' '.repeat(andOrPatternIndent);
         }
 
-        // If no existing AND pattern found, check the pattern type
+
         if (pattern.type === 'continuation') {
-          // For continuation patterns, use a more conservative approach
-          // Try to find existing content lines with more indentation
+
+
           const contentLines = Array.from(pattern.lineTypes.entries())
             .filter(([, type]) => type === 'content')
             .map(([index]) => pattern.lineIndents?.get(index))
@@ -461,7 +461,7 @@ export class IndentationPatternAnalyzer {
           }
         }
 
-        // Default: use 2 more spaces than WHERE
+
         return ' '.repeat(whereIndent + 2);
       case 'JOIN':
       case 'LEFT':
@@ -503,9 +503,9 @@ export class IndentationPatternAnalyzer {
       return ' '.repeat(pattern.continuationIndent);
     }
 
-    // Handle AND/OR conditions in continuation patterns
+
     if (lineType === 'AND' || lineType === 'OR') {
-      // First check if we have existing AND/OR patterns with specific indentation
+
       const whereIndent = pattern.keywordAlignments.get('WHERE') || 0;
       const andIndent = pattern.keywordAlignments.get('AND');
 
@@ -513,14 +513,14 @@ export class IndentationPatternAnalyzer {
         return ' '.repeat(andIndent);
       }
 
-      // Check for AND/OR patterns in content/continuation lines
+
       const andOrPatternIndent =
         pattern.andOrPatterns.get('AND') || pattern.andOrPatterns.get('OR');
       if (andOrPatternIndent !== undefined && andOrPatternIndent > whereIndent) {
         return ' '.repeat(andOrPatternIndent);
       }
 
-      // For continuation patterns with AND/OR, try to find existing content lines with more indentation
+
       const contentLines = Array.from(pattern.lineTypes.entries())
         .filter(([, type]) => type === 'content')
         .map(([index]) => pattern.lineIndents?.get(index))
@@ -530,7 +530,7 @@ export class IndentationPatternAnalyzer {
         return contentLines;
       }
 
-      // Default: use 2 more spaces than WHERE
+
       return ' '.repeat(whereIndent + 2);
     }
 

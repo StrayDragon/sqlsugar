@@ -38,6 +38,14 @@ lint:
     pnpm run lint
 
 # =============================================================================
+# Code Hygiene
+# =============================================================================
+
+# Clean unnecessary // line comments in src/ (keep /* ... */ and essential directives)
+after-ai-write-remove-comments:
+    node scripts/clean-comment.js src
+
+# =============================================================================
 # Packaging and Distribution
 # =============================================================================
 

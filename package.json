@@ -13,7 +13,7 @@
   "categories": [
     "Other"
   ],
-  "main": "./dist/extension.js",
+  "main": "./dist/extension.cjs",
   "types": "./dist/types/extension.d.ts",
   "contributes": {
     "commands": [

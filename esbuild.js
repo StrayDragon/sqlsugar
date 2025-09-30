@@ -151,7 +151,7 @@ async function buildExtension() {
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'node',
-		outfile: 'dist/extension.js',
+		outfile: 'dist/extension.cjs',
 		external: ['vscode'], // Important: Externalize vscode module for VS Code and Cursor compatibility
 		logLevel: 'silent',
 		// Performance and size optimizations
@@ -190,12 +190,14 @@ async function buildJinja2Editor() {
 		],
 		bundle: true,
 		format: 'esm',
+		target: 'es2022',
 		minify: production,
 		sourcemap: !production,
 		sourcesContent: false,
 		platform: 'browser',
 		outfile: 'dist/jinja2-editor/jinja2-editor.js',
-		external: ['vscode', 'lit'],
+		external: ['vscode'],
+		// Note: 'lit' should NOT be external for jinja2-editor since it needs to run in browser webview
 		logLevel: 'silent',
 		// Performance and size optimizations
 		treeShaking: true,
@@ -213,7 +215,7 @@ async function buildJinja2Editor() {
 			'.ts': 'ts',
 			'.js': 'js',
 		},
-		tsconfig: './tsconfig.json',
+		tsconfig: './tsconfig.components.json',
 		plugins: [
 			esbuildProblemMatcherPlugin,
 		],
@@ -243,6 +245,7 @@ async function buildWebviewApp() {
         platform: 'browser',
         outfile: 'dist/webview/app.js',
         external: ['vscode'],
+        // Note: 'lit' should NOT be external for webview since it needs to run in browser
         logLevel: 'silent',
         treeShaking: true,
         legalComments: 'none',

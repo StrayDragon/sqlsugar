@@ -105,7 +105,6 @@ export class Jinja2WebviewEditor {
   }
 
   private show(template: string, variables: Jinja2Variable[], title: string): void {
-
     this.currentTemplate = template;
     this.currentVariables = variables;
 
@@ -137,7 +136,6 @@ export class Jinja2WebviewEditor {
 
     this.panel.webview.html = this.getAppHtml(this.panel.webview, template, variables);
     this.setupWebviewListeners();
-
 
     this.panel.webview.postMessage({
       command: 'init',
@@ -290,13 +288,15 @@ export class Jinja2WebviewEditor {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src ${webview.cspSource} 'nonce-${nonce}'; style-src ${webview.cspSource} 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src ${webview.cspSource} 'nonce-${nonce}' 'unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline';">
   <title>Jinja2 Template Editor - ${templatePreview}</title>
+  <link href="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'vs2015.min.css'))}" rel="stylesheet">
 </head>
 <body>
   <sqlsugar-webview-app></sqlsugar-webview-app>
   <script nonce="${nonce}">(function(){try{var a=typeof acquireVsCodeApi==='function'?acquireVsCodeApi():undefined;if(a){window.vscode=a;}}catch(e){}})();</script>
   <script src="${nunjucksUri}"></script>
+  <script src="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js'))}"></script>
   <script type="module" src="${jinjaEditorUri}"></script>
   <script type="module" src="${appJsUri}"></script>
 </body>

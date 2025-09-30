@@ -212,6 +212,7 @@ export class JinjaVariableInput extends LitElement {
   }
 
   private renderValueInput() {
+
     if (this.localType === 'boolean') {
       return html`
         <jinja-select
@@ -241,7 +242,7 @@ export class JinjaVariableInput extends LitElement {
         type=${this.getInputType(this.localType)}
         .value=${this.formatValue(this.localValue)}
         .placeholder=${this.getPlaceholder(this.variable.name, this.localType)}
-        @input=${this.handleValueChange}
+        @change=${this.handleValueChange}
       ></jinja-input>
     `;
   }
@@ -292,9 +293,24 @@ export class JinjaVariableInput extends LitElement {
   }
 
   private handleValueChange(event: CustomEvent) {
-    const { value } = event.detail;
-    this.localValue = this.parseValue(value, this.localType);
-    this.emitChangeEvent();
+    // Guard against invalid events
+    if (!event.detail || event.detail === 0) {
+      return;
+    }
+
+    try {
+      const { value } = event.detail;
+
+      // Only update if value is actually different
+      const newValue = this.parseValue(value, this.localType);
+      if (newValue !== this.localValue) {
+        this.localValue = newValue;
+        this.emitChangeEvent();
+      }
+    } catch (error) {
+      console.error('Variable input change failed:', error);
+      // Don't crash, just continue with current value
+    }
   }
 
   private handleBooleanChange(event: CustomEvent) {
@@ -354,7 +370,10 @@ export class JinjaVariableInput extends LitElement {
       email: 'email',
       url: 'url',
       number: 'number',
-      integer: 'number'
+      integer: 'number',
+      date: 'date',
+      time: 'time',
+      datetime: 'datetime-local'
     };
     return inputTypeMap[type] || 'text';
   }

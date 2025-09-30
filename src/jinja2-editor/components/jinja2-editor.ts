@@ -193,6 +193,15 @@ export class Jinja2Editor extends LitElement {
     .action-button.secondary:hover {
       background: var(--vscode-button-secondaryHoverBackground);
     }
+    .action-button.primary {
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      font-weight: var(--font-weight-semibold);
+    }
+    .action-button.primary:hover {
+      background: var(--vscode-button-background);
+      transform: translateY(-1px);
+    }
 
     /* Status Bar */
     .status-bar {
@@ -469,10 +478,8 @@ export class Jinja2Editor extends LitElement {
       composed: true
     }));
 
-
-    if (this.autoRender) {
-      this.debouncedRender();
-    }
+    // Note: We no longer auto-trigger template-render events on variable changes
+    // Users must manually click the submit button to close the editor
   }
 
   private renderTimeout: number | null = null;
@@ -528,7 +535,33 @@ export class Jinja2Editor extends LitElement {
   }
 
   private getRenderedResult(): string {
+    try {
+      // Try to use Nunjucks if available for proper template rendering
+      if (typeof nunjucks !== 'undefined') {
+        const env = nunjucks.configure({ autoescape: false });
 
+        // Add essential filters
+        env.addFilter('sql_quote', (value: unknown) => {
+          if (value == null) return 'NULL';
+          if (typeof value === 'string') return `'${(value as string).replace(/'/g, "''")}'`;
+          if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+          if (typeof value === 'number') return String(value);
+          if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+          return String(value);
+        });
+
+        env.addFilter('default', (value: unknown, defaultValue: unknown) => {
+          return value !== null && value !== undefined && value !== '' ? value : defaultValue;
+        });
+
+        const rendered = nunjucks.renderString(this.template, this.values);
+        return rendered;
+      }
+    } catch (error) {
+      console.warn('Nunjucks rendering failed in getRenderedResult, using fallback:', error);
+    }
+
+    // Fallback to simple variable replacement
     let result = this.template;
 
     Object.entries(this.values).forEach(([key, value]) => {
@@ -551,15 +584,29 @@ export class Jinja2Editor extends LitElement {
   private handleCopyAll() {
     const result = this.getRenderedResult();
     navigator.clipboard.writeText(result).then(() => {
-      this.showNotification('SQL copied to clipboard');
+      this.showNotification('SQL 已复制到剪贴板');
     }).catch(() => {
-      this.showNotification('Failed to copy SQL', 'error');
+      this.showNotification('复制 SQL 失败', 'error');
     });
+  }
+
+  private handleSubmit() {
+    const result = this.getRenderedResult();
+    this.dispatchEvent(new CustomEvent('template-render', {
+      detail: {
+        template: this.template,
+        values: this.values,
+        result: result,
+        error: undefined
+      },
+      bubbles: true,
+      composed: true
+    }));
   }
 
   private handleReset() {
     this.initializeValues();
-    this.showNotification('Values reset to defaults');
+    this.showNotification('值已重置为默认值');
   }
 
   private handleExportConfig() {
@@ -581,7 +628,7 @@ export class Jinja2Editor extends LitElement {
     a.click();
     URL.revokeObjectURL(url);
 
-    this.showNotification('Configuration exported');
+    this.showNotification('配置已导出');
   }
 
   private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
@@ -637,22 +684,22 @@ export class Jinja2Editor extends LitElement {
             <div>
               <div class="panel-title">
                 <span>📝</span>
-                Variables
-                <span class="panel-subtitle">${stats.configured}/${stats.total} configured</span>
+                变量设置
+                <span class="panel-subtitle">${stats.configured}/${stats.total} 已配置</span>
               </div>
             </div>
             <div class="panel-actions">
               <button
                 class="icon-button"
                 @click=${this.handleReset}
-                title="Reset all values to defaults"
+                title="重置所有值为默认值"
               >
                 🔄
               </button>
               <button
                 class="icon-button"
                 @click=${this.handleExportConfig}
-                title="Export configuration"
+                title="导出配置"
               >
                 📥
               </button>
@@ -666,7 +713,7 @@ export class Jinja2Editor extends LitElement {
                 <input
                   type="text"
                   class="search-input"
-                  placeholder="Search variables..."
+                  placeholder="搜索变量..."
                 />
               </div>
             </div>
@@ -676,10 +723,10 @@ export class Jinja2Editor extends LitElement {
             ${this.variables.length === 0 ? html`
               <div class="empty-state">
                 <div class="empty-icon">📋</div>
-                <div class="empty-title">No Variables Found</div>
+                <div class="empty-title">未找到变量</div>
                 <div class="empty-description">
-                  This template doesn't contain any detectable variables.
-                  Add some Jinja2 variables like {{ variable_name }} to get started.
+                  此模板中未检测到任何变量。
+                  请添加一些 Jinja2 变量，例如 {{ variable_name }} 来开始使用。
                 </div>
               </div>
             ` : html`
@@ -702,11 +749,11 @@ export class Jinja2Editor extends LitElement {
                   success: stats.requiredConfigured === stats.required,
                   processing: stats.requiredConfigured < stats.required && stats.required > 0
                 })}"></span>
-                <span>${stats.requiredConfigured}/${stats.required} required</span>
+                <span>${stats.requiredConfigured}/${stats.required} 必需</span>
               </div>
               ${this.renderCount > 0 ? html`
                 <div class="status-item">
-                  <span>${this.renderCount} renders</span>
+                  <span>${this.renderCount} 次渲染</span>
                 </div>
               ` : ''}
             </div>
@@ -718,33 +765,32 @@ export class Jinja2Editor extends LitElement {
           <div class="panel-header">
             <div class="panel-title">
               <span>👁️</span>
-              SQL Preview
+              SQL 预览
               ${this.processingTime > 0 ? html`
                 <span class="panel-subtitle">${Math.round(this.processingTime)}ms</span>
               ` : ''}
             </div>
             <div class="panel-actions">
-              ${this.autoRender ? html`
-                <span class="status-indicator processing" title="Auto-render enabled"></span>
-              ` : ''}
+              <span class="status-indicator processing" title="自动渲染已启用"></span>
             </div>
           </div>
 
           <div class="quick-actions">
             <button
+              class="action-button primary"
+              @click=${this.handleSubmit}
+              ?disabled=${!this.template}
+            >
+              ✅ 完成并退出
+            </button>
+            <button
               class="action-button"
               @click=${this.handleCopyAll}
               ?disabled=${!this.template}
             >
-              📋 Copy SQL
+              📋 复制 SQL
             </button>
-            <button
-              class="action-button secondary"
-              @click=${() => this.autoRender = !this.autoRender}
-            >
-              ${this.autoRender ? '⏸️ Pause Auto-Render' : '▶️ Enable Auto-Render'}
-            </button>
-          </div>
+                      </div>
 
           <jinja-sql-preview
             .template=${this.template}
@@ -752,7 +798,7 @@ export class Jinja2Editor extends LitElement {
             .variables=${this.variables}
             .theme=${this.theme}
             .showOriginal=${this.showOriginal}
-            .autoRender=${this.autoRender}
+            .autoRender=${true}
             @template-render=${(e: CustomEvent<TemplateRenderEvent>) => {
               this.dispatchEvent(new CustomEvent('template-render', {
                 detail: e.detail,
@@ -767,7 +813,7 @@ export class Jinja2Editor extends LitElement {
           <div class="loading-overlay">
             <div class="loading-content">
               <div class="loading-spinner"></div>
-              <div>Processing template...</div>
+              <div>正在处理模板...</div>
             </div>
           </div>
         ` : ''}

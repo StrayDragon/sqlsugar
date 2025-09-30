@@ -1,5 +1,6 @@
 import { html, LitElement, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+import { Jinja2Variable } from '../jinja2-editor/types.js';
 
 declare global {
   interface Window {
@@ -15,7 +16,7 @@ export class SqlsugarWebviewApp extends LitElement {
   `;
 
   @state() private templateText: string = '';
-  @state() private variables: Array<{ name: string; type: string; defaultValue?: unknown; description?: string; filters?: string[] }>= [];
+  @state() private variables: Jinja2Variable[] = [];
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -23,13 +24,27 @@ export class SqlsugarWebviewApp extends LitElement {
     const g = globalThis as unknown as { sqlsugarTemplate?: unknown; sqlsugarVariables?: unknown; vscode?: { postMessage: (msg: unknown) => void } };
     const t = g.sqlsugarTemplate;
     const v = g.sqlsugarVariables;
+
     if (typeof t === 'string') this.templateText = t;
     if (Array.isArray(v)) this.variables = v;
+
     globalThis.addEventListener('message', (event: MessageEvent) => {
       const data = event.data || {};
+
       if (data.command === 'init') {
         this.templateText = data.template || '';
-        this.variables = Array.isArray(data.variables) ? data.variables : [];
+
+        // Transform variables to match the expected interface
+        this.variables = Array.isArray(data.variables)
+          ? data.variables.map((v: Record<string, unknown>) => ({
+              ...v,
+              isRequired: v.required || v.isRequired, // Map `required` to `isRequired`
+              required: undefined, // Remove the processor-specific field
+            }))
+          : [];
+
+        // Force re-rendering
+        this.requestUpdate();
       }
     });
   }

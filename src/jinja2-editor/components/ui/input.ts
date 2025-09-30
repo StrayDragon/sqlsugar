@@ -127,7 +127,7 @@ export class JinjaInput extends LitElement {
     }
   `;
 
-  @property({ type: String }) accessor type: 'text' | 'number' | 'email' | 'url' | 'password' = 'text';
+  @property({ type: String }) accessor type: 'text' | 'number' | 'email' | 'url' | 'password' | 'date' | 'time' | 'datetime-local' = 'text';
   @property({ type: String }) accessor placeholder: string = '';
   @property({ type: String }) accessor label: string = '';
   @property({ type: String }) accessor value: string = '';
@@ -199,13 +199,17 @@ export class JinjaInput extends LitElement {
 
   private handleInput(event: InputEvent) {
     const input = event.target as HTMLInputElement;
+    const oldValue = this.value;
     this.value = input.value;
 
-    this.dispatchEvent(new CustomEvent('input', {
-      detail: { value: this.value },
-      bubbles: true,
-      composed: true
-    }));
+    // Only fire event if value actually changed
+    if (oldValue !== this.value) {
+      this.dispatchEvent(new CustomEvent('input', {
+        detail: { value: this.value },
+        bubbles: true,
+        composed: true
+      }));
+    }
   }
 
   private handleChange(event: Event) {

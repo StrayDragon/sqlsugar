@@ -1,8 +1,10 @@
 import { LitElement, html, css } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
+import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import { customElement, property, state } from 'lit/decorators.js';
 import { Jinja2Variable, Jinja2VariableValue } from '../types.js';
+
 declare const nunjucks: any;
 
 @customElement('jinja-sql-preview')
@@ -20,6 +22,124 @@ export class JinjaSqlPreview extends LitElement {
   @state() accessor lastRenderTime = 0;
 
   static styles = css`
+    /* Highlight.js base styles for Shadow DOM - VS2015 theme */
+    .hljs {
+      background: #1e1e1e;
+      color: #dcdcdc;
+      display: block;
+      overflow-x: auto;
+      padding: 1em;
+    }
+
+    .hljs-keyword,
+    .hljs-literal,
+    .hljs-name,
+    .hljs-symbol {
+      color: #569cd6;
+    }
+
+    .hljs-link {
+      color: #569cd6;
+      text-decoration: underline;
+    }
+
+    .hljs-built_in,
+    .hljs-type {
+      color: #4ec9b0;
+    }
+
+    .hljs-class,
+    .hljs-number {
+      color: #b8d7a3;
+    }
+
+    .hljs-meta .hljs-string,
+    .hljs-string {
+      color: #d69d85;
+    }
+
+    .hljs-regexp,
+    .hljs-template-tag {
+      color: #9a5334;
+    }
+
+    .hljs-formula,
+    .hljs-function,
+    .hljs-params,
+    .hljs-subst,
+    .hljs-title {
+      color: #dcdcdc;
+    }
+
+    .hljs-comment,
+    .hljs-quote {
+      color: #57a64a;
+      font-style: italic;
+    }
+
+    .hljs-doctag {
+      color: #608b4e;
+    }
+
+    .hljs-meta,
+    .hljs-meta .hljs-keyword,
+    .hljs-tag {
+      color: #9b9b9b;
+    }
+
+    .hljs-template-variable,
+    .hljs-variable {
+      color: #bd63c5;
+    }
+
+    .hljs-attr,
+    .hljs-attribute {
+      color: #9cdcfe;
+    }
+
+    .hljs-section {
+      color: gold;
+    }
+
+    .hljs-emphasis {
+      font-style: italic;
+    }
+
+    .hljs-strong {
+      font-weight: 700;
+    }
+
+    .hljs-bullet,
+    .hljs-selector-attr,
+    .hljs-selector-class,
+    .hljs-selector-id,
+    .hljs-selector-pseudo,
+    .hljs-selector-tag {
+      color: #d7ba7d;
+    }
+
+    .hljs-addition {
+      background-color: #144212;
+      display: inline-block;
+      width: 100%;
+    }
+
+    .hljs-deletion {
+      background-color: #600;
+      display: inline-block;
+      width: 100%;
+    }
+
+    pre code.hljs {
+      display: block;
+      overflow-x: auto;
+      padding: 1em;
+    }
+
+    code.hljs {
+      padding: 3px 5px;
+    }
+
     :host {
       display: block;
       height: 100%;
@@ -400,8 +520,20 @@ export class JinjaSqlPreview extends LitElement {
       }
       this.renderError = null;
     } catch (error) {
+      console.error('SQL Preview rendering failed:', error);
+      console.error('Template:', this.template);
+      console.error('Values:', this.values);
       this.renderedSQL = '';
       this.renderError = error instanceof Error ? error.message : 'Unknown error';
+
+      // Try fallback rendering
+      try {
+        this.renderedSQL = this.simulateTemplateRendering(this.template, this.values);
+        this.renderError = null; // Clear error if fallback works
+      } catch (fallbackError) {
+        console.error('Fallback rendering also failed:', fallbackError);
+        this.renderedSQL = '// Rendering failed. Please check your template and values.';
+      }
     } finally {
       this.isRendering = false;
       this.lastRenderTime = performance.now() - startTime;
@@ -533,6 +665,9 @@ export class JinjaSqlPreview extends LitElement {
       return rendered;
     } catch (error) {
       console.error('Nunjucks rendering failed:', error);
+      console.error('Template:', template);
+      console.error('Values:', values);
+      console.error('Error details:', error instanceof Error ? error.stack : error);
       return this.simulateTemplateRendering(template, values);
     }
   }
@@ -547,9 +682,27 @@ export class JinjaSqlPreview extends LitElement {
   }
 
   private highlightSQL(sql: string): string {
-    if (!this.highlightSyntax) return sql;
+    if (!this.highlightSyntax) return this.escapeHtml(sql);
+
+    // Try to use highlight.js if available
+    try {
+      const hljs = (globalThis as any).hljs;
+      if (hljs && hljs.highlight) {
+        const result = hljs.highlight(sql, { language: 'sql', ignoreIllegals: true });
+        return `<pre><code class="hljs sql">${result.value}</code></pre>`;
+      }
+    } catch (error) {
+      // Fallback to simple highlighting if highlight.js fails
+      console.warn('highlight.js not available, using fallback highlighting:', error);
+    }
+
+    // Fallback to simple keyword highlighting
+    return `<pre><code class="sql-content">${this.simpleHighlightSQL(sql)}</code></pre>`;
+  }
+
+  private simpleHighlightSQL(sql: string): string {
     const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'TRUE', 'FALSE', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'TABLE', 'INDEX', 'CREATE', 'ALTER', 'DROP', 'DATABASE', 'SCHEMA', 'VIEW', 'TRIGGER', 'PROCEDURE', 'FUNCTION'];
-    let result = sql.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let result = this.escapeHtml(sql);
     keywords.sort((a, b) => b.length - a.length);
     keywords.forEach(keyword => {
       const upperKeyword = keyword.toUpperCase();
@@ -585,23 +738,35 @@ export class JinjaSqlPreview extends LitElement {
     return result;
   }
 
+  private escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
   private async copyToClipboard() {
     try {
+      // Ensure we have the latest rendered SQL
+      if (!this.renderedSQL && this.template) {
+        await this.renderTemplate();
+      }
+
+      const sqlToCopy = this.renderedSQL || this.template || '';
+
       if (navigator.clipboard && navigator.clipboard.writeText) {
-        await navigator.clipboard.writeText(this.renderedSQL);
+        await navigator.clipboard.writeText(sqlToCopy);
         this.showCopySuccess();
       } else {
-        await this.fallbackCopyToExtension();
+        await this.fallbackCopyToExtension(sqlToCopy);
       }
     } catch (error) {
       console.error('Failed to copy to clipboard:', error);
-      await this.fallbackCopyToExtension();
+      await this.fallbackCopyToExtension(this.renderedSQL || this.template || '');
     }
   }
 
-  private async fallbackCopyToExtension() {
+  private async fallbackCopyToExtension(sqlToCopy?: string) {
     try {
-      const message = { command: 'copyToClipboard', text: this.renderedSQL };
+      const text = sqlToCopy || this.renderedSQL || this.template || '';
+      const message = { command: 'copyToClipboard', text };
       window.parent.postMessage(message, '*');
       this.showCopySuccess();
     } catch (error) {
@@ -696,7 +861,7 @@ export class JinjaSqlPreview extends LitElement {
                 </div>
               </div>
             ` : hasContent ? html`
-              <div class="sql-content ${classMap({ [`theme-${this.theme}`]: true })}" .innerHTML=${this.highlightSQL(this.renderedSQL)}></div>
+              <div class="sql-content ${classMap({ [`theme-${this.theme}`]: true })}">${unsafeHTML(this.highlightSQL(this.renderedSQL))}</div>
             ` : html`
               <div class="empty-state">
                 <div class="empty-icon">📄</div>

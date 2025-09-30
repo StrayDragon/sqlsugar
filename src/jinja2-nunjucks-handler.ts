@@ -237,19 +237,10 @@ export class Jinja2NunjucksHandler {
       const preview = this.processor.getTemplatePreview(template);
       const title = `Jinja2 Template: ${preview}`;
 
-
       const userValues = await Jinja2WebviewEditor.showEditor(template, variables, title);
 
-
-      let sql = this.processor.renderWithCustomVariables(template, userValues);
-
-
-      if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, userValues);
-        sql = result.convertedSQL;
-      }
-
-      await this.copyToClipboard(sql, template, variables, userValues);
+      // WebView mode lets users manually copy the SQL, so we don't auto-copy here
+      // Users can copy from the WebView interface using the copy button
       return true;
     } catch (error) {
       vscode.window.showErrorMessage(

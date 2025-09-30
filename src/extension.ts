@@ -1,6 +1,7 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { Logger } from './core/logger';
 
 import { ExtensionCore } from './core/extension-core';
 
@@ -11,19 +12,19 @@ let extensionCore: ExtensionCore | undefined;
  * 扩展激活函数
  */
 export function activate(context: vscode.ExtensionContext) {
-  console.log('SQLSugar extension activated');
+  Logger.info('SQLSugar extension activated');
 
   try {
     // 创建扩展核心实例
     extensionCore = ExtensionCore.getInstance(context);
-    console.log('ExtensionCore instance created successfully');
+    Logger.debug('ExtensionCore instance created successfully');
 
     // 注册开发者命令
     registerDeveloperCommands();
 
-    console.log('SQLSugar extension activated successfully');
+    Logger.info('SQLSugar extension activated successfully');
   } catch (error) {
-    console.error('Failed to activate SQLSugar extension:', error);
+    Logger.error('Failed to activate SQLSugar extension:', error);
     vscode.window.showErrorMessage(`Failed to activate SQLSugar: ${error}`);
   }
 }
@@ -32,7 +33,7 @@ export function activate(context: vscode.ExtensionContext) {
  * 扩展停用函数
  */
 export async function deactivate() {
-  console.log('SQLSugar extension deactivating');
+  Logger.info('SQLSugar extension deactivating');
 
   try {
     if (extensionCore) {
@@ -40,7 +41,7 @@ export async function deactivate() {
       extensionCore = undefined;
     }
   } catch (error) {
-    console.error('Error during deactivation:', error);
+    Logger.error('Error during deactivation:', error);
   }
 }
 

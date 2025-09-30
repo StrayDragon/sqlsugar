@@ -2,6 +2,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { ExtensionCore } from './core/extension-core';
+import { Logger } from './core/logger';
 import { Jinja2Variable } from './jinja2-nunjucks-processor';
 import { Jinja2VariableValue } from './jinja2-editor/types.js';
 
@@ -235,7 +236,7 @@ export class Jinja2WebviewEditor {
       // 首先尝试使用 VS Code 的剪贴板 API
       await vscode.env.clipboard.writeText(text);
     } catch (error) {
-      console.warn('VS Code clipboard failed, trying fallback:', error);
+          Logger.warn('VS Code clipboard failed, trying fallback:', error);
 
       // 检查是否启用了 wl-copy fallback
       const config = vscode.workspace.getConfiguration('sqlsugar');
@@ -261,9 +262,9 @@ export class Jinja2WebviewEditor {
     try {
       // 使用 wl-copy 复制文本
       await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
-      console.log('Text copied to clipboard using wl-copy');
+      Logger.info('Text copied to clipboard using wl-copy');
     } catch (error) {
-      console.error('wl-copy failed:', error);
+      Logger.error('wl-copy failed:', error);
       throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
     }
   }

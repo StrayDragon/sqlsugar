@@ -206,8 +206,8 @@
   "scripts": {
     "preinstall": "npx only-allow pnpm",
     "vscode:prepublish": "pnpm run package",
-    "compile": "pnpm run lint && node esbuild.js",
-    "package": "pnpm run lint && node esbuild.js --production",
+    "compile": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js",
+    "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
     "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
     "vsix": "pnpm run package && vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
     "check-types": "tsc --noEmit",

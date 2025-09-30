@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { Logger } from './logger';
 
 import { Result } from '../types/result';
 import { CommandManager } from './command-manager';
@@ -99,15 +100,15 @@ export class ExtensionCore {
     if (process.env.VSCODE_TEST !== 'true') {
       // 启动SQLs客户端
       this.sqlsClientManager.startClient().catch(error => {
-        console.error('Failed to start SQLs client:', error);
+        Logger.error('Failed to start SQLs client:', error);
       });
 
       // 初始化数据库连接
       this.sqlsClientManager.initializeConnection().catch(error => {
-        console.error('Failed to initialize connection:', error);
+        Logger.error('Failed to initialize connection:', error);
       });
     } else {
-      console.log('Test environment detected, skipping SQLs client startup');
+      Logger.info('Test environment detected, skipping SQLs client startup');
     }
 
     // 注册事件监听器
@@ -179,7 +180,7 @@ export class ExtensionCore {
     // 清理DI容器
     this.container.dispose();
 
-    console.log('ExtensionCore disposed successfully');
+    Logger.info('ExtensionCore disposed successfully');
   }
 
   // 公共访问方法

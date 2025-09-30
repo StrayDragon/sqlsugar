@@ -7,8 +7,8 @@ import { Jinja2VariableValue } from './jinja2-editor/types.js';
  */
 interface NunjucksNode extends Record<string, unknown> {
   typename?: string;
-  value?: string;
-  name?: { value?: string };
+  value?: unknown;
+  name?: { value?: string } | unknown;
   args?: { children?: unknown[] };
   target?: { value?: string };
   val?: { value?: string };
@@ -25,10 +25,27 @@ interface NunjucksNode extends Record<string, unknown> {
 /**
  * Nunjucks 内部 API 类型扩展
  */
+interface NunjucksParser {
+  parse: (src: string, extensions?: unknown[], opts?: unknown) => NunjucksNode;
+}
+
 interface NunjucksInternal {
-  parser?: unknown;
+  parser?: NunjucksParser;
   nodes?: unknown;
-  // 其他 nunjucks 属性...
+}
+
+function isNunjucksNode(value: unknown): value is NunjucksNode {
+  return value !== null && typeof value === 'object';
+}
+
+function forEachChild(node: NunjucksNode, fn: (child: NunjucksNode) => void): void {
+  if (Array.isArray(node.children)) {
+    node.children.forEach((child) => {
+      if (isNunjucksNode(child)) {
+        fn(child);
+      }
+    });
+  }
 }
 
 /**
@@ -597,11 +614,11 @@ export class Jinja2NunjucksProcessor {
 
     try {
       // 尝试访问nunjucks的内部parser
-      const nunjucksInternal = nunjucks as NunjucksInternal;
-      const parser = nunjucksInternal.parser;
+      const nunjucksInternal = nunjucks as unknown as NunjucksInternal;
+      const parser = nunjucksInternal.parser as NunjucksParser | undefined;
       const nodes = nunjucksInternal.nodes;
 
-      if (!parser || !nodes) {
+      if (!parser || typeof parser.parse !== 'function' || !nodes) {
         throw new Error('nunjucks内部API不可用');
       }
 
@@ -643,8 +660,9 @@ export class Jinja2NunjucksProcessor {
     switch (node.typename) {
       case 'Symbol':
         // 变量引用节点
-        const varName = node.value;
-        if (varName && !processedNames.has(varName)) {
+        if (typeof node.value === 'string') {
+          const varName = node.value;
+          if (!processedNames.has(varName)) {
           variables.push({
             name: varName,
             type: this.inferVariableType(varName),
@@ -654,6 +672,7 @@ export class Jinja2NunjucksProcessor {
             extractionMethod: 'nunjucks',
           });
           processedNames.add(varName);
+          }
         }
         break;
 
@@ -667,128 +686,94 @@ export class Jinja2NunjucksProcessor {
         // 过滤器节点，特殊处理
         this.extractVariablesFromFilter(node, variables, processedNames);
         // Also process children to ensure we don't miss anything
-        if (node.children) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'FunCall':
         // 普通函数调用节点
-        this.extractVariablesFromNode(node.name, variables, processedNames);
-        if (node.args) {
-          node.args.forEach((arg: unknown) => {
-            this.extractVariablesFromNode(arg, variables, processedNames);
+        if (isNunjucksNode(node.name)) {
+          this.extractVariablesFromNode(node.name, variables, processedNames);
+        }
+        if (node.args && Array.isArray(node.args.children)) {
+          node.args.children.forEach((arg) => {
+            if (isNunjucksNode(arg)) {
+              this.extractVariablesFromNode(arg, variables, processedNames);
+            }
           });
         }
         break;
 
       case 'If':
         // 条件语句节点
-        this.extractVariablesFromNode(node.cond, variables, processedNames);
-        if (node.body) {
-          this.extractVariablesFromNode(node.body, variables, processedNames);
-        }
-        if (node.else_) {
-          this.extractVariablesFromNode(node.else_, variables, processedNames);
-        }
+        if (isNunjucksNode(node.cond)) this.extractVariablesFromNode(node.cond, variables, processedNames);
+        if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
+        if (isNunjucksNode(node.else_)) this.extractVariablesFromNode(node.else_, variables, processedNames);
         break;
 
       case 'For':
         // 循环语句节点
-        this.extractVariablesFromNode(node.arr, variables, processedNames);
-        if (node.body) {
-          this.extractVariablesFromNode(node.body, variables, processedNames);
-        }
+        if (isNunjucksNode(node.arr)) this.extractVariablesFromNode(node.arr, variables, processedNames);
+        if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
         break;
 
       case 'Output':
         // 输出节点 {{ variable }}
-        if (node.children) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'TemplateData':
         // 模板根节点
-        if (node.children) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'Group':
         // 分组节点
-        if (node.children) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'Array':
         // 数组节点
-        if (node.children) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'Pair':
         // 键值对节点
-        this.extractVariablesFromNode(node.key, variables, processedNames);
-        this.extractVariablesFromNode(node.value, variables, processedNames);
+        if (isNunjucksNode(node.key)) this.extractVariablesFromNode(node.key, variables, processedNames);
+        if (isNunjucksNode(node.value)) this.extractVariablesFromNode(node.value, variables, processedNames);
         break;
 
       case 'Dict':
         // 字典节点
-        if (node.children) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
         break;
 
       case 'UnaryOp':
         // 一元操作符节点
-        this.extractVariablesFromNode(node.target, variables, processedNames);
+        if (isNunjucksNode(node.target)) this.extractVariablesFromNode(node.target, variables, processedNames);
         break;
 
       case 'BinaryOp':
         // 二元操作符节点
-        this.extractVariablesFromNode(node.left, variables, processedNames);
-        this.extractVariablesFromNode(node.right, variables, processedNames);
+        if (isNunjucksNode(node.left)) this.extractVariablesFromNode(node.left, variables, processedNames);
+        if (isNunjucksNode(node.right)) this.extractVariablesFromNode(node.right, variables, processedNames);
         break;
 
       case 'Compare':
         // 比较操作符节点
-        this.extractVariablesFromNode(node.left, variables, processedNames);
-        if (node.right) {
-          this.extractVariablesFromNode(node.right, variables, processedNames);
-        }
+        if (isNunjucksNode(node.left)) this.extractVariablesFromNode(node.left, variables, processedNames);
+        if (isNunjucksNode(node.right)) this.extractVariablesFromNode(node.right, variables, processedNames);
         break;
 
       default:
         // 处理其他可能的节点类型
-        if (node.children && Array.isArray(node.children)) {
-          node.children.forEach((child: unknown) => {
-            this.extractVariablesFromNode(child, variables, processedNames);
-          });
-        }
-        if (node.body) {
-          this.extractVariablesFromNode(node.body, variables, processedNames);
-        }
-        if (node.cond) {
-          this.extractVariablesFromNode(node.cond, variables, processedNames);
-        }
-        if (node.args && Array.isArray(node.args)) {
-          node.args.forEach((arg: unknown) => {
-            this.extractVariablesFromNode(arg, variables, processedNames);
+        forEachChild(node, (child) => this.extractVariablesFromNode(child, variables, processedNames));
+        if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
+        if (isNunjucksNode(node.cond)) this.extractVariablesFromNode(node.cond, variables, processedNames);
+        if (node.args && Array.isArray(node.args.children)) {
+          node.args.children.forEach((arg) => {
+            if (isNunjucksNode(arg)) {
+              this.extractVariablesFromNode(arg, variables, processedNames);
+            }
           });
         }
         break;
@@ -831,36 +816,40 @@ export class Jinja2NunjucksProcessor {
     processedNames: Set<string>
   ): void {
     // 过滤器节点结构：name是过滤器名，args.children是被过滤的变量
-    const filterName = node.name?.value;
+    let filterName: string | undefined;
+    const maybeNameValue = (node.name as Record<string, unknown> | undefined)?.value;
+    if (typeof maybeNameValue === 'string') {
+      filterName = maybeNameValue;
+    }
 
-    if (node.args && node.args.children) {
+    if (node.args && Array.isArray(node.args.children)) {
       // 处理被过滤的变量（在args.children中）
-      node.args.children.forEach((arg: unknown) => {
-        // First, check if this is a symbol node (variable)
-        const argNode = arg as NunjucksNode;
-        if (argNode && argNode.typename === 'Symbol' && argNode.value) {
-          const varName = argNode.value;
-          if (!processedNames.has(varName)) {
-            // Create the variable with the filter
-            variables.push({
-              name: varName,
-              type: this.inferVariableType(varName),
-              defaultValue: this.getDefaultValue(varName) as Jinja2VariableValue,
-              required: this.isRequiredVariable(varName),
-              filters: filterName ? [filterName] : [],
-              extractionMethod: 'nunjucks',
-            });
-            processedNames.add(varName);
-          } else if (filterName) {
-            // Variable already exists, add the filter
-            const existingVar = variables.find(v => v.name === varName);
-            if (existingVar && existingVar.filters && !existingVar.filters.includes(filterName)) {
-              existingVar.filters.push(filterName);
+      node.args.children.forEach((arg) => {
+        if (isNunjucksNode(arg)) {
+          if (arg.typename === 'Symbol' && arg.value) {
+            const varName = arg.value as string;
+            if (!processedNames.has(varName)) {
+              // Create the variable with the filter
+              variables.push({
+                name: varName,
+                type: this.inferVariableType(varName),
+                defaultValue: this.getDefaultValue(varName) as Jinja2VariableValue,
+                required: this.isRequiredVariable(varName),
+                filters: filterName ? [filterName] : ([] as string[]),
+                extractionMethod: 'nunjucks',
+              });
+              processedNames.add(varName);
+            } else if (typeof filterName === 'string') {
+              // Variable already exists, add the filter
+              const existingVar = variables.find(v => v.name === varName);
+              if (existingVar && existingVar.filters && !existingVar.filters.includes(filterName)) {
+                existingVar.filters.push(filterName);
+              }
             }
+          } else {
+            // Recursively process other node types
+            this.extractVariablesFromNode(arg, variables, processedNames);
           }
-        } else {
-          // Recursively process other node types
-          this.extractVariablesFromNode(arg, variables, processedNames);
         }
       });
     }

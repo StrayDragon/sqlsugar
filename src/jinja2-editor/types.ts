@@ -21,6 +21,11 @@ export type Jinja2VariableValue =
 export type Jinja2EnumValue = string | number;
 
 /**
+ * HTML input 元素的类型
+ */
+export type HTMLInputType = 'number' | 'text' | 'email' | 'url' | 'password';
+
+/**
  * 支持的变量类型
  */
 export type Jinja2VariableType =

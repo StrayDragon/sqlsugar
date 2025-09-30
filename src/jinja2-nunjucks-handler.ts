@@ -1,4 +1,6 @@
 import * as vscode from 'vscode';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { Logger } from './core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
@@ -572,8 +574,6 @@ export class Jinja2NunjucksHandler {
    * 使用 wl-copy 命令复制文本到剪贴板（Linux Wayland）
    */
   private async copyWithWlCopy(text: string): Promise<void> {
-    const { exec } = require('child_process');
-    const { promisify } = require('util');
     const execAsync = promisify(exec);
 
     try {

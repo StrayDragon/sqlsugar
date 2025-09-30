@@ -4,8 +4,8 @@
 // - Keeps line comments containing: @ts-, ts-expect-error, eslint-, <reference
 // - Ignores anything inside strings and template literals
 
-const fs = require('fs');
-const path = require('path');
+import { readFileSync, writeFileSync, readdirSync } from 'fs'
+import { isAbsolute, join, relative } from 'path'
 
 const ROOT = process.cwd();
 const targetDir = process.argv[2] || 'src';
@@ -31,11 +31,11 @@ function isTsFile(file) {
 }
 
 function readFile(filePath) {
-  return fs.readFileSync(filePath, 'utf8');
+  return readFileSync(filePath, 'utf8');
 }
 
 function writeFile(filePath, content) {
-  fs.writeFileSync(filePath, content, 'utf8');
+  writeFileSync(filePath, content, 'utf8');
 }
 
 function stripLineCommentsPreservingBlocks(code) {
@@ -129,10 +129,10 @@ function stripLineCommentsPreservingBlocks(code) {
 }
 
 function walk(dir) {
-  const abs = path.isAbsolute(dir) ? dir : path.join(ROOT, dir);
-  const entries = fs.readdirSync(abs, { withFileTypes: true });
+  const abs = isAbsolute(dir) ? dir : join(ROOT, dir);
+  const entries = readdirSync(abs, { withFileTypes: true });
   for (const e of entries) {
-    const p = path.join(abs, e.name);
+    const p = join(abs, e.name);
     if (e.isDirectory()) {
       walk(p);
     } else if (e.isFile() && isTsFile(p)) {
@@ -142,7 +142,7 @@ function walk(dir) {
       after = after.replace(/[ \t]+(?=\r?\n)/g, '');
       if (after !== before) {
         writeFile(p, after);
-        process.stdout.write(`cleaned: ${path.relative(ROOT, p)}\n`);
+        process.stdout.write(`cleaned: ${relative(ROOT, p)}\n`);
       }
     }
   }

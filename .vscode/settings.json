@@ -1,4 +1,5 @@
 {
+    "editor.formatOnSave": false,
     "explorer.excludeGitIgnore": true,
     "files.exclude": {
         "out": false, // set this to true to hide the "out" folder with the compiled JS files
@@ -33,5 +34,4 @@
     ],
     "sqlfluff.workingDirectory": "${workspaceFolder}",
     "sqlfluff.config": "${workspaceFolder}/.sqlfluff",
-    "editor.formatOnSave": false
 }

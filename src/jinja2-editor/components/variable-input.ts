@@ -1,7 +1,7 @@
 import { LitElement, html, css } from 'lit';
 import { classMap } from 'lit/directives/class-map.js';
 import { customElement, property, state } from 'lit/decorators.js';
-import { Jinja2Variable, Jinja2VariableType, Jinja2VariableValue } from '../types.js';
+import { Jinja2Variable, Jinja2VariableType, Jinja2VariableValue, HTMLInputType } from '../types.js';
 
 @customElement('jinja-variable-input')
 export class JinjaVariableInput extends LitElement {
@@ -349,8 +349,8 @@ export class JinjaVariableInput extends LitElement {
     return typeMap[type] || type;
   }
 
-  private getInputType(type: Jinja2VariableType): string {
-    const inputTypeMap: Partial<Record<Jinja2VariableType, string>> = {
+  private getInputType(type: Jinja2VariableType): HTMLInputType {
+    const inputTypeMap: Partial<Record<Jinja2VariableType, HTMLInputType>> = {
       email: 'email',
       url: 'url',
       number: 'number',

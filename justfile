@@ -35,6 +35,7 @@ lint-fix:
 
 # Run linting on all files (including jinja2-editor)
 lint:
+    pnpm run check-types
     pnpm run lint
 
 # =============================================================================

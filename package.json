@@ -8,13 +8,10 @@
     "pnpm": ">=10",
     "vscode": "^1.74.0"
   },
+  "type": "module",
   "enabledApiProposals": [],
   "categories": [
     "Other"
-  ],
-  "activationEvents": [
-    "onCommand:sqlsugar.editInlineSQL",
-    "onCommand:sqlsugar.copyJinja2Template"
   ],
   "main": "./dist/extension.js",
   "types": "./dist/types/extension.d.ts",
@@ -209,7 +206,7 @@
     "compile": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js",
     "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
     "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
-    "vsix": "pnpm run package && vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
+    "vsix": "vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",

@@ -29,6 +29,32 @@ export class Jinja2Editor extends LitElement {
       background-color: var(--vscode-background);
       height: 100vh;
       --vscode-font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+      /* Enhanced spacing and border variables */
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+      --spacing-xl: 24px;
+      --border-radius-sm: 4px;
+      --border-radius-md: 6px;
+      --border-radius-lg: 8px;
+      --border-width: 1px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.15);
+      --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.2);
+      --transition-fast: 0.15s ease;
+      --transition-normal: 0.2s ease;
+      --font-size-xs: 11px;
+      --font-size-sm: 12px;
+      --font-size-md: 13px;
+      --font-size-lg: 14px;
+      --font-size-xl: 16px;
+      --font-weight-normal: 400;
+      --font-weight-medium: 500;
+      --font-weight-semibold: 600;
+      --line-height-tight: 1.3;
+      --line-height-normal: 1.5;
+      --line-height-relaxed: 1.6;
     }
 
     .editor-container {
@@ -38,27 +64,30 @@ export class Jinja2Editor extends LitElement {
       height: 100vh;
       padding: var(--spacing-lg);
       box-sizing: border-box;
-      background-color: var(--vscode-editor-background);
+      background: linear-gradient(135deg, var(--vscode-editor-background) 0%, var(--vscode-sideBar-background) 100%);
     }
 
     /* Variables Panel */
     .variables-panel {
       background: var(--vscode-editor-background);
       border-radius: var(--border-radius-lg);
-      border: 1px solid var(--vscode-widget-border);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      box-shadow: var(--shadow-md);
       display: flex;
       flex-direction: column;
       overflow: hidden;
       min-width: 300px;
+      backdrop-filter: blur(10px);
     }
 
     .panel-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--spacing-md);
-      border-bottom: 1px solid var(--vscode-widget-border);
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-bottom: var(--border-width) solid var(--vscode-widget-border);
       background: linear-gradient(135deg, var(--vscode-editor-background) 0%, var(--vscode-textBlockQuote-background) 100%);
+      box-shadow: var(--shadow-sm);
     }
 
     .panel-title {
@@ -68,12 +97,18 @@ export class Jinja2Editor extends LitElement {
       display: flex;
       align-items: center;
       gap: var(--spacing-sm);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .panel-subtitle {
       font-size: var(--font-size-xs);
       color: var(--vscode-descriptionForeground);
       margin-left: var(--spacing-sm);
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 2px 6px;
+      border-radius: var(--border-radius-sm);
+      font-weight: var(--font-weight-medium);
     }
 
     .panel-actions {
@@ -82,25 +117,39 @@ export class Jinja2Editor extends LitElement {
     }
 
     .icon-button {
-      background: none;
-      border: none;
-      color: var(--vscode-icon-foreground);
+      background: var(--vscode-button-secondaryBackground);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      color: var(--vscode-button-secondaryForeground);
       cursor: pointer;
-      padding: 4px;
+      padding: 6px;
       border-radius: var(--border-radius-sm);
       transition: all var(--transition-fast);
       font-size: var(--font-size-md);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 32px;
+      height: 32px;
     }
 
     .icon-button:hover {
-      background: var(--vscode-button-secondaryBackground);
-      color: var(--vscode-button-secondaryForeground);
+      background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .icon-button:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
     }
 
     .panel-content {
       flex: 1;
       overflow-y: auto;
       padding: var(--spacing-md);
+      background: var(--vscode-editor-background);
     }
 
     .variables-list {
@@ -118,51 +167,59 @@ export class Jinja2Editor extends LitElement {
       color: var(--vscode-descriptionForeground);
       text-align: center;
       padding: var(--spacing-lg);
+      border: 2px dashed var(--vscode-widget-border);
+      border-radius: var(--border-radius-md);
+      background: var(--vscode-textBlockQuote-background);
     }
 
     .empty-icon {
       font-size: 48px;
       margin-bottom: var(--spacing-md);
-      opacity: 0.5;
+      opacity: 0.6;
     }
 
     .empty-title {
       font-size: var(--font-size-md);
       font-weight: var(--font-weight-medium);
       margin-bottom: var(--spacing-sm);
+      color: var(--vscode-foreground);
     }
 
     .empty-description {
       font-size: var(--font-size-sm);
       line-height: var(--line-height-normal);
       opacity: 0.8;
+      max-width: 300px;
     }
 
     /* Preview Panel */
     .preview-panel {
       background: var(--vscode-editor-background);
       border-radius: var(--border-radius-lg);
-      border: 1px solid var(--vscode-widget-border);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      box-shadow: var(--shadow-md);
       display: flex;
       flex-direction: column;
       overflow: hidden;
       min-width: 400px;
+      backdrop-filter: blur(10px);
     }
 
     /* Quick Actions */
     .quick-actions {
       display: flex;
       gap: var(--spacing-sm);
-      padding: var(--spacing-md);
-      border-bottom: 1px solid var(--vscode-widget-border);
-      background: var(--vscode-textBlockQuote-background);
+      padding: var(--spacing-md) var(--spacing-lg);
+      border-bottom: var(--border-width) solid var(--vscode-widget-border);
+      background: linear-gradient(135deg, var(--vscode-textBlockQuote-background) 0%, var(--vscode-editor-background) 100%);
+      box-shadow: var(--shadow-sm);
     }
 
     .action-button {
       background: var(--vscode-button-background);
       color: var(--vscode-button-foreground);
-      border: none;
-      padding: 6px 12px;
+      border: var(--border-width) solid var(--vscode-button-border);
+      padding: 8px 16px;
       border-radius: var(--border-radius-sm);
       font-size: var(--font-size-sm);
       cursor: pointer;
@@ -172,35 +229,52 @@ export class Jinja2Editor extends LitElement {
       align-items: center;
       gap: 6px;
       font-weight: var(--font-weight-medium);
+      box-shadow: var(--shadow-sm);
+      white-space: nowrap;
     }
 
     .action-button:hover {
       background: var(--vscode-button-hoverBackground);
+      border-color: var(--vscode-focusBorder);
       transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .action-button:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
     }
 
     .action-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
       transform: none;
+      box-shadow: none;
     }
 
     .action-button.secondary {
       background: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
+      border-color: var(--vscode-widget-border);
     }
 
     .action-button.secondary:hover {
       background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
     }
+
     .action-button.primary {
-      background: var(--vscode-badge-background);
+      background: linear-gradient(135deg, var(--vscode-badge-background) 0%, var(--vscode-button-background) 100%);
       color: var(--vscode-badge-foreground);
+      border-color: var(--vscode-focusBorder);
       font-weight: var(--font-weight-semibold);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
+
     .action-button.primary:hover {
-      background: var(--vscode-button-background);
+      background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-badge-background) 100%);
       transform: translateY(-1px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     }
 
     /* Status Bar */
@@ -208,11 +282,12 @@ export class Jinja2Editor extends LitElement {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--spacing-xs) var(--spacing-md);
-      border-top: 1px solid var(--vscode-widget-border);
-      background: var(--vscode-editor-background);
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-top: var(--border-width) solid var(--vscode-widget-border);
+      background: linear-gradient(135deg, var(--vscode-editor-background) 0%, var(--vscode-textBlockQuote-background) 100%);
       font-size: var(--font-size-xs);
       color: var(--vscode-descriptionForeground);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
     }
 
     .status-info {
@@ -225,27 +300,40 @@ export class Jinja2Editor extends LitElement {
       display: flex;
       align-items: center;
       gap: 4px;
+      padding: 2px 6px;
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: var(--border-radius-sm);
+      border: var(--border-width) solid var(--vscode-widget-border);
     }
 
     .status-indicator {
-      width: 6px;
-      height: 6px;
+      width: 8px;
+      height: 8px;
       border-radius: 50%;
       background-color: var(--vscode-badge-background);
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
     }
 
     .status-indicator.success {
       background-color: var(--vscode-charts-green);
+      box-shadow: 0 0 6px rgba(74, 184, 114, 0.4);
     }
 
     .status-indicator.processing {
       background-color: var(--vscode-charts-blue);
       animation: pulse 1.5s ease-in-out infinite;
+      box-shadow: 0 0 6px rgba(66, 133, 244, 0.4);
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(1.2);
+      }
     }
 
     /* Loading Overlay */
@@ -255,23 +343,25 @@ export class Jinja2Editor extends LitElement {
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0, 0, 0, 0.5);
+      background: rgba(0, 0, 0, 0.6);
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 1000;
       border-radius: var(--border-radius-lg);
+      backdrop-filter: blur(4px);
     }
 
     .loading-content {
       background: var(--vscode-editor-background);
-      padding: var(--spacing-lg);
+      padding: var(--spacing-xl);
       border-radius: var(--border-radius-md);
       display: flex;
       flex-direction: column;
       align-items: center;
       gap: var(--spacing-md);
       box-shadow: var(--shadow-lg);
+      border: var(--border-width) solid var(--vscode-widget-border);
     }
 
     .loading-spinner {
@@ -293,9 +383,10 @@ export class Jinja2Editor extends LitElement {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--spacing-sm) var(--spacing-md);
-      border-bottom: 1px solid var(--vscode-widget-border);
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-bottom: var(--border-width) solid var(--vscode-widget-border);
       background: var(--vscode-editor-background);
+      box-shadow: var(--shadow-sm);
     }
 
     .toolbar-section {
@@ -308,6 +399,7 @@ export class Jinja2Editor extends LitElement {
       width: 1px;
       height: 20px;
       background: var(--vscode-widget-border);
+      margin: 0 var(--spacing-xs);
     }
 
     /* Search and Filter */
@@ -319,28 +411,36 @@ export class Jinja2Editor extends LitElement {
 
     .search-input {
       width: 100%;
-      padding: 4px 8px 4px 24px;
-      border: 1px solid var(--vscode-input-border);
+      padding: 6px 8px 6px 28px;
+      border: var(--border-width) solid var(--vscode-input-border);
       border-radius: var(--border-radius-sm);
       background: var(--vscode-input-background);
       color: var(--vscode-input-foreground);
       font-size: var(--font-size-xs);
       outline: none;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+      transition: all var(--transition-fast);
     }
 
     .search-input:focus {
       border-color: var(--vscode-focusBorder);
-      outline: 1px solid var(--vscode-focusBorder);
+      outline: var(--border-width) solid var(--vscode-focusBorder);
       outline-offset: -1px;
+      box-shadow: 0 0 0 2px rgba(var(--vscode-focusBorder-rgb), 0.2);
+    }
+
+    .search-input:hover {
+      border-color: var(--vscode-inputOption-hoverBorder);
     }
 
     .search-icon {
       position: absolute;
-      left: 6px;
+      left: 8px;
       top: 50%;
       transform: translateY(-50%);
       color: var(--vscode-descriptionForeground);
       font-size: 12px;
+      opacity: 0.7;
     }
 
     /* Responsive */
@@ -395,6 +495,7 @@ export class Jinja2Editor extends LitElement {
       --vscode-widget-border: #e0e0e0;
       --vscode-textBlockQuote-background: #f5f5f5;
       --vscode-textBlockQuote-border: #d0d0d0;
+      --vscode-sideBar-background: #f3f3f3;
     }
 
     :host([theme="dark"]) {
@@ -403,6 +504,7 @@ export class Jinja2Editor extends LitElement {
       --vscode-widget-border: #333333;
       --vscode-textBlockQuote-background: #2d2d2d;
       --vscode-textBlockQuote-border: #3e3e42;
+      --vscode-sideBar-background: #252526;
     }
   `;
 

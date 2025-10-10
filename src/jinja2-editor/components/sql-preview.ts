@@ -144,26 +144,52 @@ export class JinjaSqlPreview extends LitElement {
       display: block;
       height: 100%;
       font-family: var(--vscode-font-family);
+      /* Enhanced variables */
+      --spacing-xs: 4px;
+      --spacing-sm: 8px;
+      --spacing-md: 12px;
+      --spacing-lg: 16px;
+      --border-radius-sm: 4px;
+      --border-radius-md: 6px;
+      --border-radius-lg: 8px;
+      --border-width: 1px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.1);
+      --shadow-md: 0 2px 6px rgba(0, 0, 0, 0.15);
+      --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.2);
+      --transition-fast: 0.15s ease;
+      --font-size-xs: 11px;
+      --font-size-sm: 12px;
+      --font-size-md: 13px;
+      --font-size-lg: 14px;
+      --font-weight-normal: 400;
+      --font-weight-medium: 500;
+      --font-weight-semibold: 600;
+      --line-height-tight: 1.3;
+      --line-height-normal: 1.5;
+      --line-height-relaxed: 1.6;
     }
 
     .preview-container {
       height: 100%;
       display: flex;
       flex-direction: column;
-      background-color: var(--vscode-editor-background);
-      border-radius: var(--border-radius-md);
-      border: 1px solid var(--vscode-widget-border);
+      background: linear-gradient(135deg, var(--vscode-editor-background) 0%, var(--vscode-sideBar-background) 100%);
+      border-radius: var(--border-radius-lg);
+      border: var(--border-width) solid var(--vscode-widget-border);
       overflow: hidden;
+      box-shadow: var(--shadow-md);
+      backdrop-filter: blur(10px);
     }
 
     .preview-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: var(--spacing-sm) var(--spacing-md);
-      border-bottom: 1px solid var(--vscode-widget-border);
-      background-color: var(--vscode-editor-background);
-      min-height: 40px;
+      padding: var(--spacing-sm) var(--spacing-lg);
+      border-bottom: var(--border-width) solid var(--vscode-widget-border);
+      background: linear-gradient(135deg, var(--vscode-editor-background) 0%, var(--vscode-textBlockQuote-background) 100%);
+      min-height: 48px;
+      box-shadow: var(--shadow-sm);
     }
 
     .preview-title {
@@ -173,6 +199,7 @@ export class JinjaSqlPreview extends LitElement {
       display: flex;
       align-items: center;
       gap: var(--spacing-sm);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .preview-actions {
@@ -184,29 +211,44 @@ export class JinjaSqlPreview extends LitElement {
     .toggle-button {
       background: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
-      border: none;
-      padding: 4px 8px;
+      border: var(--border-width) solid var(--vscode-widget-border);
+      padding: 6px 12px;
       border-radius: var(--border-radius-sm);
       font-size: var(--font-size-xs);
       cursor: pointer;
       transition: all var(--transition-fast);
       font-family: var(--vscode-font-family);
+      font-weight: var(--font-weight-medium);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .toggle-button:hover {
       background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .toggle-button:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
     }
 
     .toggle-button.active {
-      background: var(--vscode-button-background);
+      background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-badge-background) 100%);
       color: var(--vscode-button-foreground);
+      border-color: var(--vscode-focusBorder);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
     }
 
     .render-button {
-      background: var(--vscode-button-background);
+      background: linear-gradient(135deg, var(--vscode-button-background) 0%, var(--vscode-badge-background) 100%);
       color: var(--vscode-button-foreground);
-      border: none;
-      padding: 4px 12px;
+      border: var(--border-width) solid var(--vscode-button-border);
+      padding: 6px 16px;
       border-radius: var(--border-radius-sm);
       font-size: var(--font-size-xs);
       cursor: pointer;
@@ -214,16 +256,28 @@ export class JinjaSqlPreview extends LitElement {
       font-family: var(--vscode-font-family);
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+      font-weight: var(--font-weight-medium);
+      box-shadow: var(--shadow-sm);
     }
 
     .render-button:hover {
-      background: var(--vscode-button-hoverBackground);
+      background: linear-gradient(135deg, var(--vscode-button-hoverBackground) 0%, var(--vscode-button-background) 100%);
+      border-color: var(--vscode-focusBorder);
+      transform: translateY(-1px);
+      box-shadow: var(--shadow-md);
+    }
+
+    .render-button:active {
+      transform: translateY(0);
+      box-shadow: var(--shadow-sm);
     }
 
     .render-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
     }
 
     .spinner {
@@ -382,7 +436,7 @@ export class JinjaSqlPreview extends LitElement {
       justify-content: space-between;
       align-items: center;
       padding: var(--spacing-xs) var(--spacing-md);
-      border-top: 1px solid var(--vscode-widget-border);
+      border-top: var(--border-width) solid var(--vscode-widget-border);
       background-color: var(--vscode-editor-background);
       font-size: var(--font-size-xs);
       color: var(--vscode-descriptionForeground);
@@ -398,6 +452,12 @@ export class JinjaSqlPreview extends LitElement {
       display: flex;
       align-items: center;
       gap: 4px;
+    }
+
+    .status-actions {
+      display: flex;
+      gap: var(--spacing-xs);
+      align-items: center;
     }
 
     .status-indicator {
@@ -763,22 +823,38 @@ export class JinjaSqlPreview extends LitElement {
     }
   }
 
-  private async fallbackCopyToExtension(sqlToCopy?: string) {
+  private async fallbackCopyToExtension(textToCopy?: string, buttonSelector: string = '.copy-button') {
     try {
-      const text = sqlToCopy || this.renderedSQL || this.template || '';
+      const text = textToCopy || this.renderedSQL || this.template || '';
       const message = { command: 'copyToClipboard', text };
       window.parent.postMessage(message, '*');
-      this.showCopySuccess();
+      this.showCopySuccess(buttonSelector);
     } catch (error) {
       console.error('Fallback clipboard copy failed:', error);
     }
   }
 
-  private showCopySuccess() {
-    const button = this.shadowRoot?.querySelector('.copy-button') as HTMLButtonElement;
+  private async copyTemplateToClipboard() {
+    try {
+      const templateToCopy = this.template || '';
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(templateToCopy);
+        this.showCopySuccess('copy-template-button');
+      } else {
+        await this.fallbackCopyToExtension(templateToCopy, 'copy-template-button');
+      }
+    } catch (error) {
+      console.error('Failed to copy template to clipboard:', error);
+      await this.fallbackCopyToExtension(this.template || '', 'copy-template-button');
+    }
+  }
+
+  private showCopySuccess(buttonSelector: string = '.copy-button') {
+    const button = this.shadowRoot?.querySelector(buttonSelector) as HTMLButtonElement;
     if (button) {
       const originalText = button.textContent;
-      button.textContent = 'Copied!';
+      button.textContent = '已复制!';
       button.classList.add('copied');
       setTimeout(() => {
         button.textContent = originalText as string;
@@ -883,7 +959,12 @@ export class JinjaSqlPreview extends LitElement {
             </div>
             ${this.lastRenderTime > 0 ? html`<div class="status-item"><span>${Math.round(this.lastRenderTime)}ms</span></div>` : ''}
           </div>
-          ${hasContent && !hasError ? html`<button class="copy-button" @click=${this.copyToClipboard} title="Copy SQL to clipboard">Copy</button>` : ''}
+          <div class="status-actions">
+            ${hasContent && !hasError ? html`
+              <button class="copy-button copy-template-button" @click=${this.copyTemplateToClipboard} title="复制原始模板到剪贴板">复制模板</button>
+              <button class="copy-button copy-sql-button" @click=${this.copyToClipboard} title="Copy SQL to clipboard">复制 SQL</button>
+            ` : ''}
+          </div>
         </div>
       </div>
     `;

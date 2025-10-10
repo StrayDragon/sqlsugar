@@ -12,20 +12,22 @@ export class JinjaInput extends LitElement {
     .input-container {
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 6px;
     }
 
     .input-label {
-      font-size: 12px;
-      font-weight: 500;
+      font-size: var(--font-size-sm);
+      font-weight: var(--font-weight-semibold);
       color: var(--vscode-foreground);
       display: flex;
       align-items: center;
       gap: 4px;
+      margin-bottom: 2px;
     }
 
     .input-label .required {
       color: var(--vscode-errorForeground);
+      font-weight: 700;
     }
 
     .input-wrapper {
@@ -36,94 +38,166 @@ export class JinjaInput extends LitElement {
 
     .input-field {
       width: 100%;
-      padding: 6px 8px;
-      border: 1px solid var(--vscode-input-border, transparent);
-      border-radius: 2px;
+      padding: 8px 12px;
+      border: 1px solid var(--vscode-input-border);
+      border-radius: 4px;
       background-color: var(--vscode-input-background);
       color: var(--vscode-input-foreground);
       font-family: var(--vscode-font-family);
-      font-size: 13px;
+      font-size: var(--font-size-md);
       outline: none;
       box-sizing: border-box;
-      transition: border-color 0.2s ease;
+      transition: all 0.2s ease;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     }
 
     .input-field:hover:not(:disabled) {
-      border-color: var(--vscode-input-border);
+      border-color: var(--vscode-inputOption-hoverBorder);
+      background-color: var(--vscode-input-hoverBackground);
     }
 
     .input-field:focus:not(:disabled) {
       border-color: var(--vscode-focusBorder);
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: -2px;
+      background-color: var(--vscode-input-background);
+      box-shadow: 0 0 0 3px rgba(var(--vscode-focusBorder-rgb), 0.2);
     }
 
     .input-field:disabled {
-      opacity: 0.7;
+      opacity: 0.6;
       cursor: not-allowed;
       background-color: var(--vscode-disabledBackground);
+      border-color: var(--vscode-disabledForeground);
     }
 
     .input-field::placeholder {
       color: var(--vscode-input-placeholderForeground);
+      font-style: italic;
     }
 
     .input-field.error {
       border-color: var(--vscode-errorForeground);
+      background-color: rgba(var(--vscode-errorForeground-rgb), 0.1);
+    }
+
+    .input-field.error:focus {
+      outline-color: var(--vscode-errorForeground);
+      box-shadow: 0 0 0 3px rgba(var(--vscode-errorForeground-rgb), 0.2);
     }
 
     .input-icon {
       position: absolute;
-      right: 8px;
+      right: 12px;
       color: var(--vscode-errorForeground);
       font-size: 16px;
       pointer-events: none;
+      animation: shake 0.5s ease-in-out infinite alternate;
+    }
+
+    @keyframes shake {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(1px); }
     }
 
     .input-helper {
-      font-size: 11px;
+      font-size: var(--font-size-xs);
       color: var(--vscode-descriptionForeground);
-      margin-top: 2px;
+      margin-top: 4px;
+      padding: 2px 0;
+      line-height: 1.4;
     }
 
     .input-error {
-      font-size: 11px;
+      font-size: var(--font-size-xs);
       color: var(--vscode-errorForeground);
-      margin-top: 2px;
+      margin-top: 4px;
       display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 6px;
+      padding: 4px 8px;
+      background-color: rgba(var(--vscode-errorForeground-rgb), 0.1);
+      border-radius: 3px;
+      border-left: 3px solid var(--vscode-errorForeground);
     }
 
     /* Clear button */
     .clear-button {
       position: absolute;
-      right: 8px;
-      background: none;
-      border: none;
+      right: 12px;
+      background: var(--vscode-button-secondaryBackground);
+      border: 1px solid var(--vscode-widget-border);
       color: var(--vscode-icon-foreground);
       cursor: pointer;
-      padding: 2px;
-      border-radius: 2px;
-      opacity: 0.7;
-      transition: opacity 0.2s ease;
+      padding: 4px 6px;
+      border-radius: 3px;
+      opacity: 0.8;
+      transition: all 0.2s ease;
+      font-size: var(--font-size-xs);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 20px;
+      height: 20px;
     }
 
     .clear-button:hover {
       opacity: 1;
+      background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
+      transform: scale(1.1);
     }
 
     .clear-button:focus {
-      outline: 1px solid var(--vscode-focusBorder);
-      outline-offset: -1px;
+      outline: 2px solid var(--vscode-focusBorder);
+      outline-offset: -2px;
+    }
+
+    .clear-button:active {
+      transform: scale(0.95);
     }
 
     .has-value .clear-button {
-      display: block;
+      display: flex;
     }
 
     .has-value .input-field {
-      padding-right: 28px;
+      padding-right: 40px;
+    }
+
+    /* Input types styling */
+    .input-field[type="number"] {
+      font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+    }
+
+    .input-field[type="password"] {
+      letter-spacing: 0.5px;
+    }
+
+    /* Validation states */
+    .input-field.success {
+      border-color: var(--vscode-charts-green);
+      background-color: rgba(var(--vscode-charts-green-rgb), 0.05);
+    }
+
+    .input-field.success:focus {
+      outline-color: var(--vscode-charts-green);
+      box-shadow: 0 0 0 3px rgba(var(--vscode-charts-green-rgb), 0.2);
+    }
+
+    /* Loading state */
+    .input-wrapper.loading .input-field {
+      background-image: linear-gradient(90deg,
+        var(--vscode-input-background) 0%,
+        var(--vscode-textBlockQuote-background) 50%,
+        var(--vscode-input-background) 100%);
+      background-size: 200% 100%;
+      animation: loading 1.5s ease-in-out infinite;
+    }
+
+    @keyframes loading {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
     }
   `;
 

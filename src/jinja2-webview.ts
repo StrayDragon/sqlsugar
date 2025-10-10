@@ -16,6 +16,7 @@ interface WebViewMessage {
   data?: unknown;
   config?: unknown;
   values?: Record<string, unknown>;
+  isTemplate?: boolean;
   [key: string]: unknown;
 }
 
@@ -196,7 +197,8 @@ export class Jinja2WebviewEditor {
       case 'copyToClipboard':
         if (message.text) {
           await this.copyToClipboardWithFallback(message.text);
-          vscode.window.showInformationMessage('SQL已复制到剪贴板');
+          const messageText = message.isTemplate ? '模板已复制到剪贴板' : 'SQL已复制到剪贴板';
+          vscode.window.showInformationMessage(messageText);
         }
         break;
 

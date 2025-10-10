@@ -823,10 +823,10 @@ export class JinjaSqlPreview extends LitElement {
     }
   }
 
-  private async fallbackCopyToExtension(textToCopy?: string, buttonSelector: string = '.copy-button') {
+  private async fallbackCopyToExtension(textToCopy?: string, buttonSelector: string = '.copy-button', isTemplate: boolean = false) {
     try {
       const text = textToCopy || this.renderedSQL || this.template || '';
-      const message = { command: 'copyToClipboard', text };
+      const message = { command: 'copyToClipboard', text, isTemplate };
       window.parent.postMessage(message, '*');
       this.showCopySuccess(buttonSelector);
     } catch (error) {
@@ -840,13 +840,16 @@ export class JinjaSqlPreview extends LitElement {
 
       if (navigator.clipboard && navigator.clipboard.writeText) {
         await navigator.clipboard.writeText(templateToCopy);
-        this.showCopySuccess('copy-template-button');
+        this.showCopySuccess('.copy-template-button');
+        // Also send message to extension for consistent feedback
+        const message = { command: 'copyToClipboard', text: templateToCopy, isTemplate: true };
+        window.parent.postMessage(message, '*');
       } else {
-        await this.fallbackCopyToExtension(templateToCopy, 'copy-template-button');
+        await this.fallbackCopyToExtension(templateToCopy, '.copy-template-button', true);
       }
     } catch (error) {
       console.error('Failed to copy template to clipboard:', error);
-      await this.fallbackCopyToExtension(this.template || '', 'copy-template-button');
+      await this.fallbackCopyToExtension(this.template || '', '.copy-template-button', true);
     }
   }
 

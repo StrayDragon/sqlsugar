@@ -692,6 +692,14 @@ export class Jinja2Editor extends LitElement {
     });
   }
 
+  private handleCopyTemplate() {
+    navigator.clipboard.writeText(this.template).then(() => {
+      this.showNotification('模板已复制到剪贴板');
+    }).catch(() => {
+      this.showNotification('复制模板失败', 'error');
+    });
+  }
+
   private handleSubmit() {
     const result = this.getRenderedResult();
     this.dispatchEvent(new CustomEvent('template-render', {
@@ -704,33 +712,6 @@ export class Jinja2Editor extends LitElement {
       bubbles: true,
       composed: true
     }));
-  }
-
-  private handleReset() {
-    this.initializeValues();
-    this.showNotification('值已重置为默认值');
-  }
-
-  private handleExportConfig() {
-    const config = {
-      template: this.template,
-      variables: this.variables.map(v => ({
-        name: v.name,
-        type: v.type,
-        description: v.description,
-        value: this.values[v.name]
-      }))
-    };
-
-    const blob = new Blob([JSON.stringify(config, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'jinja2-config.json';
-    a.click();
-    URL.revokeObjectURL(url);
-
-    this.showNotification('配置已导出');
   }
 
   private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
@@ -789,22 +770,6 @@ export class Jinja2Editor extends LitElement {
                 变量设置
                 <span class="panel-subtitle">${stats.configured}/${stats.total} 已配置</span>
               </div>
-            </div>
-            <div class="panel-actions">
-              <button
-                class="icon-button"
-                @click=${this.handleReset}
-                title="重置所有值为默认值"
-              >
-                🔄
-              </button>
-              <button
-                class="icon-button"
-                @click=${this.handleExportConfig}
-                title="导出配置"
-              >
-                📥
-              </button>
             </div>
           </div>
 
@@ -884,6 +849,13 @@ export class Jinja2Editor extends LitElement {
               ?disabled=${!this.template}
             >
               ✅ 完成并退出
+            </button>
+            <button
+              class="action-button"
+              @click=${this.handleCopyTemplate}
+              ?disabled=${!this.template}
+            >
+              📄 复制模板 SQL
             </button>
             <button
               class="action-button"

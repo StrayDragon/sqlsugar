@@ -243,8 +243,9 @@ export class Jinja2NunjucksHandler {
       // Users can copy from the WebView interface using the copy button
       return true;
     } catch (error) {
-      vscode.window.showErrorMessage(
-        `Webview mode failed: ${error instanceof Error ? error.message : String(error)}`
+      // Log webview closure instead of showing notification to avoid user interruption
+      Logger.info(
+        `Webview mode closed by user: ${error instanceof Error ? error.message : String(error)}`
       );
       return false;
     }

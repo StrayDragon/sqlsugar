@@ -14,7 +14,7 @@ class TestCommandManager {
    * 验证基本的前置条件
    */
   validateCommandPrerequisites(): { valid: boolean; editor?: any; error?: string } {
-    const vscode = global.vscode;
+    const vscode = (global as any).vscode;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       return { valid: false, error: 'No active editor found' };
@@ -51,7 +51,7 @@ class TestCommandManager {
   /**
    * 验证命令配置
    */
-  validateCommandConfiguration(commands: Array<{ name: string; callback: () => void }>): { valid: boolean; error?: string } {
+  validateCommandConfiguration(commands: any): { valid: boolean; error?: string } {
     if (!Array.isArray(commands)) {
       return { valid: false, error: 'Commands must be an array' };
     }
@@ -84,7 +84,7 @@ class TestCommandManager {
    * 注册单个命令
    */
   registerSingleCommand(name: string, callback: () => void): void {
-    const vscode = global.vscode;
+    const vscode = (global as any).vscode;
     try {
       this.context.subscriptions.push(
         vscode.commands.registerCommand(`sqlsugar.${name}`, callback)
@@ -106,7 +106,7 @@ describe('CommandManager Validation Utils', () => {
 
   beforeEach(() => {
     // Get vscode mock from global
-    vscode = global.vscode;
+    vscode = (global as any).vscode;
 
     // Clear all mocks
     vi.clearAllMocks();

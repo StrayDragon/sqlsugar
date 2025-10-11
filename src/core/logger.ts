@@ -2,11 +2,23 @@ import * as vscode from 'vscode';
 
 type LogLevel = 'none' | 'error' | 'warn' | 'info' | 'debug';
 
+function isValidLogLevel(level: string): level is LogLevel {
+  return ['none', 'error', 'warn', 'info', 'debug'].includes(level);
+}
+
 function getConfiguredLogLevel(): LogLevel {
   try {
     const config = vscode.workspace.getConfiguration('sqlsugar');
-    return (config.get<string>('logLevel', 'error') as LogLevel) || 'error';
-  } catch {
+    const level = config.get<string>('logLevel', 'error');
+
+    if (!isValidLogLevel(level)) {
+      console.warn(`Invalid logLevel configuration: '${level}'. Using default 'error'.`);
+      return 'error';
+    }
+
+    return level;
+  } catch (error) {
+    console.warn('Failed to get logLevel configuration:', error);
     return 'error';
   }
 }

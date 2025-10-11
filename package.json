@@ -193,6 +193,10 @@
     "check-types": "tsc --noEmit",
     "lint": "eslint src",
     "lint:fix": "eslint src --fix",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist/ out/ *.vsix",
     "build": "pnpm run compile"
   },
@@ -209,15 +213,19 @@
   "icon": "icon.png",
   "devDependencies": {
     "@types/js-yaml": "^4.0.9",
+    "@types/jsdom": "^27.0.0",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",
     "@types/vscode": "1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
+    "@vitest/ui": "^3.2.4",
     "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
-    "typescript": "^5.9.2"
+    "jsdom": "^27.0.0",
+    "typescript": "^5.9.2",
+    "vitest": "^3.2.4"
   },
   "packageManager": "pnpm@10.11.0+sha512.6540583f41cc5f628eb3d9773ecee802f4f9ef9923cc45b69890fb47991d4b092964694ec3a4f738a420c918a333062c8b925d312f42e4f0c263eb603551f977"
 }

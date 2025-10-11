@@ -519,6 +519,16 @@ export class Jinja2Editor extends LitElement {
     this.initializeValues();
   }
 
+  disconnectedCallback() {
+    super.disconnectedCallback();
+
+    // Clean up render timeout to prevent memory leaks
+    if (this.renderTimeout) {
+      clearTimeout(this.renderTimeout);
+      this.renderTimeout = null;
+    }
+  }
+
   private initializeValues() {
     const newValues: Record<string, Jinja2VariableValue> = {};
 

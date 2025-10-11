@@ -198,7 +198,7 @@ export class TempFileManager {
     try {
 
       if (!tempFileInfo.originalEditor || tempFileInfo.originalEditor.document.isClosed) {
-        console.log('Original editor is closed, skipping sync');
+        Logger.debug('Original editor is closed, skipping sync');
         return Result.ok(undefined);
       }
 
@@ -217,13 +217,13 @@ export class TempFileManager {
 
       const targetSelection = await this.validateAndUpdateSelection(tempFileInfo);
       if (!targetSelection) {
-        console.log('Invalid selection, skipping sync');
+        Logger.debug('Invalid selection, skipping sync');
         return Result.ok(undefined);
       }
 
 
       if (tempFileInfo.originalEditor.document.isClosed) {
-        console.log('Original editor closed before edit, skipping sync');
+        Logger.debug('Original editor closed before edit, skipping sync');
         return Result.ok(undefined);
       }
 
@@ -411,10 +411,10 @@ export class TempFileManager {
 
     if (tempFileCleanup && cleanupOnClose && !process.env.VSCODE_TEST) {
       vscode.workspace.fs.delete(uri).then(undefined, err => {
-        console.error('Failed to delete temp file:', err);
+        Logger.error('Failed to delete temp file:', err);
       });
     } else if (process.env.VSCODE_TEST) {
-      console.log(
+      Logger.debug(
         'Test environment detected, skipping automatic cleanup of temp file:',
         uri.fsPath
       );
@@ -437,7 +437,7 @@ export class TempFileManager {
       try {
         vscode.workspace.fs.delete(vscode.Uri.file(path));
       } catch (error) {
-        console.error('Failed to delete temp file:', error);
+        Logger.error('Failed to delete temp file:', error);
       }
 
       this.preciseIndentSync.cleanupTracker(path);

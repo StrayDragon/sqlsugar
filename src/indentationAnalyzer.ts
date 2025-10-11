@@ -1,3 +1,5 @@
+import { Logger } from './core/logger';
+
 export interface IndentationPattern {
   type: 'uniform' | 'hierarchical' | 'mixed' | 'keyword-aligned' | 'continuation' | 'none';
   baseIndent: string;
@@ -431,12 +433,12 @@ export class IndentationPatternAnalyzer {
         const andIndent = pattern.keywordAlignments.get('AND');
 
 
-        console.log(
-          `[DEBUG] getHierarchicalIndent for AND: whereIndent=${whereIndent}, andIndent=${andIndent}, pattern.type=${pattern.type}`
+        Logger.debug(
+          `getHierarchicalIndent for AND: whereIndent=${whereIndent}, andIndent=${andIndent}, pattern.type=${pattern.type}`
         );
 
         if (andIndent !== undefined && andIndent > whereIndent) {
-          console.log(`[DEBUG] Using AND indent from keyword alignments: ${andIndent} spaces`);
+          Logger.debug(`Using AND indent from keyword alignments: ${andIndent} spaces`);
           return ' '.repeat(andIndent);
         }
 

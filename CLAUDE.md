@@ -33,25 +33,35 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 
 ## Development Commands
 
-### Build and Development
+### Core Commands
 ```bash
 # Install dependencies
 pnpm install --frozen-lockfile
+# or
+just install
 
 # Build the extension (type check + lint + compile)
 pnpm run compile
 # or
 pnpm run build
+# or
+just build
 
 # Type checking
 pnpm run check-types
+# or
+just type-check
 
 # Linting
 pnpm run lint
 pnpm run lint:fix  # Fix issues automatically
+# or
+just lint-fix
 
 # Build type declarations for API
 pnpm run build:declarations
+# or
+just build-declarations
 
 # Package as .vsix file
 pnpm run vsix
@@ -64,6 +74,8 @@ The project uses Just for simplified task management:
 ```bash
 # Show all available commands
 just --list
+# or
+just help
 
 # Development tasks
 just install          # Install dependencies
@@ -72,9 +84,12 @@ just type-check      # Run type checking
 just lint            # Run linting and type checks
 just lint-fix        # Fix lint issues automatically
 
-# Packaging
+# Code hygiene
+just after-ai-write-remove-comments  # Clean unnecessary line comments in src/
+
+# Packaging and distribution
 just package-vsix    # Create .vsix package
-just install-local   # Install extension locally
+just install-local   # Install extension locally for testing
 just backup          # Create backup of current vsix
 
 # Cleanup
@@ -129,12 +144,15 @@ Currently tests are commented out in CI but the infrastructure exists. The proje
 - Prefer explicit types where helpful, but allow inference when clear
 - Use `Result<T, E>` pattern for error handling throughout the codebase
 - Follow the established service pattern with dependency injection
+- Main extension outputs to CommonJS for VS Code/Cursor compatibility
+- Component builds output to ESM for browser compatibility
 
 ### Lit Components
 - Use Lit decorators (`@customElement`, `@property`, `@state`)
 - Prefer reactive properties and derived state
 - Use CSS-in-JS for component styling
 - Follow the established component structure with clear separation of concerns
+- Components are built separately from the main extension
 
 ### Error Handling
 - Use the `Result<T, E>` monad for consistent error handling
@@ -142,15 +160,42 @@ Currently tests are commented out in CI but the infrastructure exists. The proje
 - Provide user-friendly error messages in VS Code notifications
 - Graceful degradation for optional features
 
+### Package Manager
+- Uses pnpm with lockfile for deterministic builds
+- Preinstall script enforces pnpm usage
+- Version pinning ensures consistent development environment
+
 ## Configuration
 
 The extension provides extensive configuration options:
 - `sqlsugar.tempFileCleanup`: Auto cleanup temporary files
 - `sqlsugar.cleanupOnClose`: Control when temporary files are cleaned up
 - `sqlsugar.showSQLPreview`: Show preview of original and injected SQL after copying
-- `sqlsugar.jinja2TypeInference.customRules`: Custom type inference rules
 - `sqlsugar.sqlSyntaxHighlightTheme`: SQL syntax highlighting theme
+- `sqlsugar.sqlSyntaxHighlightFontSize`: Font size for SQL syntax highlighting
+- `sqlsugar.jinja2TypeInference.customRules`: Custom type inference rules
+- `sqlsugar.logLevel`: WebView console output level (error, warn, info, debug, none)
 - `sqlsugar.enableWlCopyFallback`: Enable wl-copy fallback for clipboard operations on Linux Wayland
+
+## Testing and Development
+
+### Testing Infrastructure
+- Test infrastructure exists but is currently commented out in CI
+- Uses MySQL service container for integration testing
+- Test commands are available but not actively maintained
+
+### Development Workflow
+1. Install dependencies: `pnpm install --frozen-lockfile`
+2. Build extension: `pnpm run compile` or `just build`
+3. Package for testing: `just package-vsix`
+4. Install locally: `just install-local`
+5. Debug in VS Code with F5 (requires extension development host)
+
+### Development Tools
+- ESBuild for fast compilation and bundling
+- ESLint with TypeScript support for code quality
+- Multiple TypeScript configurations for different build targets
+- Just for simplified task management
 
 ## Dependencies
 
@@ -172,3 +217,14 @@ The extension registers the following commands:
 - `sqlsugar.copyJinja2TemplateWebview`: Visual Jinja2 template editor
 - `sqlsugar.toggleDebugMode`: Toggle debug mode
 - `sqlsugar.copyJinja2Template`: Process Jinja2 templates (various modes)
+- `sqlsugar.copyJinja2TemplateQuick`: Quick Jinja2 template processing
+
+### Context Menu Integration
+- Commands available in editor context menu when text is selected
+- Right-click integration for quick access to SQL editing features
+- Seamless integration with existing VS Code workflows
+
+### Debug Features
+- Toggle debug mode for development and troubleshooting
+- Metrics collection for performance monitoring
+- Developer commands for extension inspection and testing

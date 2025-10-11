@@ -22,7 +22,7 @@
 
 - 同步编辑内联SQL (`SQLSugar: Edit Inline SQL`) : 编辑区选中文本右键菜单选择触发
   - 在编辑器中选中 SQL 字符串，右键或命令面板执行“Edit Inline SQL”，在侧边打开临时 .sql 文件进行专注编辑。
-  - 集成 [sqls-server/sqls: SQL language server written in Go.](https://github.com/sqls-server/sqls)，配置后可以提供补全与悬停信息
+  - 支持与任何 SQL 语言服务器插件协同工作（如 sqls、SQLTools 等）
   - ORM 风格占位符支持：临时把 `:name` 转换为可编辑的字符串字面量，保存时还原为 `:name`，避免误把时间如 `12:34` 或 Postgres `::type` 当作占位符。
   - 临时文件自动清理：支持保存时或关闭编辑器时删除临时文件(可选)。
 

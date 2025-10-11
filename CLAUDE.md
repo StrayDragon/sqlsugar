@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SQLSugar is a VS Code extension that enables inline SQL editing across multiple programming languages with sqls LSP support and advanced features like Jinja2 template processing. The extension allows developers to edit SQL strings directly in their code with full language server support and provides visual editing for Jinja2 SQL templates.
+SQLSugar is a VS Code extension that enables inline SQL editing across multiple programming languages with advanced features like Jinja2 template processing. The extension allows developers to edit SQL strings directly in their code with precise synchronization and provides visual editing for Jinja2 SQL templates. SQLSugar focuses on SQL synchronization and works seamlessly with other SQL language server plugins.
 
 ## Architecture
 
@@ -14,7 +14,6 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - **DIContainer**: Dependency injection container for managing service instances
 - **LanguageHandler**: Detects and processes different programming languages for SQL extraction
 - **TempFileManager**: Manages temporary SQL files and cleanup with precise indentation synchronization
-- **SQLsClientManager**: Handles integration with the sqls language server for SQL completions and diagnostics
 - **PreciseIndentSyncManager**: Maintains exact indentation between original code and temporary SQL files
 - **EventHandler**: Manages VS Code event subscriptions and cleanup
 - **MetricsCollector**: Collects performance metrics and command usage statistics
@@ -26,10 +25,11 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - **Variable Utils**: Utilities for Jinja2 variable processing and type inference
 
 ### Key Features
-1. **Inline SQL Editing**: Extract SQL strings from code, edit in dedicated SQL files with LSP support, sync back
+1. **Inline SQL Editing**: Extract SQL strings from code, edit in dedicated SQL files with precise synchronization, sync back
 2. **Jinja2 Template Processing**: Visual editor for Jinja2 SQL templates with variable inference and type suggestions
 3. **ORM Placeholder Support**: Handles placeholders like `:name` and converts them to editable literals
 4. **Multi-language Support**: Works with TypeScript, JavaScript, Python, Go, Rust, Java, and more
+5. **Language Server Agnostic**: Works with any SQL language server plugin (sqls, SQLTools, etc.)
 
 ## Development Commands
 
@@ -116,10 +116,11 @@ Currently tests are commented out in CI but the infrastructure exists. The proje
 - Visual editor with real-time template rendering
 - Support for custom type inference rules via configuration
 
-### SQLs Integration
-- Integrates with sqls language server for SQL completions and diagnostics
-- Configurable sqls executable path and configuration file location
-- Automatic connection management and switching
+### SQL Synchronization
+- Precise indentation synchronization between original code and temporary SQL files
+- Automatic file cleanup with configurable options
+- Seamless integration with any SQL language server plugin
+- Focus on synchronization rather than language server functionality
 
 ## Code Style and Conventions
 
@@ -144,19 +145,18 @@ Currently tests are commented out in CI but the infrastructure exists. The proje
 ## Configuration
 
 The extension provides extensive configuration options:
-- `sqlsugar.sqlsPath`: Path to sqls executable
 - `sqlsugar.tempFileCleanup`: Auto cleanup temporary files
-- `sqlsugar.sqlsConfigPath`: Path to sqls configuration file
+- `sqlsugar.cleanupOnClose`: Control when temporary files are cleaned up
+- `sqlsugar.showSQLPreview`: Show preview of original and injected SQL after copying
 - `sqlsugar.jinja2TypeInference.customRules`: Custom type inference rules
 - `sqlsugar.sqlSyntaxHighlightTheme`: SQL syntax highlighting theme
+- `sqlsugar.enableWlCopyFallback`: Enable wl-copy fallback for clipboard operations on Linux Wayland
 
 ## Dependencies
 
 ### Runtime Dependencies
 - **lit**: Web component framework for UI components
 - **nunjucks**: Jinja2 template processing
-- **js-yaml**: YAML configuration parsing
-- **vscode-languageclient**: LSP client integration
 - **@lit/context**, **@lit/task**: Lit utilities for state management
 
 ### Development Dependencies
@@ -170,6 +170,5 @@ The extension provides extensive configuration options:
 The extension registers the following commands:
 - `sqlsugar.editInlineSQL`: Edit selected SQL text in dedicated file
 - `sqlsugar.copyJinja2TemplateWebview`: Visual Jinja2 template editor
-- `sqlsugar.switchConnection`: Switch database connections
 - `sqlsugar.toggleDebugMode`: Toggle debug mode
 - `sqlsugar.copyJinja2Template`: Process Jinja2 templates (various modes)

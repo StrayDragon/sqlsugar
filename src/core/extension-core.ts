@@ -8,7 +8,6 @@ import { EventHandler } from './event-handler';
 import { LanguageHandler } from './language-handler';
 import { MetricsCollector, DevMetrics } from './metrics-collector';
 import { PreciseIndentSyncManager } from './precise-indent-sync';
-import { SQLsClientManager } from './sqls-client-manager';
 import { TempFileManager } from './temp-file-manager';
 
 /**
@@ -20,7 +19,6 @@ export class ExtensionCore {
   private context: vscode.ExtensionContext;
   private container: DIContainer;
   private languageHandler!: LanguageHandler;
-  private sqlsClientManager!: SQLsClientManager;
   private commandManager!: CommandManager;
   private preciseIndentSync!: PreciseIndentSyncManager;
   private tempFileManager!: TempFileManager;
@@ -43,7 +41,6 @@ export class ExtensionCore {
   private initializeServices(): void {
     this.languageHandler = new LanguageHandler();
     this.preciseIndentSync = new PreciseIndentSyncManager();
-    this.sqlsClientManager = new SQLsClientManager(this.context);
     this.commandManager = new CommandManager(this.context, this);
     this.tempFileManager = new TempFileManager(this.languageHandler, this.preciseIndentSync);
     this.eventHandler = new EventHandler(this.tempFileManager);
@@ -55,7 +52,6 @@ export class ExtensionCore {
    */
   private registerServices(): void {
     this.container.registerSingleton('languageHandler', () => this.languageHandler);
-    this.container.registerSingleton('sqlsClientManager', () => this.sqlsClientManager);
     this.container.registerSingleton('commandManager', () => this.commandManager);
     this.container.registerSingleton('preciseIndentSync', () => this.preciseIndentSync);
     this.container.registerSingleton('tempFileManager', () => this.tempFileManager);
@@ -95,21 +91,6 @@ export class ExtensionCore {
   private initialize(): void {
 
     this.commandManager.registerCommands();
-
-
-    if (process.env.VSCODE_TEST !== 'true') {
-
-      this.sqlsClientManager.startClient().catch(error => {
-        Logger.error('Failed to start SQLs client:', error);
-      });
-
-
-      this.sqlsClientManager.initializeConnection().catch(error => {
-        Logger.error('Failed to initialize connection:', error);
-      });
-    } else {
-      Logger.info('Test environment detected, skipping SQLs client startup');
-    }
 
 
     this.eventHandler.registerEventListeners();
@@ -170,9 +151,6 @@ export class ExtensionCore {
     this.eventHandler.dispose();
 
 
-    this.sqlsClientManager.dispose();
-
-
     if (typeof this.preciseIndentSync.dispose === 'function') {
       this.preciseIndentSync.dispose();
     }
@@ -186,10 +164,6 @@ export class ExtensionCore {
 
   public getLanguageHandler(): LanguageHandler {
     return this.languageHandler;
-  }
-
-  public getSQLsClientManager(): SQLsClientManager {
-    return this.sqlsClientManager;
   }
 
   public getCommandManager(): CommandManager {

@@ -1,7 +1,7 @@
 {
   "name": "sqlsugar",
   "displayName": "sqlsugar",
-  "description": "SQLSugar enables inline SQL editing across multiple programming languages with sqls LSP support and advanced features like Jinja2 template processing and terminal SQL extraction.",
+  "description": "SQLSugar enables inline SQL editing across multiple programming languages with advanced features like Jinja2 template processing and precise SQL synchronization.",
   "version": "0.0.1",
   "publisher": "l8ng",
   "engines": {
@@ -20,10 +20,6 @@
       {
         "command": "sqlsugar.editInlineSQL",
         "title": "SQLSugar: Edit Inline SQL"
-      },
-      {
-        "command": "sqlsugar.switchConnection",
-        "title": "SQLSugar: Switch Database Connection"
       },
       {
         "command": "sqlsugar.toggleDebugMode",
@@ -57,9 +53,6 @@
       ],
       "commandPalette": [
         {
-          "command": "sqlsugar.switchConnection"
-        },
-        {
           "command": "sqlsugar.toggleDebugMode"
         },
         {
@@ -76,11 +69,6 @@
     "configuration": {
       "title": "SQLSugar",
       "properties": {
-        "sqlsugar.sqlsPath": {
-          "type": "string",
-          "default": "sqls",
-          "description": "Path to sqls executable"
-        },
         "sqlsugar.tempFileCleanup": {
           "type": "boolean",
           "default": true,
@@ -90,11 +78,6 @@
           "type": "boolean",
           "default": true,
           "description": "If true, delete temp SQL file on editor close; if false, delete on save when tempFileCleanup is enabled"
-        },
-        "sqlsugar.sqlsConfigPath": {
-          "type": "string",
-          "default": "",
-          "description": "Path to sqls configuration file (leave empty to use default)"
         },
         "sqlsugar.showSQLPreview": {
           "type": "boolean",
@@ -216,10 +199,8 @@
   "dependencies": {
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
-    "js-yaml": "^4.1.0",
     "lit": "^3.3.1",
-    "nunjucks": "^3.2.4",
-    "vscode-languageclient": "^9.0.1"
+    "nunjucks": "^3.2.4"
   },
   "repository": {
     "type": "git",

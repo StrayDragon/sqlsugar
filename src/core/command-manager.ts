@@ -25,7 +25,6 @@ export class CommandManager {
   public registerCommands(): void {
     const commands = [
       { name: 'editInlineSQL', callback: this.handleEditInlineSQL.bind(this) },
-      { name: 'switchConnection', callback: this.handleSwitchConnection.bind(this) },
       { name: 'copyJinja2Template', callback: this.handleCopyJinja2Template.bind(this) },
       { name: '_devGetMetrics', callback: this.handleGetMetrics.bind(this) },
       { name: 'toggleDebugMode', callback: this.handleToggleDebugMode.bind(this) },
@@ -116,22 +115,6 @@ export class CommandManager {
     } catch (error) {
       console.error('Error in handleEditInlineSQL:', error);
       vscode.window.showErrorMessage(`Failed to edit inline SQL: ${error}`);
-    }
-  }
-
-  /**
-   * 处理数据库连接切换命令
-   */
-  private async handleSwitchConnection(): Promise<void> {
-    try {
-
-      const extensionCore = ExtensionCore.getInstance(this.context);
-      const sqlsClientManager = extensionCore.getSQLsClientManager();
-
-
-      await sqlsClientManager.showConnectionPicker();
-    } catch (error) {
-      vscode.window.showErrorMessage(`Failed to switch connection: ${error}`);
     }
   }
 

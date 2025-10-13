@@ -33,4 +33,5 @@
     ],
     "sqlfluff.workingDirectory": "${workspaceFolder}",
     "sqlfluff.config": "${workspaceFolder}/.sqlfluff",
+
 }

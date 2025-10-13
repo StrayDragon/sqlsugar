@@ -59,6 +59,41 @@
 				"npm: watch-tests"
 			],
 			"problemMatcher": []
+		},
+		{
+			"label": "build-v2-editor",
+			"type": "npm",
+			"script": "compile",
+			"group": "build",
+			"problemMatcher": [],
+			"presentation": {
+				"reveal": "always",
+				"group": "build"
+			}
+		},
+		{
+			"label": "watch-v2-editor",
+			"type": "npm",
+			"script": "watch",
+			"group": "build",
+			"problemMatcher": [],
+			"isBackground": true,
+			"presentation": {
+				"reveal": "never",
+				"group": "watch"
+			}
+		},
+		{
+			"type": "shell",
+			"command": "pnpm",
+			"args": ["run", "compile"],
+			"group": "build",
+			"problemMatcher": [],
+			"label": "pnpm: compile",
+			"presentation": {
+				"reveal": "silent",
+				"group": "build"
+			}
 		}
 	]
 }

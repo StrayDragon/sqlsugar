@@ -53,6 +53,11 @@
           "command": "sqlsugar.copyJinja2TemplateWebview",
           "when": "editorHasSelection",
           "group": "1_modification"
+        },
+        {
+          "command": "sqlsugar.copyJinja2TemplateWebviewV2",
+          "when": "editorHasSelection",
+          "group": "1_modification"
         }
       ],
       "commandPalette": [
@@ -67,6 +72,9 @@
         },
         {
           "command": "sqlsugar.copyJinja2TemplateWebview"
+        },
+        {
+          "command": "sqlsugar.copyJinja2TemplateWebviewV2"
         }
       ]
     },
@@ -165,66 +173,61 @@
                 "description": "Default format suggestion"
               }
             }
-          },
-          "sqlsugar.logLevel": {
-            "type": "string",
-            "enum": [
-              "error",
-              "warn",
-              "info",
-              "debug",
-              "none"
-            ],
-            "default": "error",
-            "description": "Log level for WebView console output. 'error' shows only errors, 'none' disables all logs."
-          },
-          "sqlsugar.enableWlCopyFallback": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable wl-copy fallback for clipboard operations on Linux Wayland systems"
-          },
-          "sqlsugar.enableV2Editor": {
-            "type": "boolean",
-            "default": false,
-            "description": "Enable the new V2 Jinja2 Visual Editor with direct template interaction"
-          },
-          "sqlsugar.v2Editor.popoverPlacement": {
-            "type": "string",
-            "enum": ["auto", "top", "bottom", "left", "right"],
-            "default": "auto",
-            "description": "Default placement for variable editing popovers in V2 editor"
-          },
-          "sqlsugar.v2Editor.highlightStyle": {
-            "type": "string",
-            "enum": ["background", "border", "underline"],
-            "default": "background",
-            "description": "Visual style for highlighting variables in the template"
-          },
-          "sqlsugar.v2Editor.autoPreview": {
-            "type": "boolean",
-            "default": true,
-            "description": "Automatically preview SQL when variables change in V2 editor"
-          },
-          "sqlsugar.v2Editor.keyboardNavigation": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable keyboard navigation (Tab, Enter, Escape) in V2 editor"
-          },
-          "sqlsugar.v2Editor.animationsEnabled": {
-            "type": "boolean",
-            "default": true,
-            "description": "Enable animations and transitions in V2 editor"
-          },
-          "sqlsugar.v2Editor.showSuggestions": {
-            "type": "boolean",
-            "default": true,
-            "description": "Show intelligent value suggestions based on variable names"
-          },
-          "sqlsugar.v2Editor.autoFocusFirst": {
-            "type": "boolean",
-            "default": false,
-            "description": "Automatically focus the first variable when opening the V2 editor"
           }
+        },
+        "sqlsugar.logLevel": {
+          "type": "string",
+          "enum": [
+            "error",
+            "warn",
+            "info",
+            "debug",
+            "none"
+          ],
+          "default": "error",
+          "description": "Log level for WebView console output. 'error' shows only errors, 'none' disables all logs."
+        },
+        "sqlsugar.enableWlCopyFallback": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable wl-copy fallback for clipboard operations on Linux Wayland systems"
+        },
+        "sqlsugar.v2Editor.popoverPlacement": {
+          "type": "string",
+          "enum": ["auto", "top", "bottom", "left", "right"],
+          "default": "auto",
+          "description": "Default placement for variable editing popovers in V2 editor"
+        },
+        "sqlsugar.v2Editor.highlightStyle": {
+          "type": "string",
+          "enum": ["background", "border", "underline"],
+          "default": "background",
+          "description": "Visual style for highlighting variables in the template"
+        },
+        "sqlsugar.v2Editor.autoPreview": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically preview SQL when variables change in V2 editor"
+        },
+        "sqlsugar.v2Editor.keyboardNavigation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable keyboard navigation (Tab, Enter, Escape) in V2 editor"
+        },
+        "sqlsugar.v2Editor.animationsEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable animations and transitions in V2 editor"
+        },
+        "sqlsugar.v2Editor.showSuggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show intelligent value suggestions based on variable names"
+        },
+        "sqlsugar.v2Editor.autoFocusFirst": {
+          "type": "boolean",
+          "default": false,
+          "description": "Automatically focus the first variable when opening the V2 editor"
         }
       }
     }

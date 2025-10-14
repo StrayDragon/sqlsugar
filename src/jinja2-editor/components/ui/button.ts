@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('jinja-button')
 export class JinjaButton extends LitElement {
-  static styles = css`
+  static override styles = css`
     :host {
       display: inline-block;
       /* Enhanced variables */
@@ -249,7 +249,7 @@ export class JinjaButton extends LitElement {
   @property({ type: Boolean }) accessor loading: boolean = false;
   @property({ type: String }) accessor type: 'button' | 'submit' | 'reset' = 'button';
 
-  render() {
+  override render() {
     const classes = [
       `variant-${this.variant}`,
       `size-${this.size}`,

@@ -6,6 +6,7 @@ import { Logger } from './core/logger';
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
 import { Jinja2VariableInput } from './jinja2-variable-input';
 import { Jinja2WebviewEditor } from './jinja2-webview';
+import { Jinja2WebviewEditorV2 } from './jinja2-webview-v2';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy-placeholder-processor';
 
 /**
@@ -41,7 +42,7 @@ export class Jinja2NunjucksHandler {
    * 处理Jinja2模板 - 主要入口点
    */
   public static async handleCopyJinja2Template(
-    mode: 'quick' | 'wizard' | 'webview' | 'defaults' = 'quick'
+    mode: 'quick' | 'wizard' | 'webview' | 'webviewV2' | 'defaults' = 'quick'
   ): Promise<boolean> {
     try {
       const handler = Jinja2NunjucksHandler.getInstance();
@@ -124,6 +125,8 @@ export class Jinja2NunjucksHandler {
         return await this.handleWizardMode(selectedText, variables, placeholderDetection);
       case 'webview':
         return await this.handleWebviewMode(selectedText, variables, placeholderDetection);
+      case 'webviewV2':
+        return await this.handleWebviewV2Mode(selectedText, variables, placeholderDetection);
       case 'defaults':
         return await this.handleDefaultsMode(selectedText, variables, placeholderDetection);
       default:
@@ -247,6 +250,41 @@ export class Jinja2NunjucksHandler {
       Logger.info(
         `Webview mode closed by user: ${error instanceof Error ? error.message : String(error)}`
       );
+      return false;
+    }
+  }
+
+  /**
+   * WebView V2模式 - 新一代可视化编辑器
+   */
+  private async handleWebviewV2Mode(
+    template: string,
+    variables: Jinja2Variable[],
+    placeholderDetection: PlaceholderDetection
+  ): Promise<boolean> {
+    try {
+      const preview = this.processor.getTemplatePreview(template);
+      const title = `V2 Jinja2 Template: ${preview}`;
+
+      // 显示V2编辑器
+      await Jinja2WebviewEditorV2.showEditor(template, variables, title);
+
+      return true;
+    } catch (error) {
+      // 如果V2编辑器出现错误，回退到V1编辑器
+      Logger.warn(`V2 webview mode failed, falling back to V1: ${error instanceof Error ? error.message : String(error)}`);
+
+      const fallbackResult = await vscode.window.showWarningMessage(
+        'V2 Editor encountered an issue. Would you like to use the V1 Editor instead?',
+        { modal: false },
+        'Use V1 Editor',
+        'Cancel'
+      );
+
+      if (fallbackResult === 'Use V1 Editor') {
+        return await this.handleWebviewMode(template, variables, placeholderDetection);
+      }
+
       return false;
     }
   }

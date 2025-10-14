@@ -32,8 +32,8 @@ export class TemplateHighlighter extends LitElement {
   @property({ type: String }) accessor theme: string = 'vscode-dark';
 
   @state() accessor highlightedHTML: string = '';
-  @state() private highlightData: TemplateHighlight | null = null;
-  @state() private hoveredVariable: string | null = null;
+  @state() accessor highlightData: TemplateHighlight | null = null;
+  @state() accessor hoveredVariable: string | null = null;
 
   // @ts-ignore - Lit static styles don't need override
   static override styles = css`

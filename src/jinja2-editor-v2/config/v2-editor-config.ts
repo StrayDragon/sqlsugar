@@ -1,33 +1,53 @@
 /**
- * V2 Editor Configuration Manager
+ * V2 Editor Configuration - Browser Compatible Version
  *
- * Manages configuration for the V2 Jinja2 Visual Editor
+ * Manages configuration for the V2 Jinja2 Visual Editor in browser environment.
+ * Configuration is passed from the extension side via initialization messages.
  */
 
-import * as vscode from 'vscode';
 import type { EditorV2Config } from '../types.js';
 
+/**
+ * Default configuration values
+ */
+const DEFAULT_CONFIG: EditorV2Config = {
+  enabled: false,
+  popoverPlacement: 'auto',
+  highlightStyle: 'background',
+  autoPreview: true,
+  keyboardNavigation: true,
+  animationsEnabled: true,
+  showSuggestions: true,
+  autoFocusFirst: false
+};
+
+/**
+ * V2 Editor Configuration Manager - Browser Compatible
+ */
 export class V2EditorConfig {
-  private static readonly CONFIG_SECTION = 'sqlsugar.v2Editor';
-  private static readonly MAIN_CONFIG_SECTION = 'sqlsugar';
+  private static instance: V2EditorConfig;
+  private config: EditorV2Config;
+
+  private constructor() {
+    this.config = { ...DEFAULT_CONFIG };
+  }
+
+  /**
+   * Get singleton instance
+   */
+  public static getInstance(): V2EditorConfig {
+    if (!V2EditorConfig.instance) {
+      V2EditorConfig.instance = new V2EditorConfig();
+    }
+    return V2EditorConfig.instance;
+  }
 
   /**
    * Get the complete V2 editor configuration
    */
   static getConfig(): EditorV2Config {
-    const config = vscode.workspace.getConfiguration(this.MAIN_CONFIG_SECTION);
-    const v2Config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-
-    return {
-      enabled: config.get<boolean>('enableV2Editor', false),
-      popoverPlacement: v2Config.get<'auto' | 'top' | 'bottom' | 'left' | 'right'>('popoverPlacement', 'auto'),
-      highlightStyle: v2Config.get<'background' | 'border' | 'underline'>('highlightStyle', 'background'),
-      autoPreview: v2Config.get<boolean>('autoPreview', true),
-      keyboardNavigation: v2Config.get<boolean>('keyboardNavigation', true),
-      animationsEnabled: v2Config.get<boolean>('animationsEnabled', true),
-      showSuggestions: v2Config.get<boolean>('showSuggestions', true),
-      autoFocusFirst: v2Config.get<boolean>('autoFocusFirst', false)
-    };
+    const instance = V2EditorConfig.getInstance();
+    return { ...instance.config };
   }
 
   /**
@@ -39,18 +59,15 @@ export class V2EditorConfig {
   }
 
   /**
-   * Update a specific configuration value
+   * Update configuration from extension side
    */
-  static async update<K extends keyof EditorV2Config>(
-    key: K,
-    value: EditorV2Config[K],
-    target?: vscode.ConfigurationTarget
-  ): Promise<void> {
-    const configSection = key === 'enabled' ? this.MAIN_CONFIG_SECTION : this.CONFIG_SECTION;
-    const configKey = key === 'enabled' ? 'enableV2Editor' : key;
-
-    const config = vscode.workspace.getConfiguration(configSection);
-    await config.update(configKey, value, target);
+  static updateConfig(newConfig: Partial<EditorV2Config>): void {
+    const instance = V2EditorConfig.getInstance();
+    instance.config = {
+      ...instance.config,
+      ...newConfig
+    };
+    console.log('V2 Editor configuration updated:', instance.config);
   }
 
   /**
@@ -61,89 +78,61 @@ export class V2EditorConfig {
   }
 
   /**
-   * Enable/disable V2 editor
+   * Check if animations are enabled
    */
-  static async setEnabled(enabled: boolean, target?: vscode.ConfigurationTarget): Promise<void> {
-    await this.update('enabled', enabled, target);
+  static isAnimationsEnabled(): boolean {
+    return this.get('animationsEnabled');
   }
 
   /**
-   * Get configuration for VSCode settings UI
+   * Check if auto preview is enabled
    */
-  static getSettingsConfig(): any {
-    return {
-      'sqlsugar.enableV2Editor': {
-        type: 'boolean',
-        default: false,
-        description: 'Enable the new V2 Jinja2 Visual Editor with direct template interaction',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.popoverPlacement': {
-        type: 'string',
-        enum: ['auto', 'top', 'bottom', 'left', 'right'],
-        default: 'auto',
-        description: 'Default placement for variable editing popovers in V2 editor',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.highlightStyle': {
-        type: 'string',
-        enum: ['background', 'border', 'underline'],
-        default: 'background',
-        description: 'Visual style for highlighting variables in the template',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.autoPreview': {
-        type: 'boolean',
-        default: true,
-        description: 'Automatically preview SQL when variables change in V2 editor',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.keyboardNavigation': {
-        type: 'boolean',
-        default: true,
-        description: 'Enable keyboard navigation (Tab, Enter, Escape) in V2 editor',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.animationsEnabled': {
-        type: 'boolean',
-        default: true,
-        description: 'Enable animations and transitions in V2 editor',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.showSuggestions': {
-        type: 'boolean',
-        default: true,
-        description: 'Show intelligent value suggestions based on variable names',
-        scope: 'resource'
-      },
-      'sqlsugar.v2Editor.autoFocusFirst': {
-        type: 'boolean',
-        default: false,
-        description: 'Automatically focus the first variable when opening the V2 editor',
-        scope: 'resource'
-      }
-    };
+  static isAutoPreviewEnabled(): boolean {
+    return this.get('autoPreview');
   }
 
   /**
-   * Register configuration change listeners
+   * Check if keyboard navigation is enabled
    */
-  static registerChangeListeners(callback: (config: EditorV2Config) => void): vscode.Disposable {
-    const disposables: vscode.Disposable[] = [];
+  static isKeyboardNavigationEnabled(): boolean {
+    return this.get('keyboardNavigation');
+  }
 
-    // Listen for main config changes
-    const mainConfigWatcher = vscode.workspace.onDidChangeConfiguration(event => {
-      if (event.affectsConfiguration(`${this.MAIN_CONFIG_SECTION}.enableV2Editor`)) {
-        callback(this.getConfig());
-      }
-      if (event.affectsConfiguration(this.CONFIG_SECTION)) {
-        callback(this.getConfig());
-      }
-    });
+  /**
+   * Check if suggestions are shown
+   */
+  static areSuggestionsEnabled(): boolean {
+    return this.get('showSuggestions');
+  }
 
-    disposables.push(mainConfigWatcher);
+  /**
+   * Get popover placement
+   */
+  static getPopoverPlacement(): EditorV2Config['popoverPlacement'] {
+    return this.get('popoverPlacement');
+  }
 
-    return vscode.Disposable.from(...disposables);
+  /**
+   * Get highlight style
+   */
+  static getHighlightStyle(): EditorV2Config['highlightStyle'] {
+    return this.get('highlightStyle');
+  }
+
+  /**
+   * Should auto focus first input
+   */
+  static shouldAutoFocusFirst(): boolean {
+    return this.get('autoFocusFirst');
+  }
+
+  /**
+   * Reset configuration to defaults
+   */
+  static resetToDefaults(): void {
+    const instance = V2EditorConfig.getInstance();
+    instance.config = { ...DEFAULT_CONFIG };
+    console.log('V2 Editor configuration reset to defaults');
   }
 
   /**
@@ -187,30 +176,6 @@ export class V2EditorConfig {
   }
 
   /**
-   * Reset configuration to defaults
-   */
-  static async reset(target?: vscode.ConfigurationTarget): Promise<void> {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    const keys = [
-      'popoverPlacement',
-      'highlightStyle',
-      'autoPreview',
-      'keyboardNavigation',
-      'animationsEnabled',
-      'showSuggestions',
-      'autoFocusFirst'
-    ];
-
-    for (const key of keys) {
-      await config.update(key, undefined, target);
-    }
-
-    // Reset main config
-    const mainConfig = vscode.workspace.getConfiguration(this.MAIN_CONFIG_SECTION);
-    await mainConfig.update('enableV2Editor', undefined, target);
-  }
-
-  /**
    * Export current configuration
    */
   static exportConfig(): string {
@@ -220,50 +185,6 @@ export class V2EditorConfig {
       timestamp: new Date().toISOString(),
       config
     }, null, 2);
-  }
-
-  /**
-   * Import configuration from JSON
-   */
-  static async importConfig(configJson: string, target?: vscode.ConfigurationTarget): Promise<{ success: boolean; errors: string[] }> {
-    try {
-      const data = JSON.parse(configJson);
-
-      if (!data.config || typeof data.config !== 'object') {
-        return {
-          success: false,
-          errors: ['Invalid configuration format']
-        };
-      }
-
-      const validation = this.validateConfig(data.config);
-      if (!validation.valid) {
-        return {
-          success: false,
-          errors: validation.errors
-        };
-      }
-
-      // Apply configuration
-      for (const [key, value] of Object.entries(data.config)) {
-        if (key === 'enabled') {
-          await this.update('enabled', value as any, target);
-        } else if (key in this.getConfig()) {
-          await this.update(key as any, value as any, target);
-        }
-      }
-
-      return {
-        success: true,
-        errors: []
-      };
-
-    } catch (error) {
-      return {
-        success: false,
-        errors: [`Failed to parse configuration: ${error instanceof Error ? error.message : 'Unknown error'}`]
-      };
-    }
   }
 
   /**
@@ -280,139 +201,5 @@ export class V2EditorConfig {
       showSuggestions: 'Show intelligent value suggestions based on variable names',
       autoFocusFirst: 'Automatically focus the first variable when opening the V2 editor'
     };
-  }
-
-  /**
-   * Create a quick pick menu for changing configuration
-   */
-  static async createQuickPick(): Promise<void> {
-    const config = this.getConfig();
-    const items: vscode.QuickPickItem[] = [
-      {
-        label: '$(toggle) Enable V2 Editor',
-        description: config.enabled ? 'Enabled' : 'Disabled',
-        picked: config.enabled
-      },
-      {
-        label: '$(layout) Popover Placement',
-        description: config.popoverPlacement,
-        detail: 'Where variable editing popovers appear'
-      },
-      {
-        label: '$(paintcan) Highlight Style',
-        description: config.highlightStyle,
-        detail: 'How variables are highlighted in the template'
-      },
-      {
-        label: '$(eye) Auto Preview',
-        description: config.autoPreview ? 'Enabled' : 'Disabled',
-        detail: 'Automatically preview SQL when variables change'
-      },
-      {
-        label: '$(keyboard) Keyboard Navigation',
-        description: config.keyboardNavigation ? 'Enabled' : 'Disabled',
-        detail: 'Enable Tab, Enter, Escape navigation'
-      },
-      {
-        label: '$(zap) Animations',
-        description: config.animationsEnabled ? 'Enabled' : 'Disabled',
-        detail: 'Enable animations and transitions'
-      },
-      {
-        label: '$(light-bulb) Show Suggestions',
-        description: config.showSuggestions ? 'Enabled' : 'Disabled',
-        detail: 'Show intelligent value suggestions'
-      },
-      {
-        label: '$(target) Auto Focus First',
-        description: config.autoFocusFirst ? 'Enabled' : 'Disabled',
-        detail: 'Automatically focus first variable'
-      }
-    ];
-
-    const chosen = await vscode.window.showQuickPick(items, {
-      placeHolder: 'Select a V2 Editor setting to change',
-      title: 'V2 Editor Configuration'
-    });
-
-    if (!chosen) return;
-
-    const label = chosen.label.replace(/^.*\s/, ''); // Remove icon
-    await this.handleQuickPickChoice(label);
-  }
-
-  private static async handleQuickPickChoice(choice: string): Promise<void> {
-    switch (choice) {
-      case 'Enable V2 Editor':
-        await this.toggleEnabled();
-        break;
-
-      case 'Popover Placement':
-        await this.choosePopoverPlacement();
-        break;
-
-      case 'Highlight Style':
-        await this.chooseHighlightStyle();
-        break;
-
-      case 'Auto Preview':
-      case 'Keyboard Navigation':
-      case 'Animations':
-      case 'Show Suggestions':
-      case 'Auto Focus First':
-        await this.toggleBooleanSetting(choice);
-        break;
-    }
-  }
-
-  private static async toggleEnabled(): Promise<void> {
-    const current = this.isEnabled();
-    await this.setEnabled(!current);
-    vscode.window.showInformationMessage(
-      `V2 Editor ${!current ? 'enabled' : 'disabled'}. Restart VS Code to apply changes.`
-    );
-  }
-
-  private static async choosePopoverPlacement(): Promise<void> {
-    const options: vscode.QuickPickItem[] = [
-      { label: 'Auto', description: 'Automatically choose best position' },
-      { label: 'Top', description: 'Show popovers above variables' },
-      { label: 'Bottom', description: 'Show popovers below variables' },
-      { label: 'Left', description: 'Show popovers to the left of variables' },
-      { label: 'Right', description: 'Show popovers to the right of variables' }
-    ];
-
-    const chosen = await vscode.window.showQuickPick(options, {
-      placeHolder: 'Choose popover placement'
-    });
-
-    if (chosen) {
-      const placement = chosen.label.toLowerCase() as any;
-      await this.update('popoverPlacement', placement);
-    }
-  }
-
-  private static async chooseHighlightStyle(): Promise<void> {
-    const options: vscode.QuickPickItem[] = [
-      { label: 'Background', description: 'Highlight variables with background color' },
-      { label: 'Border', description: 'Highlight variables with border' },
-      { label: 'Underline', description: 'Highlight variables with underline' }
-    ];
-
-    const chosen = await vscode.window.showQuickPick(options, {
-      placeHolder: 'Choose highlight style'
-    });
-
-    if (chosen) {
-      const style = chosen.label.toLowerCase() as any;
-      await this.update('highlightStyle', style);
-    }
-  }
-
-  private static async toggleBooleanSetting(setting: string): Promise<void> {
-    const configKey = setting.replace(/\s+/g, '');
-    const key = configKey.charAt(0).toLowerCase() + configKey.slice(1) as keyof EditorV2Config;
-    const current = this.get(key);
-    await this.update(key, !current);
   }
 }

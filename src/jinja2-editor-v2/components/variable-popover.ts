@@ -26,9 +26,9 @@ import {
 } from '../utils/position-calculator.js';
 
 // Import UI components (reuse existing ones for now)
-import '../jinja2-editor/components/ui/input.js';
-import '../jinja2-editor/components/ui/select.js';
-import '../jinja2-editor/components/ui/button.js';
+import '../../jinja2-editor/components/ui/input.js';
+import '../../jinja2-editor/components/ui/select.js';
+import '../../jinja2-editor/components/ui/button.js';
 
 // Default popover dimensions
 const POPOVER_DIMENSIONS = {
@@ -60,7 +60,7 @@ export class VariablePopover extends LitElement {
   @state() accessor localValue: Jinja2VariableValue = undefined;
   @state() accessor localType: string = 'string';
   @state() accessor showAdvancedOptions: boolean = false;
-  @state() private isAnimating: boolean = false;
+  @state() accessor isAnimating: boolean = false;
 
   // Quick value suggestions based on variable type and name
   private quickSuggestions = {

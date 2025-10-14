@@ -31,9 +31,9 @@ export class SqlPreviewV2 extends LitElement {
   @state() accessor isRendering: boolean = false;
   @state() accessor lastRenderTime: number = 0;
   @state() accessor renderMetrics: TemplateRenderEventV2['metrics'] | null = null;
-  @state() private viewMode: 'split' | 'rendered' | 'diff' = 'split';
-  @state() private highlightedRendered: string = '';
-  @state() private highlightedOriginal: string = '';
+  @state() accessor viewMode: 'split' | 'rendered' | 'diff' = 'split';
+  @state() accessor highlightedRendered: string = '';
+  @state() accessor highlightedOriginal: string = '';
 
   private renderTimeout: number | null = null;
 

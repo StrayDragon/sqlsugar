@@ -274,6 +274,55 @@ async function buildWebviewApp() {
     }
 }
 
+/**
+ * Jinja2 Editor V2构建（新一代可视化编辑器）
+ */
+async function buildJinja2EditorV2() {
+    const ctx = await esbuild.context({
+        entryPoints: [
+            'src/jinja2-editor-v2/index.ts'
+        ],
+        bundle: true,
+        format: 'esm',
+        target: 'es2022',
+        minify: production,
+        sourcemap: !production,
+        sourcesContent: false,
+        platform: 'browser',
+        outfile: 'dist/jinja2-editor-v2/jinja2-editor-v2.js',
+        external: ['vscode'],
+        // Note: 'lit' should NOT be external for jinja2-editor-v2 since it needs to run in browser webview
+        logLevel: 'silent',
+        // Performance and size optimizations
+        treeShaking: true,
+        legalComments: 'none',
+        // Additional optimizations for better minification
+        minifyIdentifiers: production,
+        minifySyntax: production,
+        minifyWhitespace: production,
+        // Improve build performance
+        metafile: false, // Disable metafile for faster builds
+        define: {
+            'process.env.NODE_ENV': production ? '"production"' : '"development"'
+        },
+        loader: {
+            '.ts': 'ts',
+            '.js': 'js',
+        },
+        tsconfig: './tsconfig.components.json',
+        plugins: [
+            esbuildProblemMatcherPlugin,
+        ],
+    });
+
+    if (watch) {
+        await ctx.watch();
+    } else {
+        await ctx.rebuild();
+        await ctx.dispose();
+    }
+}
+
 async function main() {
 	// 根据命令行参数决定构建哪些部分
 	let buildPromises = [];
@@ -283,10 +332,10 @@ async function main() {
 		buildPromises = [buildExtension()];
 	} else if (webviewOnly) {
 		// 只构建WebView组件
-		buildPromises = [buildJinja2Editor()];
+		buildPromises = [buildJinja2Editor(), buildJinja2EditorV2(), buildWebviewApp()];
     } else {
-        // 默认：并行构建主扩展、Jinja2 Editor 与 WebView App
-        buildPromises = [buildExtension(), buildJinja2Editor(), buildWebviewApp()];
+        // 默认：并行构建主扩展、Jinja2 Editor、Jinja2 Editor V2 与 WebView App
+        buildPromises = [buildExtension(), buildJinja2Editor(), buildJinja2EditorV2(), buildWebviewApp()];
 	}
 
 	if (!watch) {

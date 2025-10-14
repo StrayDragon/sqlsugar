@@ -1,34 +1,18 @@
 /**
- * Jinja2 Editor V2 - Main Editor Component
- *
- * Enhanced template editor with direct variable interaction
+ * Jinja2 Editor V2 - Simplified version following V1 pattern
+ * Includes V2 features: template highlighting, variable interaction, left-right split layout
  */
 
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { styleMap } from 'lit/directives/style-map.js';
-import type {
-  EnhancedVariable,
-  EditorV2State,
-  EditorV2Config,
-  VariableChangeEventV2,
-  KeyboardNavigationEvent,
-  TemplateRenderEventV2,
-  Jinja2VariableValue,
-  Jinja2VariableType
-} from '../types.js';
-import { parseTemplate, findVariableAtPosition, sortVariablesForNavigation } from '../utils/template-parser.js';
-import { TemplateHighlighter } from './template-highlighter.js';
-import { VariablePopover } from './variable-popover.js';
-import { SqlPreviewV2 } from './sql-preview-v2.js';
+import type { Jinja2Variable, Jinja2VariableValue } from '../types.js';
 
 @customElement('jinja2-editor-v2')
 export class Jinja2EditorV2 extends LitElement {
   @property({ type: String }) accessor template: string = '';
-  @property({ type: Array }) accessor variables: EnhancedVariable[] = [];
-  @property({ attribute: false }) accessor config: EditorV2Config = {
-    enabled: true,
+  @property({ type: Array }) accessor variables: Jinja2Variable[] = [];
+  @property({ attribute: false }) accessor config: any = {
     popoverPlacement: 'auto',
     highlightStyle: 'background',
     autoPreview: true,
@@ -43,26 +27,12 @@ export class Jinja2EditorV2 extends LitElement {
   // @ts-ignore - Lit property decorators don't need override
   @property({ type: String }) accessor title = 'Jinja2 Template Editor V2';
 
-  @state() accessor editorState: EditorV2State = {
-    template: '',
-    variables: [],
-    values: {},
-    selectedVariable: null,
-    popover: {
-      variable: null,
-      position: { x: 0, y: 0, placement: 'bottom', availableSpace: { top: 0, bottom: 0, left: 0, right: 0 } },
-      isVisible: false,
-      editingValue: undefined,
-      editingType: 'string' as Jinja2VariableType
-    },
-    renderedResult: '',
-    isProcessing: false,
-    lastRenderTime: 0
-  };
-
+  @state() accessor values: Record<string, Jinja2VariableValue> = {};
+  @state() accessor selectedVariable: string | null = null;
+  @state() accessor isProcessing = false;
+  @state() accessor processingTime = 0;
+  @state() accessor highlightedTemplate: string = '';
   @state() accessor isWideLayout = false;
-  @state() accessor navigationIndex = -1;
-  @state() private resizeObserver: ResizeObserver | null = null;
 
   static override styles = css`
     :host {
@@ -90,7 +60,6 @@ export class Jinja2EditorV2 extends LitElement {
       --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.2);
       --transition-fast: 0.15s ease;
       --transition-normal: 0.2s ease;
-      --transition-slow: 0.3s ease;
       --font-size-xs: 11px;
       --font-size-sm: 12px;
       --font-size-md: 13px;
@@ -186,7 +155,6 @@ export class Jinja2EditorV2 extends LitElement {
     /* Layout Container */
     .layout-container {
       display: flex;
-      flex-direction: column;
       flex: 1;
       overflow: hidden;
       position: relative;
@@ -258,6 +226,142 @@ export class Jinja2EditorV2 extends LitElement {
       position: relative;
     }
 
+    /* Template Display */
+    .template-display {
+      padding: var(--spacing-lg);
+      font-family: var(--vscode-font-family);
+      font-size: var(--font-size-md);
+      line-height: var(--line-height-relaxed);
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--vscode-editor-background);
+      color: var(--vscode-foreground);
+    }
+
+    .variable-highlight {
+      cursor: pointer;
+      background-color: rgba(66, 133, 244, 0.2);
+      border: 1px solid transparent;
+      border-radius: 3px;
+      padding: 1px 3px;
+      margin: -1px -3px;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+
+    .variable-highlight:hover {
+      background-color: rgba(66, 133, 244, 0.3);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .variable-highlight.selected {
+      background-color: rgba(66, 133, 244, 0.4);
+      border-color: var(--vscode-focusBorder);
+      box-shadow: 0 0 8px rgba(66, 133, 244, 0.5);
+    }
+
+    .variable-highlight.required::after {
+      content: '*';
+      position: absolute;
+      right: -8px;
+      top: -2px;
+      color: var(--vscode-errorForeground);
+      font-weight: bold;
+      font-size: 12px;
+      opacity: 0;
+      transition: opacity var(--transition-fast);
+    }
+
+    .variable-highlight:hover::after,
+    .variable-highlight.selected::after {
+      opacity: 1;
+    }
+
+    /* Variable Input Panel */
+    .variable-input-panel {
+      padding: var(--spacing-lg);
+    }
+
+    .variable-input {
+      margin-bottom: var(--spacing-md);
+      padding: var(--spacing-md);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      border-radius: var(--border-radius-md);
+      background: var(--vscode-editor-background);
+    }
+
+    .variable-input.selected {
+      border-color: var(--vscode-focusBorder);
+      background: var(--vscode-textBlockQuote-background);
+    }
+
+    .variable-name {
+      font-weight: var(--font-weight-semibold);
+      color: var(--vscode-foreground);
+      margin-bottom: var(--spacing-sm);
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+    }
+
+    .variable-type {
+      font-size: var(--font-size-xs);
+      background: var(--vscode-badge-background);
+      color: var(--vscode-badge-foreground);
+      padding: 2px 6px;
+      border-radius: var(--border-radius-sm);
+    }
+
+    .variable-required {
+      color: var(--vscode-errorForeground);
+      font-size: var(--font-size-xs);
+    }
+
+    .variable-input-field {
+      width: 100%;
+      padding: 8px;
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      font-family: var(--vscode-font-family);
+      font-size: var(--font-size-md);
+      outline: none;
+      box-sizing: border-box;
+    }
+
+    .variable-input-field:focus {
+      border-color: var(--vscode-focusBorder);
+      outline: var(--border-width) solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+
+    .variable-type-select {
+      width: 100%;
+      padding: 8px;
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      font-family: var(--vscode-font-family);
+      font-size: var(--font-size-md);
+      outline: none;
+      margin-top: var(--spacing-sm);
+      box-sizing: border-box;
+    }
+
+    /* SQL Preview */
+    .sql-preview {
+      padding: var(--spacing-lg);
+      font-family: var(--vscode-font-family);
+      font-size: var(--font-size-md);
+      line-height: var(--line-height-relaxed);
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--vscode-editor-background);
+      color: var(--vscode-foreground);
+    }
+
     /* Status Bar */
     .status-bar {
       display: flex;
@@ -317,95 +421,39 @@ export class Jinja2EditorV2 extends LitElement {
       }
     }
 
-    /* Keyboard Navigation Help */
-    .keyboard-help {
-      position: fixed;
-      bottom: var(--spacing-lg);
-      right: var(--spacing-lg);
-      background: var(--vscode-editorHoverWidget-background);
-      border: var(--border-width) solid var(--vscode-editorHoverWidget-border);
+    /* Empty State */
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: var(--spacing-xl);
+      color: var(--vscode-descriptionForeground);
+      text-align: center;
+      border: 2px dashed var(--vscode-widget-border);
       border-radius: var(--border-radius-md);
-      padding: var(--spacing-md);
-      box-shadow: var(--shadow-lg);
-      font-size: var(--font-size-xs);
-      max-width: 300px;
-      z-index: 1000;
-      opacity: 0;
-      transform: translateY(10px);
-      transition: all var(--transition-normal);
-      pointer-events: none;
+      background: var(--vscode-textBlockQuote-background);
+      margin: var(--spacing-lg);
     }
 
-    .keyboard-help.visible {
-      opacity: 1;
-      transform: translateY(0);
-      pointer-events: auto;
+    .empty-icon {
+      font-size: 48px;
+      margin-bottom: var(--spacing-md);
+      opacity: 0.6;
     }
 
-    .keyboard-help-title {
-      font-weight: var(--font-weight-semibold);
+    .empty-title {
+      font-size: var(--font-size-md);
+      font-weight: var(--font-weight-medium);
       margin-bottom: var(--spacing-sm);
       color: var(--vscode-foreground);
     }
 
-    .keyboard-shortcut {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: var(--spacing-xs);
-      color: var(--vscode-descriptionForeground);
-    }
-
-    .shortcut-key {
-      background: var(--vscode-keybindingLabel-background);
-      color: var(--vscode-keybindingLabel-foreground);
-      padding: 1px 4px;
-      border-radius: 3px;
-      font-family: monospace;
-      font-size: 10px;
-      border: var(--border-width) solid var(--vscode-keybindingLabel-border);
-    }
-
-    /* Loading Overlay */
-    .loading-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background: rgba(0, 0, 0, 0.6);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      z-index: 1000;
-      border-radius: var(--border-radius-lg);
-      backdrop-filter: blur(4px);
-    }
-
-    .loading-content {
-      background: var(--vscode-editor-background);
-      padding: var(--spacing-xl);
-      border-radius: var(--border-radius-md);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: var(--spacing-md);
-      box-shadow: var(--shadow-lg);
-      border: var(--border-width) solid var(--vscode-widget-border);
-    }
-
-    .loading-spinner {
-      width: 32px;
-      height: 32px;
-      border: 3px solid var(--vscode-progressBar-background);
-      border-top: 3px solid var(--vscode-progressBar-foreground);
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+    .empty-description {
+      font-size: var(--font-size-sm);
+      line-height: var(--line-height-normal);
+      opacity: 0.8;
+      max-width: 400px;
     }
 
     /* Responsive Design */
@@ -440,366 +488,171 @@ export class Jinja2EditorV2 extends LitElement {
       .header-actions {
         justify-content: center;
       }
-
-      .keyboard-help {
-        bottom: var(--spacing-md);
-        right: var(--spacing-md);
-        left: var(--spacing-md);
-        max-width: none;
-      }
-    }
-
-    /* Theme Variables */
-    :host([theme="light"]) {
-      --vscode-editor-background: #ffffff;
-      --vscode-foreground: #000000;
-      --vscode-widget-border: #e0e0e0;
-      --vscode-textBlockQuote-background: #f5f5f5;
-      --vscode-textBlockQuote-border: #d0d0d0;
-      --vscode-sideBar-background: #f3f3f3;
-      --vscode-titleBar-background: #ffffff;
-      --vscode-titleBar-activeForeground: #000000;
-    }
-
-    :host([theme="dark"]) {
-      --vscode-editor-background: #1e1e1e;
-      --vscode-foreground: #d4d4d4;
-      --vscode-widget-border: #333333;
-      --vscode-textBlockQuote-background: #2d2d2d;
-      --vscode-textBlockQuote-border: #3e3e42;
-      --vscode-sideBar-background: #252526;
-      --vscode-titleBar-background: #1e1e1e;
-      --vscode-titleBar-activeForeground: #d4d4d4;
     }
   `;
 
   override willUpdate(changedProperties: Map<string | number | symbol, unknown>) {
-    if (changedProperties.has('template')) {
-      this.handleTemplateChange();
-    }
     if (changedProperties.has('variables')) {
-      this.handleVariablesChange();
+      this.initializeValues();
+      this.highlightTemplate();
+    }
+    if (changedProperties.has('template')) {
+      this.highlightTemplate();
     }
   }
 
   override connectedCallback() {
     super.connectedCallback();
-    this.setupResizeObserver();
-    this.setupKeyboardListeners();
-    this.initializeEditor();
+    this.initializeValues();
+    this.highlightTemplate();
+    this.checkLayout();
+
+    // Listen for resize events
+    window.addEventListener('resize', this.handleResize);
   }
 
   override disconnectedCallback() {
     super.disconnectedCallback();
-    this.removeResizeObserver();
-    this.removeKeyboardListeners();
+    window.removeEventListener('resize', this.handleResize);
   }
 
-  private setupResizeObserver() {
-    this.resizeObserver = new ResizeObserver(entries => {
-      for (const entry of entries) {
-        const { width } = entry.contentRect;
-        const newIsWide = width >= 1024;
-        if (newIsWide !== this.isWideLayout) {
-          this.isWideLayout = newIsWide;
-          this.requestUpdate();
-        }
+  private handleResize = () => {
+    this.checkLayout();
+  };
+
+  private checkLayout() {
+    const newIsWide = window.innerWidth >= 1024;
+    if (newIsWide !== this.isWideLayout) {
+      this.isWideLayout = newIsWide;
+      this.requestUpdate();
+    }
+  }
+
+  private initializeValues() {
+    const newValues: Record<string, Jinja2VariableValue> = {};
+
+    this.variables.forEach(variable => {
+      if (this.values[variable.name] !== undefined) {
+        newValues[variable.name] = this.values[variable.name];
+      } else {
+        newValues[variable.name] = variable.defaultValue ?? this.generateDefaultValue(variable.type);
       }
     });
 
-    this.resizeObserver.observe(this);
+    this.values = newValues;
   }
 
-  private removeResizeObserver() {
-    if (this.resizeObserver) {
-      this.resizeObserver.disconnect();
-      this.resizeObserver = null;
+  private generateDefaultValue(type: string): Jinja2VariableValue {
+    const defaults: Record<string, Jinja2VariableValue> = {
+      string: 'demo_value',
+      number: 42,
+      integer: 42,
+      boolean: true,
+      date: new Date().toISOString().split('T')[0],
+      datetime: new Date().toISOString(),
+      json: {},
+      uuid: '00000000-0000-0000-0000-000000000000',
+      email: 'test@example.com',
+      url: 'https://example.com',
+      null: null
+    };
+    return defaults[type] || 'demo_value';
+  }
+
+  private highlightTemplate() {
+    if (!this.template) {
+      this.highlightedTemplate = '';
+      return;
+    }
+
+    let highlighted = this.template;
+
+    // Highlight all variables in the template
+    this.variables.forEach(variable => {
+      const regex = new RegExp(`{{\\s*${variable.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
+      highlighted = highlighted.replace(regex, (match) => {
+        const isSelected = this.selectedVariable === variable.name;
+        const isRequired = variable.isRequired;
+        const classes = [
+          'variable-highlight',
+          isSelected ? 'selected' : '',
+          isRequired ? 'required' : ''
+        ].filter(Boolean).join(' ');
+
+        return `<span class="${classes}" data-variable="${variable.name}" onclick="this.parentElement.parentElement.parentElement.parentElement.querySelector('.jinja2-editor-v2').selectVariable('${variable.name}')">${match}</span>`;
+      });
+    });
+
+    this.highlightedTemplate = highlighted;
+  }
+
+  private selectVariable(variableName: string) {
+    this.selectedVariable = variableName;
+    this.highlightTemplate();
+
+    // Scroll to the variable input
+    const inputElement = this.shadowRoot?.querySelector(`[data-variable-input="${variableName}"]`) as HTMLElement;
+    if (inputElement) {
+      inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
   }
 
-  private setupKeyboardListeners() {
-    if (!this.config.keyboardNavigation) return;
-
-    document.addEventListener('keydown', this.handleGlobalKeyDown);
-  }
-
-  private removeKeyboardListeners() {
-    document.removeEventListener('keydown', this.handleGlobalKeyDown);
-  }
-
-  private handleGlobalKeyDown = (event: KeyboardEvent) => {
-    // Handle global keyboard shortcuts
-    if (event.ctrlKey || event.metaKey) {
-      switch (event.key) {
-        case '?':
-          event.preventDefault();
-          this.toggleKeyboardHelp();
-          break;
-      }
-    }
-
-    // Handle navigation when popover is not visible
-    if (!this.editorState.popover.isVisible && this.config.keyboardNavigation) {
-      switch (event.key) {
-        case 'Tab':
-          event.preventDefault();
-          this.navigateVariable(event.shiftKey ? 'previous' : 'next');
-          break;
-        case 'Enter':
-          event.preventDefault();
-          this.editSelectedVariable();
-          break;
-        case 'Escape':
-          event.preventDefault();
-          this.clearSelection();
-          break;
-      }
-    }
-  };
-
-  private initializeEditor() {
-    this.handleTemplateChange();
-    this.handleVariablesChange();
-  }
-
-  private handleTemplateChange() {
-    if (this.template !== this.editorState.template) {
-      this.editorState.template = this.template;
-
-      if (this.template) {
-        const parsed = parseTemplate(this.template);
-        this.editorState.variables = parsed.variables;
-        this.variables = parsed.variables;
-      } else {
-        this.editorState.variables = [];
-        this.variables = [];
-      }
-
-      if (this.config.autoPreview) {
-        this.renderTemplate();
-      }
-    }
-  }
-
-  private handleVariablesChange() {
-    // Sync external variables with internal state
-    if (this.variables !== this.editorState.variables) {
-      this.editorState.variables = this.variables;
-    }
-  }
-
-  private handleVariableClick(event: CustomEvent) {
-    const { variable } = event.detail;
-    this.selectVariable(variable);
-  }
-
-  private handleVariableHover(event: CustomEvent) {
-    // Could be used for showing tooltips or other hover effects
-  }
-
-  private handleVariableChange(event: CustomEvent) {
-    const changeEvent = event.detail as VariableChangeEventV2;
-
-    this.editorState.values[changeEvent.variable.name] = changeEvent.newValue;
-
-    // Update variable type if changed
-    if (changeEvent.newType !== changeEvent.oldType) {
-      const varIndex = this.editorState.variables.findIndex(v => v.name === changeEvent.variable.name);
-      if (varIndex >= 0) {
-        this.editorState.variables[varIndex] = {
-          ...this.editorState.variables[varIndex],
-          type: changeEvent.newType as Jinja2VariableType
-        };
-      }
-    }
+  private handleVariableChange(variableName: string, value: Jinja2VariableValue) {
+    this.values = {
+      ...this.values,
+      [variableName]: value
+    };
 
     if (this.config.autoPreview) {
       this.renderTemplate();
     }
-
-    this.dispatchEvent(new CustomEvent('variable-change', {
-      detail: changeEvent,
-      bubbles: true,
-      composed: true
-    }));
   }
 
-  private handleTemplateRender(event: CustomEvent) {
-    const renderEvent = event.detail as TemplateRenderEventV2;
-    this.editorState.renderedResult = renderEvent.result;
-    this.editorState.isProcessing = false;
-    this.editorState.lastRenderTime = renderEvent.metrics.renderTime;
-
-    this.dispatchEvent(new CustomEvent('template-render', {
-      detail: renderEvent,
-      bubbles: true,
-      composed: true
-    }));
-  }
-
-  private selectVariable(variable: EnhancedVariable) {
-    this.editorState.selectedVariable = variable.name;
-    this.navigationIndex = this.editorState.variables.findIndex(v => v.name === variable.name);
-
-    // Show popover for the variable
-    this.showVariablePopover(variable);
-  }
-
-  private showVariablePopover(variable: EnhancedVariable) {
-    const highlighter = this.shadowRoot?.querySelector('template-highlighter') as TemplateHighlighter;
-    const container = this.shadowRoot?.querySelector('.editor-panel') as HTMLElement;
-
-    if (!highlighter || !container) return;
-
-    // Find the highlighted element for this variable
-    const variableElement = highlighter.shadowRoot?.querySelector(
-      `[data-variable="${variable.name}"]`
-    ) as HTMLElement;
-
-    if (!variableElement) return;
-
-    const popover = this.shadowRoot?.querySelector('variable-popover') as VariablePopover;
-    if (!popover) return;
-
-    // Setup popover properties
-    popover.variable = variable;
-    popover.currentValue = this.editorState.values[variable.name];
-    popover.targetElement = variableElement;
-    popover.containerElement = container;
-    popover.config = this.config;
-    popover.theme = this.theme;
-
-    // Show popover
-    popover.show(variable, this.editorState.values[variable.name] ?? variable.defaultValue);
-
-    // Update editor state
-    this.editorState.popover = {
-      variable,
-      position: { x: 0, y: 0, placement: 'bottom', availableSpace: { top: 0, bottom: 0, left: 0, right: 0 } },
-      isVisible: true,
-      editingValue: this.editorState.values[variable.name],
-      editingType: variable.type
-    };
-  }
-
-  private hideVariablePopover() {
-    const popover = this.shadowRoot?.querySelector('variable-popover') as VariablePopover;
-    if (popover) {
-      popover.hide();
+  private handleVariableTypeChange(variableName: string, newType: string) {
+    const variableIndex = this.variables.findIndex(v => v.name === variableName);
+    if (variableIndex >= 0) {
+      const updatedVariables = [...this.variables];
+      updatedVariables[variableIndex] = {
+        ...updatedVariables[variableIndex],
+        type: newType as any
+      };
+      this.variables = updatedVariables;
     }
-
-    this.editorState.popover.isVisible = false;
-    this.editorState.selectedVariable = null;
-  }
-
-  private navigateVariable(direction: 'next' | 'previous' | 'first' | 'last') {
-    const sortedVars = sortVariablesForNavigation(this.editorState.variables);
-
-    if (sortedVars.length === 0) return;
-
-    let newIndex: number;
-
-    switch (direction) {
-      case 'first':
-        newIndex = 0;
-        break;
-      case 'last':
-        newIndex = sortedVars.length - 1;
-        break;
-      case 'next':
-        newIndex = this.navigationIndex + 1;
-        if (newIndex >= sortedVars.length) newIndex = 0;
-        break;
-      case 'previous':
-        newIndex = this.navigationIndex - 1;
-        if (newIndex < 0) newIndex = sortedVars.length - 1;
-        break;
-    }
-
-    this.navigationIndex = newIndex;
-    this.selectVariable(sortedVars[newIndex]);
-  }
-
-  private editSelectedVariable() {
-    if (this.navigationIndex >= 0 && this.navigationIndex < this.editorState.variables.length) {
-      const variable = this.editorState.variables[this.navigationIndex];
-      this.showVariablePopover(variable);
-    }
-  }
-
-  private clearSelection() {
-    this.hideVariablePopover();
-    this.navigationIndex = -1;
   }
 
   private async renderTemplate() {
     if (!this.template) {
-      this.editorState.renderedResult = '';
       return;
     }
 
-    this.editorState.isProcessing = true;
+    this.isProcessing = true;
     const startTime = performance.now();
 
     try {
-      // Simulate rendering process (replace with actual Nunjucks rendering)
+      // Simulate rendering delay
       await new Promise(resolve => setTimeout(resolve, 100));
 
+      this.processingTime = performance.now() - startTime;
+
+      // Use simple template rendering (similar to V1)
       let result = this.template;
-      Object.entries(this.editorState.values).forEach(([key, value]) => {
+      Object.entries(this.values).forEach(([key, value]) => {
         const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
         result = result.replace(regex, this.formatValue(value));
       });
 
-      const renderTime = performance.now() - startTime;
-      const usedVariables = Object.keys(this.editorState.values).filter(key =>
-        this.template.includes(`{{ ${key} }}`) || this.template.includes(`{{${key}}}`)
-      );
-      const missingVariables = this.editorState.variables
-        .filter(v => !this.editorState.values[v.name])
-        .map(v => v.name);
-
-      const renderEvent: TemplateRenderEventV2 = {
-        template: this.template,
-        values: this.editorState.values,
-        result,
-        error: undefined,
-        usedVariables,
-        missingVariables,
-        metrics: {
-          renderTime,
-          variableCount: this.editorState.variables.length,
-          templateLength: this.template.length
-        }
-      };
-
-      this.handleTemplateRender(new CustomEvent('template-render', {
-        detail: renderEvent
-      }));
+      // Store result for display
+      this.renderedResult = result;
 
     } catch (error) {
-      this.editorState.isProcessing = false;
-      this.editorState.renderedResult = '';
-
-      const renderEvent: TemplateRenderEventV2 = {
-        template: this.template,
-        values: this.editorState.values,
-        result: '',
-        error: error instanceof Error ? error.message : 'Unknown error',
-        usedVariables: [],
-        missingVariables: [],
-        metrics: {
-          renderTime: performance.now() - startTime,
-          variableCount: this.editorState.variables.length,
-          templateLength: this.template.length
-        }
-      };
-
-      this.handleTemplateRender(new CustomEvent('template-render', {
-        detail: renderEvent
-      }));
+      console.error('Template rendering failed:', error);
+      this.renderedResult = '';
+    } finally {
+      this.isProcessing = false;
     }
   }
+
+  private renderedResult: string = '';
 
   private formatValue(value: Jinja2VariableValue): string {
     if (value == null) return 'NULL';
@@ -817,17 +670,18 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private handleCopyResult() {
-    navigator.clipboard.writeText(this.editorState.renderedResult).then(() => {
+    navigator.clipboard.writeText(this.renderedResult).then(() => {
       this.showNotification('SQL已复制到剪贴板');
     });
   }
 
   private handleSubmit() {
+    this.renderTemplate(); // Ensure latest result
     this.dispatchEvent(new CustomEvent('template-submit', {
       detail: {
         template: this.template,
-        values: this.editorState.values,
-        result: this.editorState.renderedResult
+        values: this.values,
+        result: this.renderedResult
       },
       bubbles: true,
       composed: true
@@ -835,7 +689,6 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
-    // Simple notification implementation
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -863,25 +716,14 @@ export class Jinja2EditorV2 extends LitElement {
     }, 3000);
   }
 
-  private toggleKeyboardHelp() {
-    const helpElement = this.shadowRoot?.querySelector('.keyboard-help') as HTMLElement;
-    if (helpElement) {
-      helpElement.classList.toggle('visible');
-    }
-  }
-
-  private getLayoutClass() {
-    return this.isWideLayout ? 'wide-layout' : 'narrow-layout';
-  }
-
   private getVariableStats() {
-    const total = this.editorState.variables.length;
-    const configured = Object.keys(this.editorState.values).filter(key =>
-      this.editorState.values[key] !== undefined && this.editorState.values[key] !== null
+    const total = this.variables.length;
+    const configured = Object.keys(this.values).filter(key =>
+      this.values[key] !== undefined && this.values[key] !== null
     ).length;
-    const required = this.editorState.variables.filter(v => v.isRequired).length;
-    const requiredConfigured = this.editorState.variables.filter(v =>
-      v.isRequired && this.editorState.values[v.name] !== undefined && this.editorState.values[v.name] !== null
+    const required = this.variables.filter(v => v.isRequired).length;
+    const requiredConfigured = this.variables.filter(v =>
+      v.isRequired && this.values[v.name] !== undefined && this.values[v.name] !== null
     ).length;
 
     return { total, configured, required, requiredConfigured };
@@ -889,7 +731,7 @@ export class Jinja2EditorV2 extends LitElement {
 
   override render() {
     const stats = this.getVariableStats();
-    const layoutClass = this.getLayoutClass();
+    const layoutClass = this.isWideLayout ? 'wide-layout' : 'narrow-layout';
 
     return html`
       <div class="editor-container">
@@ -901,11 +743,6 @@ export class Jinja2EditorV2 extends LitElement {
             <span class="header-subtitle">V2</span>
           </div>
           <div class="header-actions">
-            ${this.config.keyboardNavigation ? html`
-              <button class="header-button" @click=${this.toggleKeyboardHelp} title="Keyboard shortcuts">
-                ⌨️ Shortcuts
-              </button>
-            ` : ''}
             <button class="header-button" @click=${this.handleCopyTemplate} title="Copy template">
               📄 Copy Template
             </button>
@@ -920,49 +757,86 @@ export class Jinja2EditorV2 extends LitElement {
 
         <!-- Main Layout -->
         <main class="layout-container ${layoutClass}">
-          <!-- Editor Panel -->
+          <!-- Template and Variables Panel -->
           <section class="editor-panel">
             <div class="panel-header">
               <div class="panel-title">
-                <span>📝</span>
-                Template Editor
+                <span>📝</span> Template & Variables
                 <span class="panel-subtitle">${stats.configured}/${stats.total} configured</span>
               </div>
             </div>
             <div class="panel-content">
-              <template-highlighter
-                .template=${this.template}
-                .config=${this.config}
-                .variables=${this.editorState.variables}
-                .selectedVariable=${this.editorState.selectedVariable}
-                .theme=${this.theme}
-                @variable-click=${this.handleVariableClick}
-                @variable-hover=${this.handleVariableHover}
-              ></template-highlighter>
+              <!-- Template Display -->
+              <div class="template-display" .innerHTML=${this.highlightedTemplate}></div>
+
+              <!-- Variable Inputs -->
+              ${this.variables.length > 0 ? html`
+                <div class="variable-input-panel">
+                  ${this.variables.map(variable => html`
+                    <div class="variable-input ${this.selectedVariable === variable.name ? 'selected' : ''}" data-variable-input="${variable.name}">
+                      <div class="variable-name">
+                        ${variable.name}
+                        <span class="variable-type">${variable.type}</span>
+                        ${variable.isRequired ? html`<span class="variable-required">*</span>` : ''}
+                      </div>
+                      <input
+                        type="text"
+                        class="variable-input-field"
+                        .value=${this.values[variable.name] || ''}
+                        @input=${(e: Event) => this.handleVariableChange(variable.name, (e.target as HTMLInputElement).value)}
+                        placeholder="Enter value for ${variable.name}"
+                      />
+                      <select
+                        class="variable-type-select"
+                        .value=${variable.type}
+                        @change=${(e: Event) => this.handleVariableTypeChange(variable.name, (e.target as HTMLSelectElement).value)}
+                      >
+                        <option value="string">String</option>
+                        <option value="number">Number</option>
+                        <option value="integer">Integer</option>
+                        <option value="boolean">Boolean</option>
+                        <option value="date">Date</option>
+                        <option value="datetime">DateTime</option>
+                        <option value="json">JSON</option>
+                        <option value="null">NULL</option>
+                      </select>
+                    </div>
+                  `)}
+                </div>
+              ` : html`
+                <div class="empty-state">
+                  <div class="empty-icon">📋</div>
+                  <div class="empty-title">No variables found</div>
+                  <div class="empty-description">
+                    This template doesn't contain any variables. Add Jinja2 variables like {{ variable_name }} to start editing.
+                  </div>
+                </div>
+              `}
             </div>
           </section>
 
-          <!-- Preview Panel -->
+          <!-- SQL Preview Panel -->
           <section class="preview-panel">
             <div class="panel-header">
               <div class="panel-title">
-                <span>👁️</span>
-                SQL Preview
-                ${this.editorState.lastRenderTime > 0 ? html`
-                  <span class="panel-subtitle">${Math.round(this.editorState.lastRenderTime)}ms</span>
+                <span>👁️</span> SQL Preview
+                ${this.processingTime > 0 ? html`
+                  <span class="panel-subtitle">${Math.round(this.processingTime)}ms</span>
                 ` : ''}
               </div>
             </div>
             <div class="panel-content">
-              <sql-preview-v2
-                .template=${this.template}
-                .values=${this.editorState.values}
-                .variables=${this.editorState.variables}
-                .theme=${this.theme}
-                .showOriginal=${this.showOriginal}
-                .autoRender=${this.config.autoPreview}
-                @template-render=${this.handleTemplateRender}
-              ></sql-preview-v2>
+              ${this.renderedResult ? html`
+                <div class="sql-preview">${this.renderedResult}</div>
+              ` : html`
+                <div class="empty-state">
+                  <div class="empty-icon">🔍</div>
+                  <div class="empty-title">No SQL preview</div>
+                  <div class="empty-description">
+                    Configure variables to see the rendered SQL preview here.
+                  </div>
+                </div>
+              `}
             </div>
           </section>
         </main>
@@ -991,39 +865,8 @@ export class Jinja2EditorV2 extends LitElement {
           </div>
         </footer>
 
-        <!-- Variable Popover -->
-        <variable-popover
-          .config=${this.config}
-          .theme=${this.theme}
-          @variable-change=${this.handleVariableChange}
-          @popover-hide=${() => this.hideVariablePopover()}
-        ></variable-popover>
-
-        <!-- Keyboard Help -->
-        ${this.config.keyboardNavigation ? html`
-          <div class="keyboard-help">
-            <div class="keyboard-help-title">⌨️ Keyboard Shortcuts</div>
-            <div class="keyboard-shortcut">
-              <span>Navigate variables</span>
-              <span class="shortcut-key">Tab</span>
-            </div>
-            <div class="keyboard-shortcut">
-              <span>Edit selected</span>
-              <span class="shortcut-key">Enter</span>
-            </div>
-            <div class="keyboard-shortcut">
-              <span>Clear selection</span>
-              <span class="shortcut-key">Esc</span>
-            </div>
-            <div class="keyboard-shortcut">
-              <span>Show shortcuts</span>
-              <span class="shortcut-key">Ctrl/?</span>
-            </div>
-          </div>
-        ` : ''}
-
         <!-- Loading Overlay -->
-        ${this.editorState.isProcessing ? html`
+        ${this.isProcessing ? html`
           <div class="loading-overlay">
             <div class="loading-content">
               <div class="loading-spinner"></div>

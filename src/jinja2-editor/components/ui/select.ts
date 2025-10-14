@@ -10,7 +10,7 @@ export interface SelectOption {
 
 @customElement('jinja-select')
 export class JinjaSelect extends LitElement {
-  static styles = css`
+  static override styles = css`
     :host {
       display: block;
       font-family: var(--vscode-font-family);
@@ -277,7 +277,7 @@ export class JinjaSelect extends LitElement {
 
   private groupedOptions: Map<string, SelectOption[]> = new Map();
 
-  willUpdate() {
+  override willUpdate() {
     this.groupOptions();
   }
 
@@ -302,7 +302,7 @@ export class JinjaSelect extends LitElement {
     }
   }
 
-  render() {
+  override render() {
     const classes = [
       'select-field',
       this.error ? 'error' : ''
@@ -419,7 +419,7 @@ export class JinjaSelect extends LitElement {
     }));
   }
 
-  focus() {
+  override focus() {
     const select = this.shadowRoot?.querySelector('.select-field') as HTMLSelectElement;
     select?.focus();
   }

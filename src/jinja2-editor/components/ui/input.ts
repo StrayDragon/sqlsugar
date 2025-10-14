@@ -3,7 +3,7 @@ import { customElement, property } from 'lit/decorators.js';
 
 @customElement('jinja-input')
 export class JinjaInput extends LitElement {
-  static styles = css`
+  static override styles = css`
     :host {
       display: block;
       font-family: var(--vscode-font-family);
@@ -211,7 +211,7 @@ export class JinjaInput extends LitElement {
   @property({ type: String }) accessor error: string = '';
   @property({ type: String }) accessor helper: string = '';
 
-  render() {
+  override render() {
     const wrapperClasses = [
       'input-wrapper',
       this.error ? 'error' : '',
@@ -332,7 +332,7 @@ export class JinjaInput extends LitElement {
     }));
   }
 
-  focus() {
+  override focus() {
     const input = this.shadowRoot?.querySelector('.input-field') as HTMLInputElement;
     input?.focus();
   }

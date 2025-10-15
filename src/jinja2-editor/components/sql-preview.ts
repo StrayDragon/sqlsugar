@@ -20,6 +20,9 @@ export class JinjaSqlPreview extends LitElement {
   @state() accessor renderError: string | null = null;
   @state() accessor isRendering = false;
   @state() accessor lastRenderTime = 0;
+  @state() accessor activeVariable: string | null = null;
+  @state() accessor popupPosition: { x: number; y: number } = { x: 0, y: 0 };
+  @state() accessor popupValue: string = '';
 
   static styles = css`
     /* Highlight.js base styles for Shadow DOM - VS2015 theme */
@@ -411,6 +414,208 @@ export class JinjaSqlPreview extends LitElement {
       background-color: rgba(78, 201, 176, 0.1);
       padding: 0 2px;
       border-radius: 2px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 2px;
+    }
+
+    .sql-variable:hover {
+      background-color: rgba(78, 201, 176, 0.2);
+      transform: scale(1.05);
+      box-shadow: 0 1px 3px rgba(78, 201, 176, 0.3);
+    }
+
+    .template-variable {
+      color: #d19a66;
+      background-color: rgba(209, 154, 102, 0.1);
+      padding: 0 2px;
+      border-radius: 2px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      text-decoration: underline;
+      text-decoration-style: dotted;
+      text-underline-offset: 2px;
+      font-weight: var(--font-weight-medium);
+    }
+
+    .template-variable:hover {
+      background-color: rgba(209, 154, 102, 0.2);
+      transform: scale(1.05);
+      box-shadow: 0 1px 3px rgba(209, 154, 102, 0.3);
+    }
+
+    /* Variable Popup */
+    .variable-popup {
+      position: absolute;
+      background: var(--vscode-editor-background);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-lg);
+      padding: var(--spacing-md);
+      z-index: 1000;
+      min-width: 280px;
+      max-width: 400px;
+      backdrop-filter: blur(10px);
+    }
+
+    .variable-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+      padding-bottom: var(--spacing-sm);
+      border-bottom: var(--border-width) solid var(--vscode-widget-border);
+    }
+
+    .variable-popup-title {
+      font-weight: var(--font-weight-semibold);
+      color: var(--vscode-foreground);
+      font-size: var(--font-size-md);
+    }
+
+    .variable-popup-close {
+      background: none;
+      border: none;
+      color: var(--vscode-descriptionForeground);
+      cursor: pointer;
+      font-size: var(--font-size-lg);
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--border-radius-sm);
+      transition: all var(--transition-fast);
+    }
+
+    .variable-popup-close:hover {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+
+    .variable-popup-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .variable-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: var(--font-size-sm);
+    }
+
+    .variable-info-label {
+      color: var(--vscode-descriptionForeground);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .variable-info-value {
+      color: var(--vscode-foreground);
+      font-family: var(--vscode-font-family);
+    }
+
+    .variable-value-input {
+      width: 100%;
+      padding: 6px 8px;
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      font-size: var(--font-size-sm);
+      font-family: var(--vscode-font-family);
+      outline: none;
+    }
+
+    .variable-value-input:focus {
+      border-color: var(--vscode-focusBorder);
+      outline: var(--border-width) solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+
+    .variable-value-select {
+      width: 100%;
+      padding: 6px 8px;
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      font-size: var(--font-size-sm);
+      font-family: var(--vscode-font-family);
+      outline: none;
+    }
+
+    .variable-value-select:focus {
+      border-color: var(--vscode-focusBorder);
+      outline: var(--border-width) solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+
+    .variable-value-checkbox {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      cursor: pointer;
+    }
+
+    .variable-value-checkbox:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .variable-value-checkbox input[type="checkbox"] {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .variable-value-checkbox label {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .variable-popup-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-sm);
+      padding-top: var(--spacing-sm);
+      border-top: var(--border-width) solid var(--vscode-widget-border);
+    }
+
+    .variable-popup-button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: var(--border-width) solid var(--vscode-button-border);
+      padding: 6px 12px;
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-size-xs);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: var(--vscode-font-family);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .variable-popup-button:hover {
+      background: var(--vscode-button-hoverBackground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .variable-popup-button.primary {
+      background: linear-gradient(135deg, var(--vscode-badge-background) 0%, var(--vscode-button-background) 100%);
+      color: var(--vscode-badge-foreground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .variable-popup-button.secondary {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border-color: var(--vscode-widget-border);
     }
 
     .error-section {
@@ -602,17 +807,231 @@ export class JinjaSqlPreview extends LitElement {
 
   private simulateTemplateRendering(template: string, values: Record<string, Jinja2VariableValue>): string {
     let result = template;
+
+    // Process {% if %} blocks first
+    result = this.processIfBlocks(result, values);
+
+    // Process {% for %} blocks
+    result = this.processForBlocks(result, values);
+
+    // Process simple variable substitutions {{ variable }}
     Object.entries(values).forEach(([key, value]) => {
-      const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\\]\\\\]/g, '\\$&')}\\s*}}`, 'g');
+      const regex = new RegExp(`{{\\s*${this.escapeRegex(key)}\\s*}}`, 'g');
       result = result.replace(regex, this.formatValue(value));
     });
-    result = result.replace(/{% if (.*?) %}/g, (match, condition) => {
-      const varName = condition.trim();
-      const value = values[varName];
-      return value ? '' : '-- ';
-    });
-    result = result.replace(/{% endif %}/g, '');
+
+    // Process complex variable expressions with filters and attributes
+    result = this.processComplexVariables(result, values);
+
     return result;
+  }
+
+  private processIfBlocks(template: string, values: Record<string, Jinja2VariableValue>): string {
+    let result = template;
+
+    // Handle {% if condition %}...{% endif %} blocks
+    const ifBlockRegex = /{%\s*if\s+([^%]+?)\s*%}([\s\S]*?){%\s*endif\s*%}/g;
+
+    result = result.replace(ifBlockRegex, (match, condition, content) => {
+      const shouldRender = this.evaluateCondition(condition, values);
+      return shouldRender ? content : '';
+    });
+
+    // Handle {% if condition %}...{% else %}...{% endif %} blocks
+    const ifElseRegex = /{%\s*if\s+([^%]+?)\s*%}([\s\S]*?){%\s*else\s*%}([\s\S]*?){%\s*endif\s*%}/g;
+
+    result = result.replace(ifElseRegex, (match, condition, ifContent, elseContent) => {
+      const shouldRender = this.evaluateCondition(condition, values);
+      return shouldRender ? ifContent : elseContent;
+    });
+
+    // Handle {% if condition %}...{% elif condition %}...{% else %}...{% endif %} blocks
+    const ifElifRegex = /{%\s*if\s+([^%]+?)\s*%}([\s\S]*?){%\s*elif\s+([^%]+?)\s*%}([\s\S]*?){%\s*else\s*%}([\s\S]*?){%\s*endif\s*%}/g;
+
+    result = result.replace(ifElifRegex, (match, ifCondition, ifContent, elifCondition, elifContent, elseContent) => {
+      if (this.evaluateCondition(ifCondition, values)) {
+        return ifContent;
+      } else if (this.evaluateCondition(elifCondition, values)) {
+        return elifContent;
+      } else {
+        return elseContent;
+      }
+    });
+
+    return result;
+  }
+
+  private processForBlocks(template: string, values: Record<string, Jinja2VariableValue>): string {
+    let result = template;
+
+    // Handle simple {% for item in items %}...{% endfor %} blocks
+    const forRegex = /{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%}([\s\S]*?){%\s*endfor\s*%}/g;
+
+    result = result.replace(forRegex, (match, itemVar, arrayVar, content) => {
+      const arrayValue = values[arrayVar];
+      if (!Array.isArray(arrayValue)) return '';
+
+      return arrayValue.map((item, index) => {
+        let itemContent = content;
+
+        // Replace {{ itemVar }} with actual item
+        const itemRegex = new RegExp(`{{\\s*${this.escapeRegex(itemVar)}\\s*}}`, 'g');
+        itemContent = itemContent.replace(itemRegex, this.formatValue(item));
+
+        // Replace {{ loop.index }} with 1-based index
+        const loopIndexRegex = /\{\{\s*loop\.index\s*\}\}/g;
+        itemContent = itemContent.replace(loopIndexRegex, String(index + 1));
+
+        // Replace {{ loop.index0 }} with 0-based index
+        const loopIndex0Regex = /\{\{\s*loop\.index0\s*\}\}/g;
+        itemContent = itemContent.replace(loopIndex0Regex, String(index));
+
+        return itemContent;
+      }).join('\n');
+    });
+
+    return result;
+  }
+
+  private processComplexVariables(template: string, values: Record<string, Jinja2VariableValue>): string {
+    let result = template;
+
+    // Handle variables with filters: {{ variable | filter }}
+    result = result.replace(/\{\{\s*([^|}]+?)\s*\|\s*([^}]+?)\s*\}\}/g, (match, varExpression, filterExpression) => {
+      const varName = varExpression.trim();
+      const filterName = filterExpression.trim();
+      const value = values[varName];
+
+      if (value === undefined) return match;
+
+      return this.applyFilter(value, filterName);
+    });
+
+    // Handle object attributes: {{ object.property }}
+    result = result.replace(/\{\{\s*(\w+)\.(\w+)\s*\}\}/g, (match, objName, propName) => {
+      const objValue = values[objName];
+      if (typeof objValue === 'object' && objValue !== null) {
+        const propValue = (objValue as Record<string, unknown>)[propName];
+        return this.formatValue(propValue);
+      }
+      return match;
+    });
+
+    return result;
+  }
+
+  private evaluateCondition(condition: string, values: Record<string, Jinja2VariableValue>): boolean {
+    const trimmedCondition = condition.trim();
+
+    // Handle simple variable conditions: {% if variable %}
+    if (/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(trimmedCondition)) {
+      const value = values[trimmedCondition];
+      return this.isTruthy(value);
+    }
+
+    // Handle negation: {% if not variable %}
+    if (trimmedCondition.startsWith('not ')) {
+      const varName = trimmedCondition.substring(4).trim();
+      const value = values[varName];
+      return !this.isTruthy(value);
+    }
+
+    // Handle equality: {% if variable == value %}
+    const equalityMatch = trimmedCondition.match(/^(.+?)\s*==\s*(.+?)$/);
+    if (equalityMatch) {
+      const [, left, right] = equalityMatch;
+      const leftValue = this.extractValue(left, values);
+      const rightValue = this.extractValue(right, values);
+      return leftValue === rightValue;
+    }
+
+    // Handle inequality: {% if variable != value %}
+    const inequalityMatch = trimmedCondition.match(/^(.+?)\s*!=\s*(.+?)$/);
+    if (inequalityMatch) {
+      const [, left, right] = inequalityMatch;
+      const leftValue = this.extractValue(left, values);
+      const rightValue = this.extractValue(right, values);
+      return leftValue !== rightValue;
+    }
+
+    // Handle boolean AND: {% if variable1 and variable2 %}
+    if (trimmedCondition.includes(' and ')) {
+      const parts = trimmedCondition.split(/\s+and\s+/);
+      return parts.every(part => this.evaluateCondition(part, values));
+    }
+
+    // Handle boolean OR: {% if variable1 or variable2 %}
+    if (trimmedCondition.includes(' or ')) {
+      const parts = trimmedCondition.split(/\s+or\s+/);
+      return parts.some(part => this.evaluateCondition(part, values));
+    }
+
+    // Default: treat as variable existence check
+    const value = values[trimmedCondition];
+    return this.isTruthy(value);
+  }
+
+  private extractValue(expr: string, values: Record<string, Jinja2VariableValue>): unknown {
+    const trimmed = expr.trim();
+
+    // Handle string literals
+    if ((trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+        (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+      return trimmed.slice(1, -1);
+    }
+
+    // Handle numeric literals
+    if (/^\d+$/.test(trimmed)) {
+      return parseInt(trimmed, 10);
+    }
+
+    if (/^\d+\.\d+$/.test(trimmed)) {
+      return parseFloat(trimmed);
+    }
+
+    // Handle boolean literals
+    if (trimmed === 'true') return true;
+    if (trimmed === 'false') return false;
+
+    // Handle variables
+    return values[trimmed];
+  }
+
+  private isTruthy(value: Jinja2VariableValue): boolean {
+    if (value === null || value === undefined) return false;
+    if (typeof value === 'boolean') return value;
+    if (typeof value === 'number') return value !== 0;
+    if (typeof value === 'string') return value.length > 0 && value !== 'false' && value !== '0';
+    if (Array.isArray(value)) return value.length > 0;
+    if (typeof value === 'object') return Object.keys(value).length > 0;
+    return Boolean(value);
+  }
+
+  private applyFilter(value: Jinja2VariableValue, filterName: string): string {
+    const filter = filterName.trim();
+    const val = value === null ? null : value;
+
+    switch (filter) {
+      case 'upper':
+        return String(val).toUpperCase();
+      case 'lower':
+        return String(val).toLowerCase();
+      case 'title':
+        return String(val).replace(/\b\w/g, l => l.toUpperCase());
+      case 'trim':
+        return String(val).trim();
+      case 'sql_quote':
+        if (val == null) return 'NULL';
+        if (typeof val === 'string') return `'${val.replace(/'/g, "''")}'`;
+        if (typeof val === 'boolean') return val ? 'TRUE' : 'FALSE';
+        if (typeof val === 'number') return String(val);
+        return `'${JSON.stringify(val).replace(/'/g, "''")}'`;
+      case 'default':
+        // For simplicity, just return the value
+        return this.formatValue(val);
+      default:
+        return this.formatValue(val);
+    }
   }
 
   private renderWithNunjucks(template: string, values: Record<string, Jinja2VariableValue>): string {
@@ -749,7 +1168,7 @@ export class JinjaSqlPreview extends LitElement {
       const hljs = (globalThis as any).hljs;
       if (hljs && hljs.highlight) {
         const result = hljs.highlight(sql, { language: 'sql', ignoreIllegals: true });
-        return `<pre><code class="hljs sql">${result.value}</code></pre>`;
+        return `<pre><code class="hljs sql">${this.highlightVariablesInHighlightedSQL(result.value)}</code></pre>`;
       }
     } catch (error) {
       // Fallback to simple highlighting if highlight.js fails
@@ -760,9 +1179,138 @@ export class JinjaSqlPreview extends LitElement {
     return `<pre><code class="sql-content">${this.simpleHighlightSQL(sql)}</code></pre>`;
   }
 
+  private highlightVariablesInHighlightedSQL(highlightedSQL: string): string {
+    let result = highlightedSQL;
+
+    // Apply variable highlighting to the already highlighted SQL
+    Object.keys(this.values).forEach(varName => {
+      const regex = new RegExp(`(${this.escapeRegex(varName)})`, 'gi');
+      result = result.replace(regex, (match, p1, offset) => {
+        // Check if this match is already inside an HTML tag
+        const beforeMatch = result.substring(0, offset);
+        const lastLtIndex = beforeMatch.lastIndexOf('<');
+        const lastGtIndex = beforeMatch.lastIndexOf('>');
+        const isInTag = lastLtIndex > lastGtIndex;
+
+        if (!isInTag) {
+          return `<span class="sql-variable" data-variable="${varName}">${match}</span>`;
+        }
+        return match;
+      });
+    });
+
+    return result;
+  }
+
+  // Highlight variables in the original template
+  private highlightTemplateVariables(template: string): string {
+    if (!template) return '';
+
+    let result = this.escapeHtml(template);
+
+    // Highlight all variable references in the template
+    // Match {{ variable }} patterns (including complex expressions)
+    result = result.replace(/\{\{\s*([^}]+)\s*\}\}/g, (match, varExpression) => {
+      // Extract the primary variable name from expressions like:
+      // - variable
+      // - variable.property
+      // - variable | filter
+      // - object.property
+      const varName = varExpression.trim().split('.')[0].split('|')[0].trim();
+
+      if (this.values.hasOwnProperty(varName)) {
+        return `<span class="template-variable" data-variable="${varName}">${match}</span>`;
+      }
+      return match;
+    });
+
+    // Highlight variables in control structures like {% if variable %}
+    result = result.replace(/\{%\s*if\s+([^%]+)\s*%\}/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Highlight variables in {% elif condition %}
+    result = result.replace(/\{%\s*elif\s+([^%]+)\s*%\}/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Highlight variables in {% for item in items %}
+    result = result.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}/g, (match, itemVar, arrayVar) => {
+      let highlightedMatch = match;
+
+      // Highlight the array variable
+      if (this.values.hasOwnProperty(arrayVar)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(arrayVar)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="template-variable" data-variable="${arrayVar}">${arrayVar}</span>`);
+      }
+
+      return highlightedMatch;
+    });
+
+    return result;
+  }
+
+  private highlightVariablesInCondition(match: string, condition: string): string {
+    let highlightedMatch = match;
+
+    // Extract variable names from complex conditions
+    // Handle patterns like:
+    // - variable
+    // - not variable
+    // - variable == value
+    // - variable != value
+    // - variable1 and variable2
+    // - variable1 or variable2
+
+    // Find all potential variable names
+    const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
+    const matches = condition.match(variableRegex) || [];
+
+    // Filter out keywords and operators
+    const excludedWords = new Set([
+      'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null', 'true', 'false', 'exists',
+      'eq', 'ne', 'lt', 'gt', 'le', 'ge', // comparison operators
+      'defined', 'undefined' // other operators
+    ]);
+
+    const varNames = matches
+      .map(match => match.trim())
+      .filter(match => !excludedWords.has(match.toLowerCase()))
+      .filter(varName => this.values.hasOwnProperty(varName));
+
+    // Highlight each variable
+    varNames.forEach(varName => {
+      const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
+      highlightedMatch = highlightedMatch.replace(regex,
+        `<span class="template-variable" data-variable="${varName}">${varName}</span>`);
+    });
+
+    return highlightedMatch;
+  }
+
   private simpleHighlightSQL(sql: string): string {
     const keywords = ['SELECT', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'IN', 'LIKE', 'BETWEEN', 'IS', 'NULL', 'INSERT', 'INTO', 'VALUES', 'UPDATE', 'SET', 'DELETE', 'JOIN', 'INNER', 'LEFT', 'RIGHT', 'OUTER', 'ON', 'GROUP', 'BY', 'HAVING', 'ORDER', 'ASC', 'DESC', 'LIMIT', 'OFFSET', 'UNION', 'ALL', 'DISTINCT', 'COUNT', 'SUM', 'AVG', 'MIN', 'MAX', 'CASE', 'WHEN', 'THEN', 'ELSE', 'END', 'EXISTS', 'TRUE', 'FALSE', 'PRIMARY', 'KEY', 'FOREIGN', 'REFERENCES', 'TABLE', 'INDEX', 'CREATE', 'ALTER', 'DROP', 'DATABASE', 'SCHEMA', 'VIEW', 'TRIGGER', 'PROCEDURE', 'FUNCTION'];
     let result = this.escapeHtml(sql);
+
+    // First, highlight Jinja2 variables before SQL keywords
+    // This ensures we don't double-highlight variables that might be part of SQL strings
+    Object.keys(this.values).forEach(varName => {
+      const regex = new RegExp(`(${this.escapeRegex(varName)})`, 'gi');
+      result = result.replace(regex, (match, p1, offset) => {
+        // Check if this match is already inside an HTML tag
+        const beforeMatch = result.substring(0, offset);
+        const lastLtIndex = beforeMatch.lastIndexOf('<');
+        const lastGtIndex = beforeMatch.lastIndexOf('>');
+        const isInTag = lastLtIndex > lastGtIndex;
+
+        if (!isInTag) {
+          return `<span class="sql-variable" data-variable="${varName}">${match}</span>`;
+        }
+        return match;
+      });
+    });
+
     keywords.sort((a, b) => b.length - a.length);
     keywords.forEach(keyword => {
       const upperKeyword = keyword.toUpperCase();
@@ -796,6 +1344,10 @@ export class JinjaSqlPreview extends LitElement {
     result = result.replace(/--.*$/gm, match => '<span class="sql-comment">' + match + '</span>');
     result = result.replace(/\/\*[\s\S]*?\*\//g, match => '<span class="sql-comment">' + match + '</span>');
     return result;
+  }
+
+  private escapeRegex(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private escapeHtml(text: string): string {
@@ -890,13 +1442,340 @@ export class JinjaSqlPreview extends LitElement {
     return 'complex';
   }
 
+  // Handle variable click events
+  private handleVariableClick(event: Event) {
+    const target = event.target as HTMLElement;
+    const variableName = target.getAttribute('data-variable');
+
+    if (!variableName) return;
+
+    // Calculate popup position
+    const rect = target.getBoundingClientRect();
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+    this.popupPosition = {
+      x: rect.left + scrollX,
+      y: rect.bottom + scrollY + 5
+    };
+
+    // Set the active variable and its current value
+    this.activeVariable = variableName;
+    const variableType = this.getVariableType(variableName);
+    this.popupValue = this.formatValueForEdit(this.values[variableName], variableType);
+
+    // Prevent event bubbling
+    event.stopPropagation();
+  }
+
+  // Handle template variable click events
+  private handleTemplateVariableClick(event: Event) {
+    const target = event.target as HTMLElement;
+    const variableName = target.getAttribute('data-variable');
+
+    if (!variableName) return;
+
+    // Calculate popup position
+    const rect = target.getBoundingClientRect();
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+    this.popupPosition = {
+      x: rect.left + scrollX,
+      y: rect.bottom + scrollY + 5
+    };
+
+    // Set the active variable and its current value
+    this.activeVariable = variableName;
+    const variableType = this.getVariableType(variableName);
+    this.popupValue = this.formatValueForEdit(this.values[variableName], variableType);
+
+    // Prevent event bubbling
+    event.stopPropagation();
+  }
+
+  // Close popup when clicking outside
+  private handleDocumentClick(event: Event) {
+    const target = event.target as HTMLElement;
+
+    // Check if click is inside popup or on a variable
+    const isClickInsidePopup = target.closest('.variable-popup') !== null;
+    const isClickOnVariable = target.classList.contains('sql-variable');
+    const isClickOnTemplateVariable = target.classList.contains('template-variable');
+
+    if (!isClickInsidePopup && !isClickOnVariable && !isClickOnTemplateVariable) {
+      this.activeVariable = null;
+      this.popupValue = '';
+    }
+  }
+
+  // Handle popup value change
+  private handlePopupValueChange(event: Event) {
+    const target = event.target as HTMLInputElement | HTMLSelectElement;
+    this.popupValue = target.value;
+  }
+
+  // Handle popup checkbox change
+  private handlePopupCheckboxChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.popupValue = target.checked.toString();
+  }
+
+  // Save variable value from popup
+  private handleSaveVariable() {
+    if (!this.activeVariable) return;
+
+    const variableType = this.getVariableType(this.activeVariable);
+    const newValue = this.parseValueFromEdit(this.popupValue, variableType);
+
+    // Update the values object
+    this.values = {
+      ...this.values,
+      [this.activeVariable]: newValue
+    };
+
+    // Dispatch change event to parent
+    this.dispatchEvent(new CustomEvent('variable-change', {
+      detail: {
+        name: this.activeVariable,
+        value: newValue,
+        type: variableType
+      },
+      bubbles: true,
+      composed: true
+    }));
+
+    // Re-render the template with new values
+    this.renderTemplate();
+
+    // Close popup
+    this.activeVariable = null;
+    this.popupValue = '';
+  }
+
+  // Cancel popup editing
+  private handleCancelPopup() {
+    this.activeVariable = null;
+    this.popupValue = '';
+  }
+
+  // Format value for editing in popup
+  private formatValueForEdit(value: Jinja2VariableValue, variableType?: string): string {
+    const type = variableType || this.getVariableType(this.activeVariable!);
+
+    if (value == null) {
+      return type === 'null' ? 'null' : '';
+    }
+
+    switch (type) {
+      case 'boolean':
+        return value === true ? 'true' : 'false';
+
+      case 'number':
+      case 'integer':
+        return String(value);
+
+      case 'date':
+        // Format date for date input
+        if (typeof value === 'string') {
+          return value.startsWith('T') ? value.substring(1) : value;
+        }
+        return String(value);
+
+      case 'datetime':
+        // Format datetime for datetime-local input
+        if (typeof value === 'string') {
+          return value.replace('T', 'T').replace(/\.\d{3}Z$/, '');
+        }
+        return String(value);
+
+      case 'json':
+        if (typeof value === 'object') {
+          return JSON.stringify(value, null, 2);
+        }
+        return String(value);
+
+      default:
+        if (typeof value === 'object') {
+          return JSON.stringify(value);
+        }
+        return String(value);
+    }
+  }
+
+  // Parse value from popup input
+  private parseValueFromEdit(value: string, variableType?: string): Jinja2VariableValue {
+    const type = variableType || this.getVariableType(this.activeVariable!);
+
+    // Handle empty values
+    if (!value || value.trim() === '') {
+      if (type === 'null') return null;
+      if (type === 'boolean') return false;
+      if (type === 'number' || type === 'integer') return 0;
+      return '';
+    }
+
+    switch (type) {
+      case 'boolean':
+        return value.toLowerCase() === 'true' || value === '1';
+
+      case 'number':
+        const numValue = parseFloat(value);
+        return isNaN(numValue) ? 0 : numValue;
+
+      case 'integer':
+        const intValue = parseInt(value, 10);
+        return isNaN(intValue) ? 0 : intValue;
+
+      case 'null':
+        return value.toLowerCase() === 'null' ? null : value;
+
+      case 'date':
+      case 'datetime':
+        return value; // Keep as string, let rendering handle date formatting
+
+      case 'email':
+      case 'url':
+        return value; // Keep as string, validation can be added if needed
+
+      case 'json':
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value; // Return as string if invalid JSON
+        }
+
+      default:
+        // Try to parse as JSON for complex values
+        try {
+          return JSON.parse(value);
+        } catch {
+          // Return as string if not valid JSON
+          return value;
+        }
+    }
+  }
+
+  // Get variable type from variables array
+  private getVariableType(variableName: string): string {
+    const variable = this.variables.find(v => v.name === variableName);
+    return variable?.type || 'string';
+  }
+
+  // Get variable info for popup display
+  private getVariableInfo(variableName: string) {
+    return this.variables.find(v => v.name === variableName);
+  }
+
+  // Render appropriate input control based on variable type
+  private renderVariableInput(variableType: string, currentValue: Jinja2VariableValue) {
+    switch (variableType) {
+      case 'boolean':
+        return html`
+          <div class="variable-value-checkbox">
+            <input
+              type="checkbox"
+              ?checked=${currentValue === true}
+              @change=${this.handlePopupCheckboxChange}
+              id="boolean-input"
+            />
+            <label for="boolean-input">
+              ${currentValue === true ? '是 (true)' : '否 (false)'}
+            </label>
+          </div>
+        `;
+
+      case 'number':
+      case 'integer':
+        return html`
+          <input
+            class="variable-value-input"
+            type="number"
+            step="${variableType === 'integer' ? '1' : 'any'}"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入数字..."
+          />
+        `;
+
+      case 'date':
+        return html`
+          <input
+            class="variable-value-input"
+            type="date"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+          />
+        `;
+
+      case 'datetime':
+        return html`
+          <input
+            class="variable-value-input"
+            type="datetime-local"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+          />
+        `;
+
+      case 'null':
+        return html`
+          <select
+            class="variable-value-select"
+            .value=${this.popupValue}
+            @change=${this.handlePopupValueChange}
+          >
+            <option value="null">NULL</option>
+            <option value="">空字符串</option>
+          </select>
+        `;
+
+      default:
+        // For string, email, url, json, uuid, etc.
+        if (variableType === 'email') {
+          return html`
+            <input
+              class="variable-value-input"
+              type="email"
+              .value=${this.popupValue}
+              @input=${this.handlePopupValueChange}
+              placeholder="输入邮箱地址..."
+            />
+          `;
+        }
+
+        if (variableType === 'url') {
+          return html`
+            <input
+              class="variable-value-input"
+              type="url"
+              .value=${this.popupValue}
+              @input=${this.handlePopupValueChange}
+              placeholder="输入URL..."
+            />
+          `;
+        }
+
+        // Default to text input for string and other types
+        return html`
+          <input
+            class="variable-value-input"
+            type="text"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入新的变量值..."
+          />
+        `;
+    }
+  }
+
   render() {
     const hasContent = !!this.template;
     const hasError = !!this.renderError;
     const complexity = this.getTemplateComplexity();
 
     return html`
-      <div class="preview-container">
+      <div class="preview-container" @click=${this.handleDocumentClick}>
         <div class="preview-header">
           <div class="preview-title">
             <span>SQL Preview</span>
@@ -927,7 +1806,10 @@ export class JinjaSqlPreview extends LitElement {
                 <span class="template-title">Original Template</span>
                 <span class="template-meta">${complexity} complexity</span>
               </div>
-              <div class="template-content">${this.template}</div>
+              <div
+                class="template-content"
+                @click=${this.handleTemplateVariableClick}
+              >${unsafeHTML(this.highlightTemplateVariables(this.template))}</div>
             </div>
           ` : ''}
           <div class="sql-section">
@@ -940,7 +1822,10 @@ export class JinjaSqlPreview extends LitElement {
                 </div>
               </div>
             ` : hasContent ? html`
-              <div class="sql-content ${classMap({ [`theme-${this.theme}`]: true })}">${unsafeHTML(this.highlightSQL(this.renderedSQL))}</div>
+              <div
+                class="sql-content ${classMap({ [`theme-${this.theme}`]: true })}"
+                @click=${this.handleVariableClick}
+              >${unsafeHTML(this.highlightSQL(this.renderedSQL))}</div>
             ` : html`
               <div class="empty-state">
                 <div class="empty-icon">📄</div>
@@ -969,6 +1854,56 @@ export class JinjaSqlPreview extends LitElement {
             ` : ''}
           </div>
         </div>
+
+        <!-- Variable Popup -->
+        ${this.activeVariable ? html`
+          <div
+            class="variable-popup"
+            style="left: ${this.popupPosition.x}px; top: ${this.popupPosition.y}px;"
+            @click=${(e: Event) => e.stopPropagation()}
+          >
+            <div class="variable-popup-header">
+              <div class="variable-popup-title">📝 ${this.activeVariable}</div>
+              <button class="variable-popup-close" @click=${this.handleCancelPopup}>×</button>
+            </div>
+            <div class="variable-popup-content">
+              ${(() => {
+                const varInfo = this.getVariableInfo(this.activeVariable!);
+                const variableType = varInfo?.type || 'string';
+                const currentValue = this.values[this.activeVariable!];
+
+                return html`
+                  <div class="variable-info-row">
+                    <span class="variable-info-label">类型:</span>
+                    <span class="variable-info-value">${variableType}</span>
+                  </div>
+                  <div class="variable-info-row">
+                    <span class="variable-info-label">当前值:</span>
+                    <span class="variable-info-value">${this.formatValueForEdit(currentValue)}</span>
+                  </div>
+                  ${varInfo?.description ? html`
+                    <div class="variable-info-row">
+                      <span class="variable-info-label">描述:</span>
+                      <span class="variable-info-value">${varInfo.description}</span>
+                    </div>
+                  ` : ''}
+                  <div class="variable-info-row">
+                    <span class="variable-info-label">新值:</span>
+                  </div>
+                  ${this.renderVariableInput(variableType, currentValue)}
+                `;
+              })()}
+            </div>
+            <div class="variable-popup-actions">
+              <button class="variable-popup-button primary" @click=${this.handleSaveVariable}>
+                ✅ 保存
+              </button>
+              <button class="variable-popup-button secondary" @click=${this.handleCancelPopup}>
+                ❌ 取消
+              </button>
+            </div>
+          </div>
+        ` : ''}
       </div>
     `;
   }

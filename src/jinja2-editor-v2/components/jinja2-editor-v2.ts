@@ -33,6 +33,10 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor processingTime = 0;
   @state() accessor highlightedTemplate: string = '';
   @state() accessor isWideLayout = false;
+  @state() accessor activeVariable: string | null = null;
+  @state() accessor popupPosition: { x: number; y: number } = { x: 0, y: 0 };
+  @state() accessor popupValue: string = '';
+  @state() accessor variableValues: Record<string, Jinja2VariableValue> = {};
 
   static override styles = css`
     :host {
@@ -258,6 +262,190 @@ export class Jinja2EditorV2 extends LitElement {
       background-color: rgba(66, 133, 244, 0.4);
       border-color: var(--vscode-focusBorder);
       box-shadow: 0 0 8px rgba(66, 133, 244, 0.5);
+    }
+
+    /* Variable value display next to variable */
+    .variable-value-display {
+      margin-left: 8px;
+      padding: 2px 6px;
+      background-color: var(--vscode-textBlockQuote-background);
+      border: 1px solid var(--vscode-widget-border);
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-size-xs);
+      color: var(--vscode-foreground);
+      font-family: var(--vscode-font-family);
+    }
+
+    .variable-value-display.string {
+      color: #ce9178;
+    }
+
+    .variable-value-display.number {
+      color: #b5cea8;
+    }
+
+    .variable-value-display.boolean {
+      color: #569cd6;
+      font-weight: var(--font-weight-semibold);
+    }
+
+    .variable-value-display.null {
+      color: #d4d4d4;
+      font-style: italic;
+    }
+
+    /* Variable Popup */
+    .variable-popup {
+      position: absolute;
+      background: var(--vscode-editor-background);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      border-radius: var(--border-radius-md);
+      box-shadow: var(--shadow-lg);
+      padding: var(--spacing-md);
+      z-index: 1000;
+      min-width: 280px;
+      max-width: 400px;
+      backdrop-filter: blur(10px);
+    }
+
+    .variable-popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-sm);
+      padding-bottom: var(--spacing-sm);
+      border-bottom: var(--border-width) solid var(--vscode-widget-border);
+    }
+
+    .variable-popup-title {
+      font-weight: var(--font-weight-semibold);
+      color: var(--vscode-foreground);
+      font-size: var(--font-size-md);
+    }
+
+    .variable-popup-close {
+      background: none;
+      border: none;
+      color: var(--vscode-descriptionForeground);
+      cursor: pointer;
+      font-size: var(--font-size-lg);
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: var(--border-radius-sm);
+      transition: all var(--transition-fast);
+    }
+
+    .variable-popup-close:hover {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+    }
+
+    .variable-popup-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .variable-info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: var(--font-size-sm);
+    }
+
+    .variable-info-label {
+      color: var(--vscode-descriptionForeground);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .variable-info-value {
+      color: var(--vscode-foreground);
+      font-family: var(--vscode-font-family);
+    }
+
+    .variable-value-input {
+      width: 100%;
+      padding: 6px 8px;
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      font-size: var(--font-size-sm);
+      font-family: var(--vscode-font-family);
+      outline: none;
+    }
+
+    .variable-value-input:focus {
+      border-color: var(--vscode-focusBorder);
+      outline: var(--border-width) solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+
+    .variable-value-checkbox {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      padding: var(--spacing-sm);
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      cursor: pointer;
+    }
+
+    .variable-value-checkbox:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+    }
+
+    .variable-value-checkbox input[type="checkbox"] {
+      margin: 0;
+      cursor: pointer;
+    }
+
+    .variable-value-checkbox label {
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .variable-popup-actions {
+      display: flex;
+      gap: var(--spacing-sm);
+      margin-top: var(--spacing-sm);
+      padding-top: var(--spacing-sm);
+      border-top: var(--border-width) solid var(--vscode-widget-border);
+    }
+
+    .variable-popup-button {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border: var(--border-width) solid var(--vscode-button-border);
+      padding: 6px 12px;
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-size-xs);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: var(--vscode-font-family);
+      font-weight: var(--font-weight-medium);
+    }
+
+    .variable-popup-button:hover {
+      background: var(--vscode-button-hoverBackground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .variable-popup-button.primary {
+      background: linear-gradient(135deg, var(--vscode-badge-background) 0%, var(--vscode-button-background) 100%);
+      color: var(--vscode-badge-foreground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .variable-popup-button.secondary {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border-color: var(--vscode-widget-border);
     }
 
     .variable-highlight.required::after {
@@ -532,14 +720,17 @@ export class Jinja2EditorV2 extends LitElement {
     const newValues: Record<string, Jinja2VariableValue> = {};
 
     this.variables.forEach(variable => {
-      if (this.values[variable.name] !== undefined) {
+      if (this.variableValues[variable.name] !== undefined) {
+        newValues[variable.name] = this.variableValues[variable.name];
+      } else if (this.values[variable.name] !== undefined) {
         newValues[variable.name] = this.values[variable.name];
       } else {
         newValues[variable.name] = variable.defaultValue ?? this.generateDefaultValue(variable.type);
       }
     });
 
-    this.values = newValues;
+    this.variableValues = newValues;
+    this.values = newValues; // Keep compatibility
   }
 
   private generateDefaultValue(type: string): Jinja2VariableValue {
@@ -565,35 +756,383 @@ export class Jinja2EditorV2 extends LitElement {
       return;
     }
 
-    let highlighted = this.template;
+    let highlighted = this.escapeHtml(this.template);
 
-    // Highlight all variables in the template
-    this.variables.forEach(variable => {
-      const regex = new RegExp(`{{\\s*${variable.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
-      highlighted = highlighted.replace(regex, (match) => {
-        const isSelected = this.selectedVariable === variable.name;
-        const isRequired = variable.isRequired;
+    // Highlight all variable references in the template - Match {{ variable }} patterns (including complex expressions)
+    highlighted = highlighted.replace(/\{\{\s*([^}]+)\s*\}\}/g, (match, varExpression) => {
+      // Extract the primary variable name from expressions like:
+      // - variable
+      // - variable.property
+      // - variable | filter
+      // - object.property
+      const varName = varExpression.trim().split('.')[0].split('|')[0].trim();
+
+      if (this.variableValues.hasOwnProperty(varName)) {
+        const isSelected = this.selectedVariable === varName;
         const classes = [
           'variable-highlight',
-          isSelected ? 'selected' : '',
-          isRequired ? 'required' : ''
+          isSelected ? 'selected' : ''
         ].filter(Boolean).join(' ');
 
-        return `<span class="${classes}" data-variable="${variable.name}" onclick="this.parentElement.parentElement.parentElement.parentElement.querySelector('.jinja2-editor-v2').selectVariable('${variable.name}')">${match}</span>`;
-      });
+        // Add value display next to variable
+        const value = this.variableValues[varName];
+        const valueDisplay = this.renderValueDisplay(value);
+
+        return `<span class="${classes}" data-variable="${varName}">${match}</span>${valueDisplay}`;
+      }
+      return match;
+    });
+
+    // Highlight variables in control structures like {% if variable %}
+    highlighted = highlighted.replace(/\{%\s*if\s+([^%]+)\s*%\}/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Highlight variables in {% elif condition %}
+    highlighted = highlighted.replace(/\{%\s*elif\s+([^%]+)\s*%\}/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Highlight variables in {% for item in items %}
+    highlighted = highlighted.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}/g, (match, itemVar, arrayVar) => {
+      let highlightedMatch = match;
+
+      // Highlight the array variable
+      if (this.variableValues.hasOwnProperty(arrayVar)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(arrayVar)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${arrayVar}">${arrayVar}</span>`);
+      }
+
+      return highlightedMatch;
     });
 
     this.highlightedTemplate = highlighted;
   }
 
-  private selectVariable(variableName: string) {
-    this.selectedVariable = variableName;
+  private highlightVariablesInCondition(match: string, condition: string): string {
+    let highlightedMatch = match;
+
+    // Extract variable names from complex conditions
+    // Find all potential variable names
+    const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
+    const matches = condition.match(variableRegex) || [];
+
+    // Filter out keywords and operators
+    const excludedWords = new Set([
+      'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null', 'true', 'false', 'exists',
+      'eq', 'ne', 'lt', 'gt', 'le', 'ge', // comparison operators
+      'defined', 'undefined' // other operators
+    ]);
+
+    const varNames = matches
+      .map(match => match.trim())
+      .filter(match => !excludedWords.has(match.toLowerCase()))
+      .filter(varName => this.variableValues.hasOwnProperty(varName));
+
+    // Highlight each variable
+    varNames.forEach(varName => {
+      const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
+      highlightedMatch = highlightedMatch.replace(regex,
+        `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`);
+    });
+
+    return highlightedMatch;
+  }
+
+  private escapeHtml(text: string): string {
+    return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  private escapeRegex(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  private renderValueDisplay(value: Jinja2VariableValue): string {
+    if (value == null) {
+      return `<span class="variable-value-display null">NULL</span>`;
+    }
+
+    let displayValue: string;
+    let className: string;
+
+    if (typeof value === 'boolean') {
+      displayValue = value ? 'true' : 'false';
+      className = 'boolean';
+    } else if (typeof value === 'number') {
+      displayValue = String(value);
+      className = 'number';
+    } else if (typeof value === 'string') {
+      displayValue = `'${value}'`;
+      className = 'string';
+    } else if (typeof value === 'object') {
+      displayValue = JSON.stringify(value);
+      className = 'string';
+    } else {
+      displayValue = String(value);
+      className = 'string';
+    }
+
+    return `<span class="variable-value-display ${className}">${displayValue}</span>`;
+  }
+
+  private handleTemplateClick(event: Event) {
+    const target = event.target as HTMLElement;
+    const variableElement = target.closest('.variable-highlight') as HTMLElement;
+
+    if (variableElement) {
+      const variableName = variableElement.getAttribute('data-variable');
+      if (variableName) {
+        this.showVariablePopup(variableName, event);
+      }
+    }
+  }
+
+  private showVariablePopup(variableName: string, event: Event) {
+    // Calculate popup position
+    const rect = (event.target as HTMLElement).getBoundingClientRect();
+    const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
+    const scrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+    this.popupPosition = {
+      x: rect.left + scrollX,
+      y: rect.bottom + scrollY + 5
+    };
+
+    // Set the active variable and its current value
+    this.activeVariable = variableName;
+    const variableType = this.getVariableType(variableName);
+    this.popupValue = this.formatValueForEdit(this.variableValues[variableName], variableType);
+
+    // Prevent event bubbling
+    event.stopPropagation();
+  }
+
+  private getVariableType(variableName: string): string {
+    const variable = this.variables.find(v => v.name === variableName);
+    return variable?.type || 'string';
+  }
+
+  private formatValueForEdit(value: Jinja2VariableValue, variableType?: string): string {
+    const type = variableType || this.getVariableType(this.activeVariable!);
+
+    if (value == null) {
+      return type === 'null' ? 'null' : '';
+    }
+
+    switch (type) {
+      case 'boolean':
+        return value === true ? 'true' : 'false';
+      case 'number':
+      case 'integer':
+        return String(value);
+      case 'date':
+        if (typeof value === 'string') {
+          return value.startsWith('T') ? value.substring(1) : value;
+        }
+        return String(value);
+      case 'datetime':
+        if (typeof value === 'string') {
+          return value.replace('T', 'T').replace(/\.\d{3}Z$/, '');
+        }
+        return String(value);
+      case 'json':
+        if (typeof value === 'object') {
+          return JSON.stringify(value, null, 2);
+        }
+        return String(value);
+      default:
+        if (typeof value === 'object') {
+          return JSON.stringify(value);
+        }
+        return String(value);
+    }
+  }
+
+  private handlePopupValueChange(event: Event) {
+    const target = event.target as HTMLInputElement | HTMLSelectElement;
+    this.popupValue = target.value;
+  }
+
+  private handlePopupCheckboxChange(event: Event) {
+    const target = event.target as HTMLInputElement;
+    this.popupValue = target.checked.toString();
+  }
+
+  private handleSaveVariable() {
+    if (!this.activeVariable) return;
+
+    const variableType = this.getVariableType(this.activeVariable);
+    const newValue = this.parseValueFromEdit(this.popupValue, variableType);
+
+    // Update the variable values
+    this.variableValues = {
+      ...this.variableValues,
+      [this.activeVariable]: newValue
+    };
+
+    // Update the main values object for compatibility
+    this.values = this.variableValues;
+
+    // Re-render the template with new values
+    this.renderTemplate();
     this.highlightTemplate();
 
-    // Scroll to the variable input
-    const inputElement = this.shadowRoot?.querySelector(`[data-variable-input="${variableName}"]`) as HTMLElement;
-    if (inputElement) {
-      inputElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Close popup
+    this.activeVariable = null;
+    this.popupValue = '';
+  }
+
+  private handleCancelPopup() {
+    this.activeVariable = null;
+    this.popupValue = '';
+  }
+
+  private parseValueFromEdit(value: string, variableType?: string): Jinja2VariableValue {
+    const type = variableType || this.getVariableType(this.activeVariable!);
+
+    // Handle empty values
+    if (!value || value.trim() === '') {
+      if (type === 'null') return null;
+      if (type === 'boolean') return false;
+      if (type === 'number' || type === 'integer') return 0;
+      return '';
+    }
+
+    switch (type) {
+      case 'boolean':
+        return value.toLowerCase() === 'true' || value === '1';
+      case 'number':
+        const numValue = parseFloat(value);
+        return isNaN(numValue) ? 0 : numValue;
+      case 'integer':
+        const intValue = parseInt(value, 10);
+        return isNaN(intValue) ? 0 : intValue;
+      case 'null':
+        return value.toLowerCase() === 'null' ? null : value;
+      case 'date':
+      case 'datetime':
+        return value;
+      case 'email':
+      case 'url':
+        return value;
+      case 'json':
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      default:
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+    }
+  }
+
+  private handleDocumentClick(event: Event) {
+    const target = event.target as HTMLElement;
+
+    // Check if click is inside popup or on a variable
+    const isClickInsidePopup = target.closest('.variable-popup') !== null;
+    const isClickOnVariable = target.classList.contains('variable-highlight');
+
+    if (!isClickInsidePopup && !isClickOnVariable) {
+      this.activeVariable = null;
+      this.popupValue = '';
+    }
+  }
+
+  private renderVariableInput(variableType: string, currentValue: Jinja2VariableValue) {
+    switch (variableType) {
+      case 'boolean':
+        return html`
+          <div class="variable-value-checkbox">
+            <input
+              type="checkbox"
+              ?checked=${currentValue === true}
+              @change=${this.handlePopupCheckboxChange}
+              id="boolean-input"
+            />
+            <label for="boolean-input">
+              ${currentValue === true ? '是 (true)' : '否 (false)'}
+            </label>
+          </div>
+        `;
+      case 'number':
+      case 'integer':
+        return html`
+          <input
+            class="variable-value-input"
+            type="number"
+            step="${variableType === 'integer' ? '1' : 'any'}"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入数字..."
+          />
+        `;
+      case 'date':
+        return html`
+          <input
+            class="variable-value-input"
+            type="date"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+          />
+        `;
+      case 'datetime':
+        return html`
+          <input
+            class="variable-value-input"
+            type="datetime-local"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+          />
+        `;
+      case 'null':
+        return html`
+          <select
+            class="variable-value-select"
+            .value=${this.popupValue}
+            @change=${this.handlePopupValueChange}
+          >
+            <option value="null">NULL</option>
+            <option value="">空字符串</option>
+          </select>
+        `;
+      default:
+        if (variableType === 'email') {
+          return html`
+            <input
+              class="variable-value-input"
+              type="email"
+              .value=${this.popupValue}
+              @input=${this.handlePopupValueChange}
+              placeholder="输入邮箱地址..."
+            />
+          `;
+        }
+        if (variableType === 'url') {
+          return html`
+            <input
+              class="variable-value-input"
+              type="url"
+              .value=${this.popupValue}
+              @input=${this.handlePopupValueChange}
+              placeholder="输入URL..."
+            />
+          `;
+        }
+        return html`
+          <input
+            class="variable-value-input"
+            type="text"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入新的变量值..."
+          />
+        `;
     }
   }
 
@@ -603,7 +1142,7 @@ export class Jinja2EditorV2 extends LitElement {
       [variableName]: value
     };
 
-    if (this.config.autoPreview) {
+    if (this.config?.autoPreview) {
       this.renderTemplate();
     }
   }
@@ -634,9 +1173,9 @@ export class Jinja2EditorV2 extends LitElement {
 
       this.processingTime = performance.now() - startTime;
 
-      // Use simple template rendering (similar to V1)
+      // Use the new variable values system
       let result = this.template;
-      Object.entries(this.values).forEach(([key, value]) => {
+      Object.entries(this.variableValues).forEach(([key, value]) => {
         const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
         result = result.replace(regex, this.formatValue(value));
       });
@@ -730,11 +1269,8 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   override render() {
-    const stats = this.getVariableStats();
-    const layoutClass = this.isWideLayout ? 'wide-layout' : 'narrow-layout';
-
     return html`
-      <div class="editor-container">
+      <div class="editor-container" @click=${this.handleDocumentClick}>
         <!-- Header -->
         <header class="editor-header">
           <div class="header-title">
@@ -756,59 +1292,25 @@ export class Jinja2EditorV2 extends LitElement {
         </header>
 
         <!-- Main Layout -->
-        <main class="layout-container ${layoutClass}">
-          <!-- Template and Variables Panel -->
+        <main class="layout-container">
+          <!-- Template Panel (Full Width) -->
           <section class="editor-panel">
             <div class="panel-header">
               <div class="panel-title">
-                <span>📝</span> Template & Variables
-                <span class="panel-subtitle">${stats.configured}/${stats.total} configured</span>
+                <span>📝</span> Template Editor
+                <span class="panel-subtitle">${this.variables.length} variables found</span>
               </div>
             </div>
             <div class="panel-content">
               <!-- Template Display -->
-              <div class="template-display" .innerHTML=${this.highlightedTemplate}></div>
-
-              <!-- Variable Inputs -->
-              ${this.variables.length > 0 ? html`
-                <div class="variable-input-panel">
-                  ${this.variables.map(variable => html`
-                    <div class="variable-input ${this.selectedVariable === variable.name ? 'selected' : ''}" data-variable-input="${variable.name}">
-                      <div class="variable-name">
-                        ${variable.name}
-                        <span class="variable-type">${variable.type}</span>
-                        ${variable.isRequired ? html`<span class="variable-required">*</span>` : ''}
-                      </div>
-                      <input
-                        type="text"
-                        class="variable-input-field"
-                        .value=${this.values[variable.name] || ''}
-                        @input=${(e: Event) => this.handleVariableChange(variable.name, (e.target as HTMLInputElement).value)}
-                        placeholder="Enter value for ${variable.name}"
-                      />
-                      <select
-                        class="variable-type-select"
-                        .value=${variable.type}
-                        @change=${(e: Event) => this.handleVariableTypeChange(variable.name, (e.target as HTMLSelectElement).value)}
-                      >
-                        <option value="string">String</option>
-                        <option value="number">Number</option>
-                        <option value="integer">Integer</option>
-                        <option value="boolean">Boolean</option>
-                        <option value="date">Date</option>
-                        <option value="datetime">DateTime</option>
-                        <option value="json">JSON</option>
-                        <option value="null">NULL</option>
-                      </select>
-                    </div>
-                  `)}
-                </div>
+              ${this.template ? html`
+                <div class="template-display" .innerHTML=${this.highlightedTemplate} @click=${this.handleTemplateClick}></div>
               ` : html`
                 <div class="empty-state">
-                  <div class="empty-icon">📋</div>
-                  <div class="empty-title">No variables found</div>
+                  <div class="empty-icon">📝</div>
+                  <div class="empty-title">No template to edit</div>
                   <div class="empty-description">
-                    This template doesn't contain any variables. Add Jinja2 variables like {{ variable_name }} to start editing.
+                    Add a Jinja2 template with variables like {{ variable_name }} to start editing.
                   </div>
                 </div>
               `}
@@ -833,7 +1335,7 @@ export class Jinja2EditorV2 extends LitElement {
                   <div class="empty-icon">🔍</div>
                   <div class="empty-title">No SQL preview</div>
                   <div class="empty-description">
-                    Configure variables to see the rendered SQL preview here.
+                    Click on variables in the template above to configure them and see the rendered SQL here.
                   </div>
                 </div>
               `}
@@ -841,36 +1343,45 @@ export class Jinja2EditorV2 extends LitElement {
           </section>
         </main>
 
-        <!-- Status Bar -->
-        <footer class="status-bar">
-          <div class="status-info">
-            <div class="status-item">
-              <span class="status-indicator ${classMap({
-                success: stats.requiredConfigured === stats.required,
-                processing: stats.requiredConfigured < stats.required && stats.required > 0
-              })}"></span>
-              <span>${stats.requiredConfigured}/${stats.required} required</span>
+        <!-- Variable Popup -->
+        ${this.activeVariable ? html`
+          <div
+            class="variable-popup"
+            style="left: ${this.popupPosition.x}px; top: ${this.popupPosition.y}px;"
+            @click=${(e: Event) => e.stopPropagation()}
+          >
+            <div class="variable-popup-header">
+              <div class="variable-popup-title">📝 ${this.activeVariable}</div>
+              <button class="variable-popup-close" @click=${this.handleCancelPopup}>×</button>
             </div>
-            <div class="status-item">
-              <span>🔧 ${stats.total} variables</span>
-            </div>
-            <div class="status-item">
-              <span>📱 ${this.isWideLayout ? 'Wide' : 'Narrow'} layout</span>
-            </div>
-          </div>
-          <div class="status-info">
-            <div class="status-item">
-              <span>⚡ ${this.config.animationsEnabled ? 'Animations on' : 'Animations off'}</span>
-            </div>
-          </div>
-        </footer>
+            <div class="variable-popup-content">
+              ${(() => {
+                const variableType = this.getVariableType(this.activeVariable);
+                const currentValue = this.variableValues[this.activeVariable];
 
-        <!-- Loading Overlay -->
-        ${this.isProcessing ? html`
-          <div class="loading-overlay">
-            <div class="loading-content">
-              <div class="loading-spinner"></div>
-              <div>Rendering template...</div>
+                return html`
+                  <div class="variable-info-row">
+                    <span class="variable-info-label">类型:</span>
+                    <span class="variable-info-value">${variableType}</span>
+                  </div>
+                  <div class="variable-info-row">
+                    <span class="variable-info-label">当前值:</span>
+                    <span class="variable-info-value">${this.formatValueForEdit(currentValue)}</span>
+                  </div>
+                  <div class="variable-info-row">
+                    <span class="variable-info-label">新值:</span>
+                  </div>
+                  ${this.renderVariableInput(variableType, currentValue)}
+                `;
+              })()}
+            </div>
+            <div class="variable-popup-actions">
+              <button class="variable-popup-button primary" @click=${this.handleSaveVariable}>
+                ✅ 保存
+              </button>
+              <button class="variable-popup-button secondary" @click=${this.handleCancelPopup}>
+                ❌ 取消
+              </button>
             </div>
           </div>
         ` : ''}

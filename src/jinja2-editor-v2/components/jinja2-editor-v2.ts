@@ -37,6 +37,8 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor popupPosition: { x: number; y: number } = { x: 0, y: 0 };
   @state() accessor popupValue: string = '';
   @state() accessor variableValues: Record<string, Jinja2VariableValue> = {};
+  @state() accessor activeVariableType: string = '';
+  @state() accessor showTypeSelector: boolean = false;
 
   static override styles = css`
     :host {
@@ -446,6 +448,45 @@ export class Jinja2EditorV2 extends LitElement {
       background: var(--vscode-button-secondaryBackground);
       color: var(--vscode-button-secondaryForeground);
       border-color: var(--vscode-widget-border);
+    }
+
+    /* Type Selector Styles */
+    .type-selector {
+      width: 100%;
+      padding: 6px 8px;
+      border: var(--border-width) solid var(--vscode-input-border);
+      border-radius: var(--border-radius-sm);
+      background: var(--vscode-input-background);
+      color: var(--vscode-input-foreground);
+      font-size: var(--font-size-sm);
+      font-family: var(--vscode-font-family);
+      outline: none;
+      margin-bottom: var(--spacing-sm);
+    }
+
+    .type-selector:focus {
+      border-color: var(--vscode-focusBorder);
+      outline: var(--border-width) solid var(--vscode-focusBorder);
+      outline-offset: -1px;
+    }
+
+    .type-change-button {
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      border: var(--border-width) solid var(--vscode-widget-border);
+      padding: 4px 8px;
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-size-xs);
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      font-family: var(--vscode-font-family);
+      font-weight: var(--font-weight-medium);
+      margin-left: var(--spacing-sm);
+    }
+
+    .type-change-button:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
     }
 
     .variable-highlight.required::after {
@@ -902,7 +943,9 @@ export class Jinja2EditorV2 extends LitElement {
     // Set the active variable and its current value
     this.activeVariable = variableName;
     const variableType = this.getVariableType(variableName);
+    this.activeVariableType = variableType;
     this.popupValue = this.formatValueForEdit(this.variableValues[variableName], variableType);
+    this.showTypeSelector = false;
 
     // Prevent event bubbling
     event.stopPropagation();
@@ -952,18 +995,21 @@ export class Jinja2EditorV2 extends LitElement {
   private handlePopupValueChange(event: Event) {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     this.popupValue = target.value;
+    // Auto-save on value change
+    this.autoSaveVariable();
   }
 
   private handlePopupCheckboxChange(event: Event) {
     const target = event.target as HTMLInputElement;
     this.popupValue = target.checked.toString();
+    // Auto-save on checkbox change
+    this.autoSaveVariable();
   }
 
-  private handleSaveVariable() {
+  private autoSaveVariable() {
     if (!this.activeVariable) return;
 
-    const variableType = this.getVariableType(this.activeVariable);
-    const newValue = this.parseValueFromEdit(this.popupValue, variableType);
+    const newValue = this.parseValueFromEdit(this.popupValue, this.activeVariableType);
 
     // Update the variable values
     this.variableValues = {
@@ -974,18 +1020,46 @@ export class Jinja2EditorV2 extends LitElement {
     // Update the main values object for compatibility
     this.values = this.variableValues;
 
+    // Update variable type if it changed
+    this.updateVariableType(this.activeVariable, this.activeVariableType);
+
     // Re-render the template with new values
     this.renderTemplate();
     this.highlightTemplate();
-
-    // Close popup
-    this.activeVariable = null;
-    this.popupValue = '';
   }
-
   private handleCancelPopup() {
     this.activeVariable = null;
     this.popupValue = '';
+    this.activeVariableType = '';
+    this.showTypeSelector = false;
+  }
+
+  private handleTypeToggle() {
+    this.showTypeSelector = !this.showTypeSelector;
+  }
+
+  private handleTypeChange(event: Event) {
+    const target = event.target as HTMLSelectElement;
+    this.activeVariableType = target.value;
+
+    // When type changes, reformat the value for the new type
+    const currentValue = this.variableValues[this.activeVariable!];
+    this.popupValue = this.formatValueForEdit(currentValue, this.activeVariableType);
+
+    // Auto-save when type changes
+    this.autoSaveVariable();
+  }
+
+  private updateVariableType(variableName: string, newType: string) {
+    const variableIndex = this.variables.findIndex(v => v.name === variableName);
+    if (variableIndex >= 0) {
+      const updatedVariables = [...this.variables];
+      updatedVariables[variableIndex] = {
+        ...updatedVariables[variableIndex],
+        type: newType as any
+      };
+      this.variables = updatedVariables;
+    }
   }
 
   private parseValueFromEdit(value: string, variableType?: string): Jinja2VariableValue {
@@ -1081,6 +1155,15 @@ export class Jinja2EditorV2 extends LitElement {
             @input=${this.handlePopupValueChange}
           />
         `;
+      case 'time':
+        return html`
+          <input
+            class="variable-value-input"
+            type="time"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+          />
+        `;
       case 'datetime':
         return html`
           <input
@@ -1101,29 +1184,50 @@ export class Jinja2EditorV2 extends LitElement {
             <option value="">空字符串</option>
           </select>
         `;
+      case 'json':
+        return html`
+          <textarea
+            class="variable-value-input"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入JSON数据..."
+            rows="3"
+            style="font-family: monospace; resize: vertical;"
+          ></textarea>
+        `;
+      case 'uuid':
+        return html`
+          <input
+            class="variable-value-input"
+            type="text"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入UUID (如: 00000000-0000-0000-0000-000000000000)"
+            pattern="[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
+          />
+        `;
+      case 'email':
+        return html`
+          <input
+            class="variable-value-input"
+            type="email"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入邮箱地址..."
+          />
+        `;
+      case 'url':
+        return html`
+          <input
+            class="variable-value-input"
+            type="url"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder="输入URL..."
+          />
+        `;
       default:
-        if (variableType === 'email') {
-          return html`
-            <input
-              class="variable-value-input"
-              type="email"
-              .value=${this.popupValue}
-              @input=${this.handlePopupValueChange}
-              placeholder="输入邮箱地址..."
-            />
-          `;
-        }
-        if (variableType === 'url') {
-          return html`
-            <input
-              class="variable-value-input"
-              type="url"
-              .value=${this.popupValue}
-              @input=${this.handlePopupValueChange}
-              placeholder="输入URL..."
-            />
-          `;
-        }
+        // Default to text input for string and other types
         return html`
           <input
             class="variable-value-input"
@@ -1134,6 +1238,37 @@ export class Jinja2EditorV2 extends LitElement {
           />
         `;
     }
+  }
+
+  private renderTypeSelector() {
+    const typeOptions = [
+      { value: 'string', label: '📝 String (文本)' },
+      { value: 'number', label: '🔢 Number (数字)' },
+      { value: 'integer', label: '🔢 Integer (整数)' },
+      { value: 'boolean', label: '✅ Boolean (布尔值)' },
+      { value: 'date', label: '📅 Date (日期)' },
+      { value: 'time', label: '🕐 Time (时间)' },
+      { value: 'datetime', label: '📆 DateTime (日期时间)' },
+      { value: 'json', label: '📄 JSON (JSON数据)' },
+      { value: 'uuid', label: '🔑 UUID (唯一标识符)' },
+      { value: 'email', label: '📧 Email (邮箱)' },
+      { value: 'url', label: '🔗 URL (链接)' },
+      { value: 'null', label: '⭕ NULL (空值)' }
+    ];
+
+    return html`
+      <select
+        class="type-selector"
+        .value=${this.activeVariableType}
+        @change=${this.handleTypeChange}
+      >
+        ${typeOptions.map(option => html`
+          <option value=${option.value} ?selected=${option.value === this.activeVariableType}>
+            ${option.label}
+          </option>
+        `)}
+      </select>
+    `;
   }
 
   private handleVariableChange(variableName: string, value: Jinja2VariableValue) {
@@ -1173,12 +1308,8 @@ export class Jinja2EditorV2 extends LitElement {
 
       this.processingTime = performance.now() - startTime;
 
-      // Use the new variable values system
-      let result = this.template;
-      Object.entries(this.variableValues).forEach(([key, value]) => {
-        const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
-        result = result.replace(regex, this.formatValue(value));
-      });
+      // Use proper Jinja2 template rendering with conditional logic
+      let result = this.simulateTemplateRendering(this.template);
 
       // Store result for display
       this.renderedResult = result;
@@ -1189,6 +1320,171 @@ export class Jinja2EditorV2 extends LitElement {
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  private simulateTemplateRendering(template: string): string {
+    let result = template;
+
+    // Process if/elif/else blocks
+    result = this.processConditionalBlocks(result);
+
+    // Process for loops
+    result = this.processForLoops(result);
+
+    // Replace simple variable substitutions
+    Object.entries(this.variableValues).forEach(([key, value]) => {
+      const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
+      result = result.replace(regex, this.formatValue(value));
+    });
+
+    // Clean up any remaining Jinja2 syntax that wasn't processed
+    result = result.replace(/{%[^%]*%}/g, '');
+    result = result.replace(/{{[^}]*}}/g, '');
+
+    return result;
+  }
+
+  private processConditionalBlocks(template: string): string {
+    let result = template;
+
+    // Process if-elif-else blocks
+    const ifRegex = /{%\s*if\s+([^%]+)\s*%}([\s\S]*?)(?:{%\s*elif\s+([^%]+)\s*%}([\s\S]*?))*?{%\s*else\s*%}([\s\S]*?){%\s*endif\s*%}/g;
+
+    result = result.replace(ifRegex, (match, ifCondition, ifContent, ...elifMatches) => {
+      // Extract elif conditions and contents
+      const elifBlocks = [];
+      for (let i = 0; i < elifMatches.length; i += 2) {
+        if (elifMatches[i]) {
+          elifBlocks.push({
+            condition: elifMatches[i],
+            content: elifMatches[i + 1] || ''
+          });
+        }
+      }
+
+      // Find else content (last argument before function end)
+      const elseContent = elifMatches.length % 2 === 0 ?
+        elifMatches[elifMatches.length - 1] :
+        elifMatches[elifMatches.length - 2];
+
+      // Evaluate if condition
+      if (this.evaluateCondition(ifCondition.trim())) {
+        return ifContent;
+      }
+
+      // Evaluate elif conditions
+      for (const elifBlock of elifBlocks) {
+        if (elifBlock.condition && this.evaluateCondition(elifBlock.condition.trim())) {
+          return elifBlock.content;
+        }
+      }
+
+      // Return else content if provided
+      return elseContent || '';
+    });
+
+    // Process simple if blocks (without elif/else)
+    const simpleIfRegex = /{%\s*if\s+([^%]+)\s*%}([\s\S]*?){%\s*endif\s*%}/g;
+    result = result.replace(simpleIfRegex, (match, condition, content) => {
+      return this.evaluateCondition(condition.trim()) ? content : '';
+    });
+
+    return result;
+  }
+
+  private evaluateCondition(condition: string): boolean {
+    // Handle simple variable conditions
+    const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
+    const variables = condition.match(variableRegex) || [];
+
+    // Filter out keywords and operators first
+    const excludedWords = new Set([
+      'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null', 'true', 'false', 'exists',
+      'eq', 'ne', 'lt', 'gt', 'le', 'ge', 'defined', 'undefined'
+    ]);
+
+    for (const varName of variables) {
+      if (!excludedWords.has(varName.toLowerCase())) {
+        if (this.variableValues.hasOwnProperty(varName)) {
+          const value = this.variableValues[varName];
+
+          // Replace variable with its actual value for evaluation
+          let valueStr: string;
+          if (typeof value === 'boolean') {
+            valueStr = value ? 'true' : 'false';
+          } else if (value == null) {
+            valueStr = 'null';
+          } else if (typeof value === 'string') {
+            valueStr = `'${value.replace(/'/g, "\\'")}'`;
+          } else {
+            valueStr = String(value);
+          }
+
+          condition = condition.replace(new RegExp(`\\b${varName}\\b`, 'g'), valueStr);
+        } else {
+          // Variable not found, replace with falsy value
+          condition = condition.replace(new RegExp(`\\b${varName}\\b`, 'g'), 'false');
+        }
+      }
+    }
+
+    // Handle logical operators
+    condition = condition.replace(/\band\b/g, '&&');
+    condition = condition.replace(/\bor\b/g, '||');
+    condition = condition.replace(/\bnot\b/g, '!');
+
+    // Handle comparison operators
+    condition = condition.replace(/===/g, '===');
+    condition = condition.replace(/==/g, '===');
+    condition = condition.replace(/!=/g, '!==');
+    condition = condition.replace(/</g, '<');
+    condition = condition.replace(/>/g, '>');
+
+    // Handle null checks
+    condition = condition.replace(/\bis\s+null\b/g, '=== null');
+    condition = condition.replace(/\bis\s+not\s+null\b/g, '!== null');
+
+    try {
+      // Use Function constructor for safer evaluation
+      const func = new Function(`return ${condition}`);
+      return func();
+    } catch (error) {
+      console.warn('Failed to evaluate condition:', condition, error);
+      return false;
+    }
+  }
+
+  private processForLoops(template: string): string {
+    let result = template;
+
+    // Process for loops
+    const forRegex = /{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%}([\s\S]*?){%\s*endfor\s*%}/g;
+
+    result = result.replace(forRegex, (match, itemVar, arrayVar, content) => {
+      const arrayValue = this.variableValues[arrayVar];
+
+      if (Array.isArray(arrayValue)) {
+        return arrayValue.map(item => {
+          let itemContent = content;
+          // Replace item variable in the loop content
+          const itemRegex = new RegExp(`{{\\s*${itemVar}\\s*}}`, 'g');
+          if (typeof item === 'object' && item !== null) {
+            // Handle object properties
+            Object.keys(item).forEach(key => {
+              const propRegex = new RegExp(`{{\\s*${itemVar}\\.${key}\\s*}}`, 'g');
+              itemContent = itemContent.replace(propRegex, this.formatValue((item as any)[key]));
+            });
+          } else {
+            itemContent = itemContent.replace(itemRegex, this.formatValue(item as Jinja2VariableValue));
+          }
+          return itemContent;
+        }).join('\n');
+      }
+
+      return '';
+    });
+
+    return result;
   }
 
   private renderedResult: string = '';
@@ -1276,15 +1572,8 @@ export class Jinja2EditorV2 extends LitElement {
           <div class="header-title">
             <span>🎨</span>
             ${this.title}
-            <span class="header-subtitle">V2</span>
           </div>
           <div class="header-actions">
-            <button class="header-button" @click=${this.handleCopyTemplate} title="Copy template">
-              📄 Copy Template
-            </button>
-            <button class="header-button" @click=${this.handleCopyResult} title="Copy result">
-              📋 Copy Result
-            </button>
             <button class="header-button primary" @click=${this.handleSubmit}>
               ✅ Submit
             </button>
@@ -1299,6 +1588,11 @@ export class Jinja2EditorV2 extends LitElement {
               <div class="panel-title">
                 <span>📝</span> Template Editor
                 <span class="panel-subtitle">${this.variables.length} variables found</span>
+              </div>
+              <div class="header-actions">
+                <button class="header-button" @click=${this.handleCopyTemplate} title="Copy template">
+                  📄 Copy
+                </button>
               </div>
             </div>
             <div class="panel-content">
@@ -1326,6 +1620,11 @@ export class Jinja2EditorV2 extends LitElement {
                   <span class="panel-subtitle">${Math.round(this.processingTime)}ms</span>
                 ` : ''}
               </div>
+              <div class="header-actions">
+                <button class="header-button" @click=${this.handleCopyResult} title="Copy SQL result">
+                  📋 Copy
+                </button>
+              </div>
             </div>
             <div class="panel-content">
               ${this.renderedResult ? html`
@@ -1352,18 +1651,22 @@ export class Jinja2EditorV2 extends LitElement {
           >
             <div class="variable-popup-header">
               <div class="variable-popup-title">📝 ${this.activeVariable}</div>
-              <button class="variable-popup-close" @click=${this.handleCancelPopup}>×</button>
             </div>
             <div class="variable-popup-content">
               ${(() => {
-                const variableType = this.getVariableType(this.activeVariable);
-                const currentValue = this.variableValues[this.activeVariable];
+                const currentValue = this.variableValues[this.activeVariable!];
 
                 return html`
                   <div class="variable-info-row">
                     <span class="variable-info-label">类型:</span>
-                    <span class="variable-info-value">${variableType}</span>
+                    <span class="variable-info-value">
+                      ${this.activeVariableType}
+                      <button class="type-change-button" @click=${this.handleTypeToggle}>
+                        ${this.showTypeSelector ? '隐藏' : '更改'}
+                      </button>
+                    </span>
                   </div>
+                  ${this.showTypeSelector ? this.renderTypeSelector() : ''}
                   <div class="variable-info-row">
                     <span class="variable-info-label">当前值:</span>
                     <span class="variable-info-value">${this.formatValueForEdit(currentValue)}</span>
@@ -1371,17 +1674,9 @@ export class Jinja2EditorV2 extends LitElement {
                   <div class="variable-info-row">
                     <span class="variable-info-label">新值:</span>
                   </div>
-                  ${this.renderVariableInput(variableType, currentValue)}
+                  ${this.renderVariableInput(this.activeVariableType, currentValue)}
                 `;
               })()}
-            </div>
-            <div class="variable-popup-actions">
-              <button class="variable-popup-button primary" @click=${this.handleSaveVariable}>
-                ✅ 保存
-              </button>
-              <button class="variable-popup-button secondary" @click=${this.handleCancelPopup}>
-                ❌ 取消
-              </button>
             </div>
           </div>
         ` : ''}

@@ -351,6 +351,7 @@ export class Jinja2WebviewEditorV2 {
   <sqlsugar-webview-v2-app></sqlsugar-webview-v2-app>
   <script nonce="${nonce}">(function(){try{var a=typeof acquireVsCodeApi==='function'?acquireVsCodeApi():undefined;if(a){window.vscode=a;}}catch(e){}})();</script>
   <script src="${nunjucksUri}"></script>
+  <script src="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js'))}"></script>
   <script type="module" src="${jinjaEditorV2Uri}"></script>
 </body>
 </html>`;

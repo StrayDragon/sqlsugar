@@ -194,13 +194,23 @@
         },
         "sqlsugar.v2Editor.popoverPlacement": {
           "type": "string",
-          "enum": ["auto", "top", "bottom", "left", "right"],
+          "enum": [
+            "auto",
+            "top",
+            "bottom",
+            "left",
+            "right"
+          ],
           "default": "auto",
           "description": "Default placement for variable editing popovers in V2 editor"
         },
         "sqlsugar.v2Editor.highlightStyle": {
           "type": "string",
-          "enum": ["background", "border", "underline"],
+          "enum": [
+            "background",
+            "border",
+            "underline"
+          ],
           "default": "background",
           "description": "Visual style for highlighting variables in the template"
         },
@@ -252,6 +262,7 @@
   "dependencies": {
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
+    "highlight.js": "^11.9.0",
     "lit": "^3.3.1",
     "nunjucks": "^3.2.4"
   },

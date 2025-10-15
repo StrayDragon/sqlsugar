@@ -9,6 +9,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
+import SqlHighlighter from '../utils/sql-highlighter.js';
 import type {
   EnhancedVariable,
   Jinja2VariableValue,
@@ -36,6 +37,7 @@ export class SqlPreviewV2 extends LitElement {
   @state() accessor highlightedOriginal: string = '';
 
   private renderTimeout: number | null = null;
+  private sqlHighlighter: SqlHighlighter;
 
   static override styles = css`
     :host {
@@ -547,6 +549,16 @@ export class SqlPreviewV2 extends LitElement {
 
   override connectedCallback() {
     super.connectedCallback();
+
+    // Initialize SQL highlighter
+    this.sqlHighlighter = new SqlHighlighter({
+      theme: this.theme,
+      fontSize: 14,
+      showLineNumbers: this.showLineNumbers,
+      wordWrap: this.wordWrap,
+      highlightVariables: true
+    });
+
     if (this.autoRender) {
       this.scheduleRender();
     }
@@ -670,6 +682,20 @@ export class SqlPreviewV2 extends LitElement {
   }
 
   private highlightSQL(sql: string): string {
+    try {
+      const result = this.sqlHighlighter.highlightSQL(sql, this.values);
+      return result.html;
+    } catch (error) {
+      console.warn('SQL highlighting failed, using fallback:', error);
+      // Fallback to basic highlighting if highlight.js fails
+      return this.fallbackSQLHighlight(sql);
+    }
+  }
+
+  /**
+   * Fallback SQL highlighting when highlight.js fails
+   */
+  private fallbackSQLHighlight(sql: string): string {
     // Simple SQL syntax highlighting
     return sql
       // SQL Keywords

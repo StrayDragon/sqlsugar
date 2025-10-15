@@ -292,6 +292,7 @@ async function buildJinja2EditorV2() {
         outfile: 'dist/jinja2-editor-v2/jinja2-editor-v2.js',
         external: ['vscode'],
         // Note: 'lit' should NOT be external for jinja2-editor-v2 since it needs to run in browser webview
+        // highlight.js will be bundled for syntax highlighting functionality
         logLevel: 'silent',
         // Performance and size optimizations
         treeShaking: true,

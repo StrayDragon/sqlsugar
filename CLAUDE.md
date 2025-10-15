@@ -19,10 +19,13 @@ SQLSugar is a VS Code extension that enables inline SQL editing across multiple 
 - **MetricsCollector**: Collects performance metrics and command usage statistics
 
 ### Component Architecture
-- **Jinja2Editor**: Lit-based web component for visual Jinja2 template editing
+- **Jinja2Editor**: Original Lit-based web component for visual Jinja2 template editing
+- **Jinja2EditorV2**: Enhanced visual editor with improved UX, variable popovers, and keyboard navigation
 - **WebViewApp**: Lit-based webview application for hosting the Jinja2 editor
 - **UI Components**: Reusable Lit components (Button, Input, Select, Card) for consistent UI
 - **Variable Utils**: Utilities for Jinja2 variable processing and type inference
+- **Template Parser**: Advanced template parsing for variable extraction and highlighting
+- **Variable State Manager**: State management for variable values and types in V2 editor
 
 ### Key Features
 1. **Inline SQL Editing**: Extract SQL strings from code, edit in dedicated SQL files with precise synchronization, sync back
@@ -40,7 +43,7 @@ pnpm install --frozen-lockfile
 # or
 just install
 
-# Build the extension (type check + lint + compile)
+# Build the extension (type check + lint + compile + declarations)
 pnpm run compile
 # or
 pnpm run build
@@ -67,6 +70,14 @@ just build-declarations
 pnpm run vsix
 # or
 just package-vsix
+
+# Clean generated files
+pnpm run clean
+# or
+just clean
+
+# Deep clean (including node_modules)
+just deep-clean
 ```
 
 ### Justfile Commands
@@ -107,11 +118,28 @@ just deep-clean      # Clean including node_modules
 ### ESBuild Configuration
 - **Extension Build**: Outputs to `dist/extension.cjs` (CommonJS)
 - **Jinja2 Editor**: Outputs to `dist/jinja2-editor/jinja2-editor.js` (ESM)
+- **Jinja2 Editor V2**: Outputs to `dist/jinja2-editor-v2/jinja2-editor-v2.js` (ESM)
 - **WebView App**: Outputs to `dist/webview/app.js` (ESM)
 - Supports watch mode, production builds, and component-specific builds
+- Build flags: `--extension-only`, `--webview-only`, `--watch`, `--production`
 
 ### Testing
-Currently tests are commented out in CI but the infrastructure exists. The project uses a MySQL service container for integration testing.
+The project uses Vitest for testing with a MySQL service container for integration testing.
+```bash
+# Run tests
+pnpm run test
+# or
+just test
+
+# Watch mode
+pnpm run test:watch
+
+# Test UI
+pnpm run test:ui
+
+# Coverage report
+pnpm run test:coverage
+```
 
 ## Key Implementation Details
 
@@ -177,6 +205,15 @@ The extension provides extensive configuration options:
 - `sqlsugar.logLevel`: WebView console output level (error, warn, info, debug, none)
 - `sqlsugar.enableWlCopyFallback`: Enable wl-copy fallback for clipboard operations on Linux Wayland
 
+#### V2 Editor Configuration
+- `sqlsugar.v2Editor.popoverPlacement`: Default placement for variable editing popovers (auto, top, bottom, left, right)
+- `sqlsugar.v2Editor.highlightStyle`: Visual style for highlighting variables (background, border, underline)
+- `sqlsugar.v2Editor.autoPreview`: Automatically preview SQL when variables change
+- `sqlsugar.v2Editor.keyboardNavigation`: Enable keyboard navigation (Tab, Enter, Escape)
+- `sqlsugar.v2Editor.animationsEnabled`: Enable animations and transitions
+- `sqlsugar.v2Editor.showSuggestions`: Show intelligent value suggestions based on variable names
+- `sqlsugar.v2Editor.autoFocusFirst`: Automatically focus the first variable when opening
+
 ## Testing and Development
 
 ### Testing Infrastructure
@@ -214,7 +251,8 @@ The extension provides extensive configuration options:
 
 The extension registers the following commands:
 - `sqlsugar.editInlineSQL`: Edit selected SQL text in dedicated file
-- `sqlsugar.copyJinja2TemplateWebview`: Visual Jinja2 template editor
+- `sqlsugar.copyJinja2TemplateWebview`: Visual Jinja2 template editor (V1)
+- `sqlsugar.copyJinja2TemplateWebviewV2`: Enhanced visual Jinja2 template editor with improved UX
 - `sqlsugar.toggleDebugMode`: Toggle debug mode
 - `sqlsugar.copyJinja2Template`: Process Jinja2 templates (various modes)
 - `sqlsugar.copyJinja2TemplateQuick`: Quick Jinja2 template processing
@@ -222,6 +260,7 @@ The extension registers the following commands:
 ### Context Menu Integration
 - Commands available in editor context menu when text is selected
 - Right-click integration for quick access to SQL editing features
+- Both V1 and V2 Jinja2 editors available in context menu
 - Seamless integration with existing VS Code workflows
 
 ### Debug Features

@@ -6,7 +6,9 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import type { Jinja2Variable, Jinja2VariableValue } from '../types.js';
+import TemplateHighlighter from '../utils/template-highlighter.js';
+import SqlHighlighter from '../utils/sql-highlighter.js';
+import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable } from '../types.js';
 
 @customElement('jinja2-editor-v2')
 export class Jinja2EditorV2 extends LitElement {
@@ -39,6 +41,9 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor variableValues: Record<string, Jinja2VariableValue> = {};
   @state() accessor activeVariableType: string = '';
   @state() accessor showTypeSelector: boolean = false;
+
+  private templateHighlighter: TemplateHighlighter;
+  private sqlHighlighter: SqlHighlighter;
 
   static override styles = css`
     :host {
@@ -173,6 +178,7 @@ export class Jinja2EditorV2 extends LitElement {
       gap: var(--spacing-lg);
       padding: var(--spacing-lg);
       height: 100%;
+      align-items: stretch;
     }
 
     /* Narrow Layout (stacked) */
@@ -184,7 +190,7 @@ export class Jinja2EditorV2 extends LitElement {
       gap: var(--spacing-md);
     }
 
-    /* Panel Styles */
+    /* Panel Styles - Enhanced for consistency */
     .editor-panel, .preview-panel {
       background: var(--vscode-editor-background);
       border-radius: var(--border-radius-lg);
@@ -195,6 +201,29 @@ export class Jinja2EditorV2 extends LitElement {
       overflow: hidden;
       min-height: 0;
       backdrop-filter: blur(10px);
+      /* Ensure consistent sizing */
+      flex: 1;
+      min-width: 0;
+      /* Add subtle gradient overlay */
+      position: relative;
+    }
+
+    .editor-panel::before,
+    .preview-panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg,
+        var(--vscode-focusBorder) 0%,
+        var(--vscode-charts-blue) 25%,
+        var(--vscode-charts-purple) 75%,
+        var(--vscode-focusBorder) 100%);
+      opacity: 0.6;
+      border-radius: var(--border-radius-lg) var(--border-radius-lg) 0 0;
+      z-index: 1;
     }
 
     .panel-header {
@@ -591,6 +620,88 @@ export class Jinja2EditorV2 extends LitElement {
       color: var(--vscode-foreground);
     }
 
+    /* Highlight.js syntax highlighting - Dynamic theme support */
+    .highlighted-template .hljs-keyword,
+    .sql-preview .hljs-keyword {
+      color: var(--hljs-keyword, #569cd6) !important;
+      font-weight: bold;
+    }
+
+    .highlighted-template .hljs-operator,
+    .sql-preview .hljs-operator {
+      color: var(--hljs-operator, #d4d4d4) !important;
+    }
+
+    .highlighted-template .hljs-string,
+    .sql-preview .hljs-string {
+      color: var(--hljs-string, #ce9178) !important;
+    }
+
+    .highlighted-template .hljs-number,
+    .sql-preview .hljs-number {
+      color: var(--hljs-number, #b5cea8) !important;
+    }
+
+    .highlighted-template .hljs-comment,
+    .sql-preview .hljs-comment {
+      color: var(--hljs-comment, #6a9955) !important;
+      font-style: italic;
+    }
+
+    .highlighted-template .hljs-function,
+    .sql-preview .hljs-function {
+      color: var(--hljs-function, #dcdcaa) !important;
+    }
+
+    /* Additional SQL syntax highlighting */
+    .sql-preview .hljs-built_in,
+    .highlighted-template .hljs-built_in {
+      color: var(--hljs-built_in, #4ec9b0) !important;
+    }
+
+    .sql-preview .hljs-literal,
+    .highlighted-template .hljs-literal {
+      color: var(--hljs-literal, #c586c0) !important;
+    }
+
+    .sql-preview .hljs-type,
+    .highlighted-template .hljs-type {
+      color: var(--hljs-type, #9cdcfe) !important;
+    }
+
+    /* Enhanced SQL preview styling */
+    .sql-preview {
+      padding: var(--spacing-lg);
+      font-family: var(--vscode-font-family);
+      font-size: var(--font-size-md);
+      line-height: var(--line-height-relaxed);
+      white-space: pre-wrap;
+      word-break: break-word;
+      background: var(--vscode-editor-background);
+      color: var(--vscode-foreground);
+      border-radius: var(--border-radius-sm);
+      min-height: 200px;
+      position: relative;
+    }
+
+    .sql-preview pre {
+      margin: 0;
+      padding: 0;
+      background: transparent;
+      font-family: inherit;
+      font-size: inherit;
+      line-height: inherit;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .sql-preview code {
+      font-family: inherit;
+      font-size: inherit;
+      background: transparent;
+      color: inherit;
+    }
+
     /* Status Bar */
     .status-bar {
       display: flex;
@@ -728,10 +839,42 @@ export class Jinja2EditorV2 extends LitElement {
     if (changedProperties.has('template')) {
       this.highlightTemplate();
     }
+    if (changedProperties.has('theme')) {
+      // Update template highlighter theme
+      if (this.templateHighlighter) {
+        this.templateHighlighter.updateConfig({ theme: this.theme });
+        this.highlightTemplate();
+      }
+      // Update SQL highlighter theme
+      if (this.sqlHighlighter) {
+        this.sqlHighlighter.updateConfig({ theme: this.theme });
+      }
+      // Apply theme-specific custom colors
+      this.applyThemeColors();
+    }
   }
 
   override connectedCallback() {
     super.connectedCallback();
+
+    // Initialize template highlighter
+    this.templateHighlighter = new TemplateHighlighter({
+      theme: this.theme,
+      fontSize: 14,
+      showLineNumbers: false,
+      highlightStyle: 'background',
+      highlightSQL: true
+    });
+
+    // Initialize SQL highlighter
+    this.sqlHighlighter = new SqlHighlighter({
+      theme: this.theme,
+      fontSize: 14,
+      showLineNumbers: false,
+      wordWrap: true,
+      highlightVariables: false // We'll handle variables differently in SQL preview
+    });
+
     this.initializeValues();
     this.highlightTemplate();
     this.checkLayout();
@@ -755,6 +898,77 @@ export class Jinja2EditorV2 extends LitElement {
       this.isWideLayout = newIsWide;
       this.requestUpdate();
     }
+  }
+
+  private applyThemeColors() {
+    const root = this.shadowRoot?.host as HTMLElement;
+    if (!root) return;
+
+    // Apply theme-specific custom properties for better visibility
+    const themeColors = {
+      'vscode-dark': {
+        '--hljs-keyword': '#569cd6',
+        '--hljs-string': '#ce9178',
+        '--hljs-number': '#b5cea8',
+        '--hljs-comment': '#6a9955',
+        '--hljs-function': '#dcdcaa',
+        '--hljs-operator': '#d4d4d4',
+        '--hljs-literal': '#c586c0',
+        '--hljs-type': '#9cdcfe',
+        '--hljs-built_in': '#4ec9b0'
+      },
+      'github-dark': {
+        '--hljs-keyword': '#ff7b72',
+        '--hljs-string': '#a5d6ff',
+        '--hljs-number': '#79c0ff',
+        '--hljs-comment': '#8b949e',
+        '--hljs-function': '#d2a8ff',
+        '--hljs-operator': '#c9d1d9',
+        '--hljs-literal': '#ff7b72',
+        '--hljs-type': '#ffab70',
+        '--hljs-built_in': '#ffa657'
+      },
+      'monokai': {
+        '--hljs-keyword': '#f92672',
+        '--hljs-string': '#e6db74',
+        '--hljs-number': '#ae81ff',
+        '--hljs-comment': '#75715e',
+        '--hljs-function': '#66d9ef',
+        '--hljs-operator': '#f8f8f2',
+        '--hljs-literal': '#ae81ff',
+        '--hljs-type': '#66d9ef',
+        '--hljs-built_in': '#fd971f'
+      },
+      'dracula': {
+        '--hljs-keyword': '#ff79c6',
+        '--hljs-string': '#f1fa8c',
+        '--hljs-number': '#bd93f9',
+        '--hljs-comment': '#6272a4',
+        '--hljs-function': '#50fa7b',
+        '--hljs-operator': '#f8f8f2',
+        '--hljs-literal': '#bd93f9',
+        '--hljs-type': '#8be9fd',
+        '--hljs-built_in': '#ffb86c'
+      },
+      'one-dark': {
+        '--hljs-keyword': '#c678dd',
+        '--hljs-string': '#98c379',
+        '--hljs-number': '#d19a66',
+        '--hljs-comment': '#5c6370',
+        '--hljs-function': '#61afef',
+        '--hljs-operator': '#abb2bf',
+        '--hljs-literal': '#d19a66',
+        '--hljs-type': '#e06c75',
+        '--hljs-built_in': '#56b6c2'
+      }
+    };
+
+    const colors = themeColors[this.theme as keyof typeof themeColors] || themeColors['vscode-dark'];
+
+    // Apply custom properties to the host element
+    Object.entries(colors).forEach(([property, value]) => {
+      root.style.setProperty(property, value);
+    });
   }
 
   private initializeValues() {
@@ -797,6 +1011,43 @@ export class Jinja2EditorV2 extends LitElement {
       return;
     }
 
+    try {
+      // Convert Jinja2Variable[] to EnhancedVariable[] for the highlighter
+      const enhancedVariables: EnhancedVariable[] = this.variables.map(v => ({
+        name: v.name,
+        type: v.type,
+        isRequired: v.isRequired || false,
+        defaultValue: v.defaultValue,
+        description: v.description,
+        position: {
+          startIndex: 0,
+          endIndex: 0,
+          line: 0,
+          column: 0,
+          name: v.name,
+          fullMatch: `{{ ${v.name} }}`
+        }
+      }));
+
+      // Use the TemplateHighlighter for professional syntax highlighting
+      const result = this.templateHighlighter.highlightTemplate(
+        this.template,
+        enhancedVariables,
+        this.variableValues
+      );
+
+      this.highlightedTemplate = result.html;
+    } catch (error) {
+      console.warn('Template highlighting failed, using fallback:', error);
+      // Fallback to basic highlighting if TemplateHighlighter fails
+      this.highlightedTemplate = this.fallbackTemplateHighlight();
+    }
+  }
+
+  /**
+   * Fallback template highlighting when TemplateHighlighter fails
+   */
+  private fallbackTemplateHighlight(): string {
     let highlighted = this.escapeHtml(this.template);
 
     // Highlight all variable references in the template - Match {{ variable }} patterns (including complex expressions)
@@ -848,7 +1099,7 @@ export class Jinja2EditorV2 extends LitElement {
       return highlightedMatch;
     });
 
-    this.highlightedTemplate = highlighted;
+    return highlighted;
   }
 
   private highlightVariablesInCondition(match: string, condition: string): string {
@@ -915,6 +1166,22 @@ export class Jinja2EditorV2 extends LitElement {
     }
 
     return `<span class="variable-value-display ${className}">${displayValue}</span>`;
+  }
+
+  private highlightRenderedSQL(sql: string): string {
+    if (!sql || !this.sqlHighlighter) {
+      return sql;
+    }
+
+    try {
+      // Use the SQL highlighter to apply syntax highlighting
+      const result = this.sqlHighlighter.highlightSQL(sql, this.variableValues);
+      return result.html;
+    } catch (error) {
+      console.warn('SQL highlighting failed, using fallback:', error);
+      // Fallback to escaped SQL
+      return this.escapeHtml(sql);
+    }
   }
 
   private handleTemplateClick(event: Event) {
@@ -1628,7 +1895,7 @@ export class Jinja2EditorV2 extends LitElement {
             </div>
             <div class="panel-content">
               ${this.renderedResult ? html`
-                <div class="sql-preview">${this.renderedResult}</div>
+                <div class="sql-preview" .innerHTML=${this.highlightRenderedSQL(this.renderedResult)}></div>
               ` : html`
                 <div class="empty-state">
                   <div class="empty-icon">🔍</div>

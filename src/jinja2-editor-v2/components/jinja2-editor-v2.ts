@@ -42,9 +42,23 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor activeVariableType: string = '';
   @state() accessor showTypeSelector: boolean = false;
 
+  // 变量变化追踪日志
+  private variableChangeLogs: Array<{
+    timestamp: string;
+    variableName: string;
+    oldValue: Jinja2VariableValue;
+    newValue: Jinja2VariableValue;
+    context: Record<string, Jinja2VariableValue>;
+    template: string;
+    renderedResult?: string;
+    rightPanelHTML?: string; // 右边页面的HTML内容
+    step: 'variable_change' | 'template_render' | 'html_change';
+    phase: 'before_render' | 'after_render' | 'html_update';
+    details?: string;
+  }> = [];
+
   private templateHighlighter: TemplateHighlighter;
   private sqlHighlighter: SqlHighlighter;
-
   static override styles = css`
     :host {
       display: block;
@@ -980,7 +994,13 @@ export class Jinja2EditorV2 extends LitElement {
       } else if (this.values[variable.name] !== undefined) {
         newValues[variable.name] = this.values[variable.name];
       } else {
-        newValues[variable.name] = variable.defaultValue ?? this.generateDefaultValue(variable.type);
+        // Prioritize V1 processor default values
+        if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
+          newValues[variable.name] = variable.defaultValue;
+        } else {
+          // Only generate fallback defaults if V1 processor didn't provide a value
+          newValues[variable.name] = this.generateDefaultValue(variable.type);
+        }
       }
     });
 
@@ -1002,7 +1022,16 @@ export class Jinja2EditorV2 extends LitElement {
       url: 'https://example.com',
       null: null
     };
-    return defaults[type] || 'demo_value';
+
+    const defaultValue = defaults[type] || 'demo_value';
+
+    // 记录生成的默认值，检查是否可能是占位符
+    if (typeof defaultValue === 'string' && (/VAR_\d+/.test(defaultValue) || /\d+VAR\d+/.test(defaultValue))) {
+      this.sendLogToOutputChannel('DEFAULT_PLACEHOLDER', `Generated suspicious default value for type ${type}: ${defaultValue}`);
+    }
+
+    this.sendLogToOutputChannel('DEFAULT_VALUE', `Generated default value for type ${type}: ${JSON.stringify(defaultValue)}`);
+    return defaultValue;
   }
 
   private highlightTemplate() {
@@ -1036,12 +1065,142 @@ export class Jinja2EditorV2 extends LitElement {
         this.variableValues
       );
 
-      this.highlightedTemplate = result.html;
+      let highlighted = result.html;
+
+      // Apply control structure highlighting to ensure all variables are highlighted
+      // This handles variables in {% if %}, {% for %}, {% set %} that TemplateHighlighter might miss
+      highlighted = this.applyControlStructureHighlighting(highlighted);
+
+      this.highlightedTemplate = highlighted;
     } catch (error) {
-      console.warn('Template highlighting failed, using fallback:', error);
+      console.error('Template highlighting failed:', error);
       // Fallback to basic highlighting if TemplateHighlighter fails
       this.highlightedTemplate = this.fallbackTemplateHighlight();
     }
+  }
+
+  /**
+   * Apply highlighting for control structure variables that might be missed by TemplateHighlighter
+   */
+  private applyControlStructureHighlighting(html: string): string {
+    let highlighted = html;
+
+    // Handle both original Jinja2 syntax and HTML encoded versions
+    // TemplateHighlighter might convert {% and %} to HTML entities or spans
+
+    // Pattern 1: Original Jinja2 syntax {% if variable %}
+    highlighted = highlighted.replace(/\{%\s*if\s+([^%]+)\s*%\}/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Pattern 2: HTML encoded syntax &lt;% if variable %&gt;
+    highlighted = highlighted.replace(/&lt;%\s*if\s+([^%]+)\s*%&gt;/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Pattern 3: Span-wrapped syntax <span class="hljs-operator">&lt;%</span> if variable <span class="hljs-operator">%&gt;</span>
+    highlighted = highlighted.replace(/<span class="hljs-operator">&lt;%<\/span>\s*if\s+([^%]+)\s*<span class="hljs-operator">%&gt;<\/span>/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Pattern 4: Span-wrapped with % <span class="hljs-operator">%</span> if variable <span class="hljs-operator">%</span>
+    highlighted = highlighted.replace(/<span class="hljs-operator">%<\/span>\s*if\s+([^%]+)\s*<span class="hljs-operator">%<\/span>/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // Similar patterns for {% elif condition %}
+    highlighted = highlighted.replace(/\{%\s*elif\s+([^%]+)\s*%\}/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    highlighted = highlighted.replace(/&lt;%\s*elif\s+([^%]+)\s*%&gt;/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    highlighted = highlighted.replace(/<span class="hljs-operator">&lt;%<\/span>\s*elif\s+([^%]+)\s*<span class="hljs-operator">%&gt;<\/span>/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    highlighted = highlighted.replace(/<span class="hljs-operator">%<\/span>\s*elif\s+([^%]+)\s*<span class="hljs-operator">%<\/span>/g, (match, condition) => {
+      return this.highlightVariablesInCondition(match, condition);
+    });
+
+    // {% for item in items %}
+    highlighted = highlighted.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}/g, (match, itemVar, arrayVar) => {
+      let highlightedMatch = match;
+
+      // Highlight the array variable
+      if (this.variableValues.hasOwnProperty(arrayVar)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(arrayVar)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${arrayVar}">${arrayVar}</span>`);
+      }
+
+      return highlightedMatch;
+    });
+
+    highlighted = highlighted.replace(/&lt;%\s*for\s+(\w+)\s+in\s+(\w+)\s*%&gt;/g, (match, itemVar, arrayVar) => {
+      let highlightedMatch = match;
+
+      if (this.variableValues.hasOwnProperty(arrayVar)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(arrayVar)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${arrayVar}">${arrayVar}</span>`);
+      }
+
+      return highlightedMatch;
+    });
+
+    // {% set variable = value %}
+    highlighted = highlighted.replace(/\{%\s*set\s+(\w+)\s*=\s*[^%]*?\s*%\}/g, (match, varName) => {
+      let highlightedMatch = match;
+
+      if (this.variableValues.hasOwnProperty(varName)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`);
+      }
+
+      return highlightedMatch;
+    });
+
+    highlighted = highlighted.replace(/&lt;%\s*set\s+(\w+)\s*=\s*[^%]*?\s*%&gt;/g, (match, varName) => {
+      let highlightedMatch = match;
+
+      if (this.variableValues.hasOwnProperty(varName)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`);
+      }
+
+      return highlightedMatch;
+    });
+
+    // Additional pass: Highlight any known variables that might have been missed
+    // Only highlight variables that are completely plain text (not in any tags or spans)
+    this.variables.forEach(variable => {
+      if (this.variableValues.hasOwnProperty(variable.name)) {
+        // More strict regex: only match variable names that are completely standalone text
+        // This prevents variables inside other highlighted elements from being re-highlighted
+        const plainTextRegex = new RegExp(
+          `(?<!data-variable="|class="[^"]*\\s)\\b(${this.escapeRegex(variable.name)})\\b(?![^<]*<\/span>|[^"]*")`,
+          'g'
+        );
+        highlighted = highlighted.replace(plainTextRegex, (match, varName) => {
+          // Double-check that this is plain text and not already highlighted
+          if (highlighted.includes(`data-variable="${varName}"`) ||
+              highlighted.includes(`>${varName}<`) ||
+              match.includes('<span') ||
+              match.includes('data-variable=')) {
+            return match; // Already highlighted or part of HTML
+          }
+
+          return `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`;
+        });
+      }
+    });
+
+    return highlighted;
   }
 
   /**
@@ -1075,17 +1234,18 @@ export class Jinja2EditorV2 extends LitElement {
       return match;
     });
 
-    // Highlight variables in control structures like {% if variable %}
+    // Highlight variables in all control structures
+    // {% if variable %}
     highlighted = highlighted.replace(/\{%\s*if\s+([^%]+)\s*%\}/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // Highlight variables in {% elif condition %}
+    // {% elif condition %}
     highlighted = highlighted.replace(/\{%\s*elif\s+([^%]+)\s*%\}/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // Highlight variables in {% for item in items %}
+    // {% for item in items %}
     highlighted = highlighted.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}/g, (match, itemVar, arrayVar) => {
       let highlightedMatch = match;
 
@@ -1097,6 +1257,35 @@ export class Jinja2EditorV2 extends LitElement {
       }
 
       return highlightedMatch;
+    });
+
+    // {% set variable = value %}
+    highlighted = highlighted.replace(/\{%\s*set\s+(\w+)\s*=\s*[^%]*?\s*%\}/g, (match, varName) => {
+      let highlightedMatch = match;
+
+      if (this.variableValues.hasOwnProperty(varName)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`);
+      }
+
+      return highlightedMatch;
+    });
+
+    // Additional pass: Highlight any known variables that might have been missed
+    this.variables.forEach(variable => {
+      if (this.variableValues.hasOwnProperty(variable.name)) {
+        // Look for variable names in {% ... %} blocks that might have been missed
+        const controlVarRegex = new RegExp(`(\\{\\%[^%]*?)\\b(${this.escapeRegex(variable.name)})\\b([^%]*?\\%\\})`, 'g');
+        highlighted = highlighted.replace(controlVarRegex, (match, prefix, varName, suffix) => {
+          // Check if this variable is already highlighted
+          if (match.includes(`data-variable="${varName}"`)) {
+            return match; // Already highlighted
+          }
+
+          return `${prefix}<span class="variable-highlight" data-variable="${varName}">${varName}</span>${suffix}`;
+        });
+      }
     });
 
     return highlighted;
@@ -1114,7 +1303,7 @@ export class Jinja2EditorV2 extends LitElement {
     const excludedWords = new Set([
       'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null', 'true', 'false', 'exists',
       'eq', 'ne', 'lt', 'gt', 'le', 'ge', // comparison operators
-      'defined', 'undefined' // other operators
+      'defined', 'undefined', 'length', 'count', 'size', 'first', 'last' // other operators/functions
     ]);
 
     const varNames = matches
@@ -1122,11 +1311,21 @@ export class Jinja2EditorV2 extends LitElement {
       .filter(match => !excludedWords.has(match.toLowerCase()))
       .filter(varName => this.variableValues.hasOwnProperty(varName));
 
-    // Highlight each variable
+    // Highlight each variable in the condition
     varNames.forEach(varName => {
       const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
       highlightedMatch = highlightedMatch.replace(regex,
         `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`);
+    });
+
+    // Additional check: Also look for variables that might not be in variableValues yet
+    // but are in the variables array (from V1 processor)
+    this.variables.forEach(variable => {
+      if (!varNames.includes(variable.name) && condition.includes(variable.name)) {
+        const regex = new RegExp(`\\b${this.escapeRegex(variable.name)}\\b`, 'g');
+        highlightedMatch = highlightedMatch.replace(regex,
+          `<span class="variable-highlight" data-variable="${variable.name}">${variable.name}</span>`);
+      }
     });
 
     return highlightedMatch;
@@ -1186,7 +1385,41 @@ export class Jinja2EditorV2 extends LitElement {
 
   private handleTemplateClick(event: Event) {
     const target = event.target as HTMLElement;
-    const variableElement = target.closest('.variable-highlight') as HTMLElement;
+
+    // Check for variable highlight using multiple methods
+    let variableElement: HTMLElement | null = null;
+
+    // Method 1: Direct check
+    variableElement = target.closest('.variable-highlight') as HTMLElement;
+
+    // Method 2: Check if target itself is a variable highlight
+    if (!variableElement && target.classList.contains('variable-highlight')) {
+      variableElement = target;
+    }
+
+    // Method 3: Check parent elements
+    if (!variableElement) {
+      let parent = target.parentElement;
+      while (parent && parent !== document.body) {
+        if (parent.classList.contains('variable-highlight')) {
+          variableElement = parent;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+    }
+
+    // Method 4: Check for data-variable attribute
+    if (!variableElement) {
+      let element: HTMLElement | null = target;
+      while (element && element !== document.body) {
+        if (element.hasAttribute('data-variable')) {
+          variableElement = element;
+          break;
+        }
+        element = element.parentElement;
+      }
+    }
 
     if (variableElement) {
       const variableName = variableElement.getAttribute('data-variable');
@@ -1276,23 +1509,36 @@ export class Jinja2EditorV2 extends LitElement {
   private autoSaveVariable() {
     if (!this.activeVariable) return;
 
+    const variableName = this.activeVariable;
+    const oldValue = this.variableValues[variableName];
     const newValue = this.parseValueFromEdit(this.popupValue, this.activeVariableType);
+
+    // 记录变量变化 - before render (包含当前HTML)
+    this.recordVariableChange(variableName, oldValue, newValue, 'variable_change', 'before_render');
 
     // Update the variable values
     this.variableValues = {
       ...this.variableValues,
-      [this.activeVariable]: newValue
+      [variableName]: newValue
     };
 
     // Update the main values object for compatibility
     this.values = this.variableValues;
 
     // Update variable type if it changed
-    this.updateVariableType(this.activeVariable, this.activeVariableType);
+    this.updateVariableType(variableName, this.activeVariableType);
+
+    // 记录HTML变化 - 在渲染之前捕获DOM更新
+    this.recordVariableChange(variableName, oldValue, newValue, 'html_change', 'html_update',
+      `HTML update triggered by ${variableName} change`);
 
     // Re-render the template with new values
     this.renderTemplate();
     this.highlightTemplate();
+
+    // 记录变量变化 - after render (包含更新后的HTML)
+    this.recordVariableChange(variableName, oldValue, newValue, 'variable_change', 'after_render',
+      `Variable ${variableName} changed from ${JSON.stringify(oldValue)} to ${JSON.stringify(newValue)}`);
   }
   private handleCancelPopup() {
     this.activeVariable = null;
@@ -1570,6 +1816,10 @@ export class Jinja2EditorV2 extends LitElement {
     const startTime = performance.now();
 
     try {
+      // 记录渲染前状态
+      this.recordVariableChange('TEMPLATE_RENDER_START', null, this.variableValues, 'template_render', 'before_render',
+        `Starting template render with ${Object.keys(this.variableValues).length} variables`);
+
       // Simulate rendering delay
       await new Promise(resolve => setTimeout(resolve, 100));
 
@@ -1581,9 +1831,20 @@ export class Jinja2EditorV2 extends LitElement {
       // Store result for display
       this.renderedResult = result;
 
+      // 记录渲染后状态
+      this.recordVariableChange('TEMPLATE_RENDER_END', null, {
+        ...this.variableValues,
+        _rendered_result: result
+      }, 'template_render', 'after_render',
+        `Template render completed with result length: ${result.length}`);
+
     } catch (error) {
       console.error('Template rendering failed:', error);
       this.renderedResult = '';
+
+      // 记录渲染错误
+      this.recordVariableChange('TEMPLATE_RENDER_ERROR', null, { error: String(error) }, 'template_render', 'after_render',
+        `Template render failed: ${error}`);
     } finally {
       this.isProcessing = false;
     }
@@ -1595,13 +1856,54 @@ export class Jinja2EditorV2 extends LitElement {
     // Process if/elif/else blocks
     result = this.processConditionalBlocks(result);
 
-    // Process for loops
-    result = this.processForLoops(result);
+    // Track which variables have been replaced
+    const replacedVariables = new Set<string>();
 
     // Replace simple variable substitutions
     Object.entries(this.variableValues).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
-      result = result.replace(regex, this.formatValue(value));
+      const matches = result.match(regex);
+      if (matches && matches.length > 0) {
+        const formattedValue = this.formatValue(value);
+        const beforeReplace = result;
+        result = result.replace(regex, formattedValue);
+        replacedVariables.add(key);
+
+        // 详细记录替换过程
+        this.sendLogToOutputChannel('VARIABLE_REPLACE', `Replaced variable ${key}: ${matches.length} occurrences`);
+        this.sendLogToOutputChannel('VARIABLE_REPLACE_DETAILS', `Key: ${key}, Original value: ${JSON.stringify(value)}, Formatted: ${formattedValue}`);
+        this.sendLogToOutputChannel('VARIABLE_REPLACE_DETAILS', `Matches found: ${JSON.stringify(matches)}`);
+
+        // 检查替换是否成功
+        if (beforeReplace === result) {
+          this.sendLogToOutputChannel('REPLACE_FAILED', `WARNING: Replace operation didn't change result for variable ${key}`);
+        }
+      }
+    });
+
+    // 查找未被替换的变量 - 这些可能是出现占位符的地方
+    const unreplacedRegex = /{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}/g;
+    let match;
+    const unreplacedVariables = [];
+
+    while ((match = unreplacedRegex.exec(result)) !== null) {
+      const varName = match[1];
+      if (!replacedVariables.has(varName) && !this.variableValues.hasOwnProperty(varName)) {
+        unreplacedVariables.push(varName);
+        this.sendLogToOutputChannel('UNREPLACED_VARIABLE', `Found unreplaced variable: ${varName} in template`);
+      }
+    }
+
+    // Check for potential placeholder values (like VAR_7, VAR_4, VAR_1, 42VAR002)
+    Object.entries(this.variableValues).forEach(([key, value]) => {
+      if (typeof value === 'string') {
+        // Check for placeholder patterns
+        if (/VAR_\d+/.test(value) || /\d+VAR\d+/.test(value) || /^VAR\d+/.test(value) || value.includes('42VAR')) {
+          this.sendLogToOutputChannel('PLACEHOLDER_VALUE', `Found potential placeholder value for ${key}: ${value}`);
+          this.recordVariableChange(key, value, value, 'template_render', 'after_render',
+            `POTENTIAL PLACEHOLDER: Variable ${key} has suspicious value: ${value}`);
+        }
+      }
     });
 
     // Clean up any remaining Jinja2 syntax that wasn't processed
@@ -1757,18 +2059,133 @@ export class Jinja2EditorV2 extends LitElement {
   private renderedResult: string = '';
 
   private formatValue(value: Jinja2VariableValue): string {
-    if (value == null) return 'NULL';
-    if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
-    if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
-    if (typeof value === 'number') return String(value);
-    if (typeof value === 'object') return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
-    return String(value);
+    let result: string;
+
+    if (value == null) {
+      result = 'NULL';
+    } else if (typeof value === 'string') {
+      result = `'${value.replace(/'/g, "''")}'`;
+    } else if (typeof value === 'boolean') {
+      result = value ? 'TRUE' : 'FALSE';
+    } else if (typeof value === 'number') {
+      result = String(value);
+    } else if (typeof value === 'object') {
+      result = `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+    } else {
+      result = String(value);
+    }
+
+    // 记录格式化过程
+    this.sendLogToOutputChannel('FORMAT_VALUE', `Input: ${JSON.stringify(value)} (${typeof value}), Output: ${result}`);
+
+    // 检查是否出现了可疑的数字插入
+    if (typeof value === 'string' && /\d+$/.test(value) && /\d+\d+$/.test(result)) {
+      this.sendLogToOutputChannel('SUSPICIOUS_FORMATTING', `Suspicious formatting detected: ${JSON.stringify(value)} -> ${result}`);
+    }
+
+    return result;
   }
 
   private handleCopyTemplate() {
     navigator.clipboard.writeText(this.template).then(() => {
       this.showNotification('模板已复制到剪贴板');
     });
+  }
+
+  /**
+   * 导出变量变化追踪日志
+   */
+  private handleExportVariableLogs() {
+    if (this.variableChangeLogs.length === 0) {
+      this.sendLogToOutputChannel('INFO', 'No variable changes to export');
+      return;
+    }
+
+    const logs = this.variableChangeLogs.map(log => {
+      const timestamp = log.timestamp;
+      const variableName = log.variableName;
+      const oldValue = log.oldValue;
+      const newValue = log.newValue;
+      const contextStr = JSON.stringify(log.context, null, 2);
+      const template = log.template;
+      const renderedResult = log.renderedResult || '';
+      const rightPanelHTML = log.rightPanelHTML || '';
+      const step = log.step;
+      const phase = log.phase;
+      const details = log.details || '';
+
+      let logEntry = `[${timestamp}] ${step} - ${phase}
+Variable: ${variableName}
+Old Value: ${JSON.stringify(oldValue)}
+New Value: ${JSON.stringify(newValue)}
+Context: ${contextStr}
+Template: ${template}
+Rendered Result: ${renderedResult}
+Details: ${details}`;
+
+      // 只有当存在右边面板HTML时才添加
+      if (rightPanelHTML) {
+        logEntry += `
+Right Panel HTML (${rightPanelHTML.length} chars):
+${rightPanelHTML}`;
+      }
+
+      return logEntry + '\n---';
+    }).join('\n');
+
+    const header = `Jinja2 V2 Editor Variable Change Logs
+Generated: ${new Date().toISOString()}
+Total Changes: ${this.variableChangeLogs.length}
+Target: Find strange placeholder values (42VAR002) in auto-rendering
+Includes: Right panel HTML tracking
+
+`;
+
+    const fullLog = header + logs;
+
+    // 创建并下载日志文件
+    const blob = new Blob([fullLog], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `jinja2-variable-changes-${new Date().toISOString().slice(0, 19)}.log`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    // 同时发送到VS Code OUTPUT频道
+    this.sendLogToOutputChannel('INFO', `Exported ${this.variableChangeLogs.length} variable change logs with right panel HTML tracking`);
+  }
+
+  private generateDebugLogs() {
+    return {
+      timestamp: new Date().toISOString(),
+      editorInfo: {
+        title: this.title,
+        templateLength: this.template.length,
+        variablesCount: this.variables.length,
+        templatePreview: this.template.substring(0, 500) + (this.template.length > 500 ? '...' : '')
+      },
+      variables: this.variables.map(v => ({
+        name: v.name,
+        type: v.type,
+        defaultValue: v.defaultValue,
+        currentValue: this.variableValues[v.name],
+        description: v.description,
+        isRequired: v.isRequired
+      })),
+      variableValues: this.variableValues,
+      highlightedTemplate: {
+        length: this.highlightedTemplate.length,
+        hasVariableHighlights: this.highlightedTemplate.includes('variable-highlight'),
+        variableCount: (this.highlightedTemplate.match(/data-variable="/g) || []).length,
+        preview: this.highlightedTemplate.substring(0, 1000) + (this.highlightedTemplate.length > 1000 ? '...' : '')
+      },
+      renderedResult: {
+        length: this.renderedResult?.length || 0,
+        preview: this.renderedResult?.substring(0, 1000) + (this.renderedResult && this.renderedResult.length > 1000 ? '...' : '')
+      },
+      config: this.config
+    };
   }
 
   private handleCopyResult() {
@@ -1788,6 +2205,108 @@ export class Jinja2EditorV2 extends LitElement {
       bubbles: true,
       composed: true
     }));
+  }
+
+  /**
+   * 记录变量变化
+   */
+  private recordVariableChange(
+    variableName: string,
+    oldValue: Jinja2VariableValue,
+    newValue: Jinja2VariableValue,
+    step: 'variable_change' | 'template_render' | 'html_change',
+    phase: 'before_render' | 'after_render' | 'html_update',
+    details?: string
+  ) {
+    // 捕获右边页面的HTML内容
+    const rightPanelHTML = this.captureRightPanelHTML();
+
+    const logEntry = {
+      timestamp: new Date().toISOString(),
+      variableName,
+      oldValue,
+      newValue,
+      context: { ...this.variableValues }, // 记录当前完整的变量context
+      template: this.template,
+      renderedResult: this.renderedResult || '',
+      rightPanelHTML,
+      step,
+      phase,
+      details: details || `Variable ${variableName} changed from ${JSON.stringify(oldValue)} to ${JSON.stringify(newValue)}`
+    };
+
+    this.variableChangeLogs.push(logEntry);
+
+    // 限制日志数量，避免内存过度使用
+    if (this.variableChangeLogs.length > 100) {
+      this.variableChangeLogs = this.variableChangeLogs.slice(-50); // 保留最新50条
+    }
+
+    // 发送到VS Code OUTPUT频道
+    this.sendLogToOutputChannel('VARIABLE_CHANGE', `Variable ${variableName} changed: ${JSON.stringify(oldValue)} -> ${JSON.stringify(newValue)} (${step} - ${phase})`);
+
+    // 如果捕获到了右边页面的HTML，也记录下来
+    if (rightPanelHTML) {
+      this.sendLogToOutputChannel('RIGHT_PANEL_HTML', `Right panel HTML captured: ${rightPanelHTML.length} characters`);
+
+      // 检查是否包含可疑的占位符模式
+      if (/VAR_\d+/.test(rightPanelHTML) || /\d+VAR\d+/.test(rightPanelHTML) || /42VAR/.test(rightPanelHTML)) {
+        this.sendLogToOutputChannel('PLACEHOLDER_IN_HTML', `Found placeholder pattern in right panel HTML!`);
+        this.recordVariableChange('PLACEHOLDER_DETECTED', rightPanelHTML, rightPanelHTML, 'html_change', 'html_update',
+          `CRITICAL: Found placeholder pattern (VAR_*, *VAR*, 42VAR) in right panel HTML`);
+      }
+    }
+  }
+
+  /**
+   * 捕获右边页面(SQL预览区域)的HTML内容
+   */
+  private captureRightPanelHTML(): string {
+    try {
+      // 获取右边预览面板的DOM元素
+      const rightPanel = this.shadowRoot?.querySelector('.preview-panel .sql-preview');
+      if (!rightPanel) {
+        return '';
+      }
+
+      // 捕获HTML内容
+      const htmlContent = rightPanel.innerHTML;
+
+      // 限制长度，避免日志过大
+      const maxLength = 2000;
+      if (htmlContent.length > maxLength) {
+        return htmlContent.substring(0, maxLength) + '...[TRUNCATED]';
+      }
+
+      return htmlContent;
+    } catch (error) {
+      console.warn('Failed to capture right panel HTML:', error);
+      return '';
+    }
+  }
+
+  /**
+   * 发送日志到VS Code OUTPUT频道
+   */
+  private sendLogToOutputChannel(category: string, message: string) {
+    try {
+      if (typeof window !== 'undefined' && window.vscode) {
+        window.vscode.postMessage({
+          command: 'log',
+          category: `V2_EDITOR_${category}`,
+          data: {
+            message,
+            timestamp: new Date().toISOString(),
+            variableCount: this.variables.length,
+            activeVariable: this.activeVariable,
+            templateLength: this.template.length,
+            renderedResultLength: this.renderedResult?.length || 0
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Failed to send log to VS Code OUTPUT:', error);
+    }
   }
 
   private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
@@ -1841,6 +2360,9 @@ export class Jinja2EditorV2 extends LitElement {
             ${this.title}
           </div>
           <div class="header-actions">
+            <button class="header-button" @click=${this.handleExportVariableLogs} title="导出变量变化日志">
+              📋 变量日志
+            </button>
             <button class="header-button primary" @click=${this.handleSubmit}>
               ✅ Submit
             </button>

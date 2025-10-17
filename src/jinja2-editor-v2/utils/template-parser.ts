@@ -25,7 +25,13 @@ const JINJA2_PATTERNS = {
   // Comments: {# comment #}
   COMMENT: /\{#[\s\S]*?#\}/g,
   // Filters: {{ variable|filter_name }}
-  FILTER: /\|\s*([a-zA-Z_][a-zA-Z0-9_]*)/g
+  FILTER: /\|\s*([a-zA-Z_][a-zA-Z0-9_]*)/g,
+  // Control structure variable extraction patterns
+  IF_CONDITION: /\{%\s*(if|elif)\s+([^%]+?)\s*%\}/g,
+  FOR_LOOP: /\{%\s*for\s+(\w+)\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*%\}/g,
+  SET_ASSIGNMENT: /\{%\s*set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^%]+?)\s*%\}/g,
+  // Pattern to find variable names in expressions
+  VARIABLE_IN_EXPRESSION: /\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b/g
 };
 
 /**
@@ -55,7 +61,7 @@ function extractVariables(template: string): EnhancedVariable[] {
   const variables: EnhancedVariable[] = [];
   const variableMap = new Map<string, EnhancedVariable>();
 
-  // Reset regex lastIndex
+  // Extract variables from {{ variable }} patterns
   JINJA2_PATTERNS.VARIABLE.lastIndex = 0;
 
   let match;
@@ -96,6 +102,216 @@ function extractVariables(template: string): EnhancedVariable[] {
       variableMap.set(variableName, enhancedVar);
       variables.push(enhancedVar);
     }
+  }
+
+  // Extract variables from control structures
+  const controlStructureVariables = extractVariablesFromControlStructures(template);
+
+  // Merge control structure variables, avoiding duplicates
+  for (const variable of controlStructureVariables) {
+    if (!variableMap.has(variable.name)) {
+      variableMap.set(variable.name, variable);
+      variables.push(variable);
+    }
+  }
+
+  return variables;
+}
+
+/**
+ * Extract variables from Jinja2 control structures (if, for, set statements)
+ */
+function extractVariablesFromControlStructures(template: string): EnhancedVariable[] {
+  const variables: EnhancedVariable[] = [];
+  const processedVariables = new Set<string>();
+
+  // Extract variables from {% if condition %} and {% elif condition %}
+  JINJA2_PATTERNS.IF_CONDITION.lastIndex = 0;
+  let ifMatch;
+  while ((ifMatch = JINJA2_PATTERNS.IF_CONDITION.exec(template)) !== null) {
+    const fullMatch = ifMatch[0];
+    const condition = ifMatch[2];
+    const startIndex = ifMatch.index;
+    const endIndex = startIndex + fullMatch.length;
+
+    // Extract variable names from the condition expression
+    const conditionVariables = extractVariablesFromExpression(condition, startIndex, endIndex, 'conditional');
+
+    for (const variable of conditionVariables) {
+      if (!processedVariables.has(variable.name)) {
+        processedVariables.add(variable.name);
+        variables.push(variable);
+      }
+    }
+  }
+
+  // Extract variables from {% for item in items %}
+  JINJA2_PATTERNS.FOR_LOOP.lastIndex = 0;
+  let forMatch;
+  while ((forMatch = JINJA2_PATTERNS.FOR_LOOP.exec(template)) !== null) {
+    const fullMatch = forMatch[0];
+    const loopVar = forMatch[1];
+    const collectionVar = forMatch[2];
+    const startIndex = forMatch.index;
+    const endIndex = startIndex + fullMatch.length;
+
+    // Calculate line and column
+    const beforeText = template.substring(0, startIndex);
+    const lines = beforeText.split('\n');
+    const line = lines.length;
+    const column = lines[lines.length - 1].length + 1;
+
+    // Extract context
+    const context = extractContext(template, startIndex, endIndex);
+
+    // Add loop variable (item)
+    if (!processedVariables.has(loopVar)) {
+      const loopVariable: EnhancedVariable = {
+        ...createJinja2Variable(loopVar, inferVariableType(loopVar, { ...context, semanticContext: 'loop' })),
+        position: {
+          startIndex,
+          endIndex,
+          line,
+          column,
+          name: loopVar,
+          fullMatch
+        },
+        context: { ...context, semanticContext: 'loop' }
+      };
+
+      processedVariables.add(loopVar);
+      variables.push(loopVariable);
+    }
+
+    // Add collection variable (items)
+    if (!processedVariables.has(collectionVar)) {
+      const collectionVariable: EnhancedVariable = {
+        ...createJinja2Variable(collectionVar, inferVariableType(collectionVar, { ...context, semanticContext: 'array' })),
+        position: {
+          startIndex,
+          endIndex,
+          line,
+          column,
+          name: collectionVar,
+          fullMatch
+        },
+        context: { ...context, semanticContext: 'array' }
+      };
+
+      processedVariables.add(collectionVar);
+      variables.push(collectionVariable);
+    }
+  }
+
+  // Extract variables from {% set variable = value %}
+  JINJA2_PATTERNS.SET_ASSIGNMENT.lastIndex = 0;
+  let setMatch;
+  while ((setMatch = JINJA2_PATTERNS.SET_ASSIGNMENT.exec(template)) !== null) {
+    const fullMatch = setMatch[0];
+    const varName = setMatch[1];
+    const value = setMatch[2];
+    const startIndex = setMatch.index;
+    const endIndex = startIndex + fullMatch.length;
+
+    // Calculate line and column
+    const beforeText = template.substring(0, startIndex);
+    const lines = beforeText.split('\n');
+    const line = lines.length;
+    const column = lines[lines.length - 1].length + 1;
+
+    // Extract context
+    const context = extractContext(template, startIndex, endIndex);
+
+    // Add the assigned variable
+    if (!processedVariables.has(varName)) {
+      const assignedVariable: EnhancedVariable = {
+        ...createJinja2Variable(varName, inferVariableType(varName, { ...context, semanticContext: 'assignment' })),
+        position: {
+          startIndex,
+          endIndex,
+          line,
+          column,
+          name: varName,
+          fullMatch
+        },
+        context: { ...context, semanticContext: 'assignment' }
+      };
+
+      processedVariables.add(varName);
+      variables.push(assignedVariable);
+    }
+
+    // Also extract variables from the value expression
+    const valueVariables = extractVariablesFromExpression(value, startIndex, endIndex, 'assignment_value');
+    for (const variable of valueVariables) {
+      if (!processedVariables.has(variable.name)) {
+        processedVariables.add(variable.name);
+        variables.push(variable);
+      }
+    }
+  }
+
+  return variables;
+}
+
+/**
+ * Extract variables from a Jinja2 expression (condition, assignment value, etc.)
+ */
+function extractVariablesFromExpression(
+  expression: string,
+  startIndex: number,
+  endIndex: number,
+  semanticContext: string
+): EnhancedVariable[] {
+  const variables: EnhancedVariable[] = [];
+
+  // Reset regex lastIndex
+  JINJA2_PATTERNS.VARIABLE_IN_EXPRESSION.lastIndex = 0;
+
+  let match;
+  while ((match = JINJA2_PATTERNS.VARIABLE_IN_EXPRESSION.exec(expression)) !== null) {
+    const variableName = match[1];
+
+    // Skip Jinja2 keywords and common function names
+    const skipWords = new Set([
+      'if', 'elif', 'else', 'endif', 'for', 'endfor', 'set', 'endset',
+      'in', 'and', 'or', 'not', 'is', 'defined', 'undefined', 'none', 'null',
+      'true', 'false', 'length', 'first', 'last', 'sort', 'reverse', 'round',
+      'int', 'float', 'string', 'list', 'dict', 'range', 'lipsum', 'cycler'
+    ]);
+
+    if (skipWords.has(variableName.toLowerCase())) {
+      continue;
+    }
+
+    // Calculate line and column for the expression
+    const beforeText = expression.substring(0, match.index);
+    const lines = beforeText.split('\n');
+    const line = 1; // Relative to expression
+    const column = lines[lines.length - 1].length + 1;
+
+    // Extract context for the variable
+    const context: VariableContext = {
+      surroundingText: { before: expression.substring(0, match.index), after: expression.substring(match.index + variableName.length) },
+      semanticContext,
+      relatedVariables: []
+    };
+
+    // Create enhanced variable
+    const enhancedVar: EnhancedVariable = {
+      ...createJinja2Variable(variableName, inferVariableType(variableName, context)),
+      position: {
+        startIndex: startIndex + match.index,
+        endIndex: startIndex + match.index + variableName.length,
+        line,
+        column,
+        name: variableName,
+        fullMatch: variableName
+      },
+      context
+    };
+
+    variables.push(enhancedVar);
   }
 
   return variables;

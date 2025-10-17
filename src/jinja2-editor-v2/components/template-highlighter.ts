@@ -333,20 +333,97 @@ export class TemplateHighlighter extends LitElement {
     if (!this.template) {
       this.highlightData = null;
       this.highlightedHTML = '';
-      this.variables = [];
       return;
     }
 
     try {
+      // Use our template parser for highlighting
       this.highlightData = parseTemplate(this.template);
-      this.variables = this.highlightData.variables;
-      this.highlightedHTML = this.addInteractiveElements(this.highlightData.highlightedHTML);
+
+      // Create highlighted HTML with the variables passed from the webview
+      this.highlightedHTML = this.createHighlightedHTMLWithVariables(this.template, this.variables);
     } catch (error) {
       console.error('Template parsing failed:', error);
       this.highlightData = null;
       this.highlightedHTML = this.escapeHtml(this.template);
-      this.variables = [];
     }
+  }
+
+
+  /**
+   * Create highlighted HTML with variables, handling control structure variables
+   */
+  private createHighlightedHTMLWithVariables(template: string, variables: EnhancedVariable[]): string {
+    let html = template;
+
+    // First, highlight all {{ variable }} patterns
+    const variablePattern = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}/g;
+    let offset = 0;
+
+    // Sort variables by name length to handle overlapping matches correctly
+    const sortedVars = [...variables].sort((a, b) => b.name.length - a.name.length);
+
+    variablePattern.lastIndex = 0;
+    let match;
+    while ((match = variablePattern.exec(template)) !== null) {
+      const varName = match[1];
+      const variable = variables.find(v => v.name === varName);
+
+      if (variable) {
+        const fullMatch = match[0];
+        const startIndex = match.index + offset;
+        const endIndex = startIndex + fullMatch.length;
+
+        const before = html.substring(0, startIndex);
+        const after = html.substring(endIndex);
+
+        const varIndex = variables.indexOf(variable);
+        const highlightedVar = `<span class="variable-highlight" data-variable="${variable.name}" data-index="${varIndex}">${fullMatch}</span>`;
+
+        html = before + highlightedVar + after;
+        offset += highlightedVar.length - fullMatch.length;
+      }
+    }
+
+    // Then, highlight variables in control structures like {% if variable %}
+    variables.forEach(variable => {
+      const controlStructurePattern = new RegExp(`\\{%(?:if|elif|for|set)[^%]*\\b${this.escapeRegex(variable.name)}\\b[^%]*%\\}`, 'g');
+      let controlMatch;
+
+      while ((controlMatch = controlStructurePattern.exec(html)) !== null) {
+        const fullMatch = controlMatch[0];
+        const startIndex = controlMatch.index;
+        const endIndex = startIndex + fullMatch.length;
+
+        const before = html.substring(0, startIndex);
+        const after = html.substring(endIndex);
+
+        const varIndex = variables.indexOf(variable);
+        const highlightedVar = fullMatch.replace(
+          new RegExp(`\\b${this.escapeRegex(variable.name)}\\b`, 'g'),
+          `<span class="variable-highlight" data-variable="${variable.name}" data-index="${varIndex}">${variable.name}</span>`
+        );
+
+        html = before + highlightedVar + after;
+      }
+    });
+
+    // Escape HTML and convert line breaks
+    return html
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/\n/g, '<br>')
+      .replace(/ /g, '&nbsp;');
+  }
+
+  /**
+   * Escape regex special characters
+   */
+  private escapeRegex(string: string): string {
+    return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
   private addInteractiveElements(html: string): string {

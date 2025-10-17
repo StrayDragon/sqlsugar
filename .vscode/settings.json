@@ -33,5 +33,7 @@
     ],
     "sqlfluff.workingDirectory": "${workspaceFolder}",
     "sqlfluff.config": "${workspaceFolder}/.sqlfluff",
+    // SQLSugar debug settings
+    "sqlsugar.debugMode": true,
 
 }

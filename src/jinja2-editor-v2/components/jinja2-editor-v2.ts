@@ -42,6 +42,7 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor variableValues: Record<string, Jinja2VariableValue> = {};
   @state() accessor activeVariableType: string = '';
   @state() accessor showTypeSelector: boolean = false;
+  @state() accessor syncScroll: boolean = false;
 
   // 变量变化追踪日志
   private variableChangeLogs: Array<{
@@ -61,6 +62,10 @@ export class Jinja2EditorV2 extends LitElement {
   private templateHighlighter: TemplateHighlighter;
   private sqlHighlighter: SqlHighlighter;
   private nunjucksEnv: nunjucks.Environment;
+  private templateEditor: HTMLElement | null = null;
+  private sqlPreview: HTMLElement | null = null;
+  private isScrollingSync: boolean = false;
+  private lastScrollTime: number = 0;
   static override styles = css`
     :host {
       display: block;
@@ -908,6 +913,8 @@ export class Jinja2EditorV2 extends LitElement {
   override disconnectedCallback() {
     super.disconnectedCallback();
     window.removeEventListener('resize', this.handleResize);
+    // 清理联动滚动监听器
+    this.cleanupScrollSync();
   }
 
   private handleResize = () => {
@@ -2244,6 +2251,117 @@ export class Jinja2EditorV2 extends LitElement {
   /**
    * 导出变量变化追踪日志
    */
+  private handleToggleSyncScroll() {
+    this.syncScroll = !this.syncScroll;
+
+    if (this.syncScroll) {
+      // 启用联动滚动时，初始化滚动监听
+      this.setupTemplateToSQLScrollSync();
+      this.showNotification('联动滚动已启用', 'success');
+    } else {
+      // 禁用联动滚动时，清理监听器
+      this.cleanupScrollSync();
+      this.showNotification('联动滚动已禁用', 'info');
+    }
+  }
+
+  private setupTemplateToSQLScrollSync() {
+    // 等待下一个渲染周期以确保DOM已更新
+    setTimeout(() => {
+      this.initializeScrollContainers();
+    }, 100);
+  }
+
+  private cleanupScrollSync() {
+    // 移除事件监听器
+    if (this.templateEditor) {
+      this.templateEditor.removeEventListener('scroll', this.handleTemplateScroll);
+      this.templateEditor = null;
+    }
+    if (this.sqlPreview) {
+      this.sqlPreview.removeEventListener('scroll', this.handleSQLPreviewScroll);
+      this.sqlPreview = null;
+    }
+  }
+
+  private initializeScrollContainers() {
+    // 找到 Template Editor 和 SQL Preview 的滚动容器
+    const templateContainer = this.shadowRoot?.querySelector('.editor-panel .panel-content') as HTMLElement;
+    const sqlContainer = this.shadowRoot?.querySelector('.preview-panel .panel-content') as HTMLElement;
+
+    if (templateContainer && sqlContainer) {
+      this.templateEditor = templateContainer;
+      this.sqlPreview = sqlContainer;
+
+      // 清理旧的事件监听器
+      this.templateEditor.removeEventListener('scroll', this.handleTemplateScroll);
+      this.sqlPreview.removeEventListener('scroll', this.handleSQLPreviewScroll);
+
+      // 添加滚动事件监听器
+      this.templateEditor.addEventListener('scroll', this.handleTemplateScroll.bind(this));
+      this.sqlPreview.addEventListener('scroll', this.handleSQLPreviewScroll.bind(this));
+    }
+  }
+
+  private handleTemplateScroll(event: Event) {
+    if (!this.syncScroll || this.isScrollingSync) return;
+
+    // 添加时间间隔限制，避免过于频繁的触发
+    const now = Date.now();
+    if (now - this.lastScrollTime < 16) return; // 约60fps的限制
+
+    this.lastScrollTime = now;
+    const templateElement = event.target as HTMLElement;
+    this.syncScrollPosition('template-to-sql', templateElement);
+  }
+
+  private handleSQLPreviewScroll(event: Event) {
+    if (!this.syncScroll || this.isScrollingSync) return;
+
+    // 添加时间间隔限制，避免过于频繁的触发
+    const now = Date.now();
+    if (now - this.lastScrollTime < 16) return; // 约60fps的限制
+
+    this.lastScrollTime = now;
+    const sqlElement = event.target as HTMLElement;
+    this.syncScrollPosition('sql-to-template', sqlElement);
+  }
+
+  private syncScrollPosition(direction: 'template-to-sql' | 'sql-to-template', sourceElement: HTMLElement) {
+    if (!this.templateEditor || !this.sqlPreview) return;
+
+    this.isScrollingSync = true;
+
+    try {
+      const sourceScrollTop = sourceElement.scrollTop;
+      const sourceScrollHeight = sourceElement.scrollHeight - sourceElement.clientHeight;
+
+      if (sourceScrollHeight <= 0) return;
+
+      // 计算滚动比例
+      const scrollRatio = sourceScrollTop / sourceScrollHeight;
+
+      // 获取目标元素
+      const targetElement = direction === 'template-to-sql'
+        ? this.sqlPreview
+        : this.templateEditor;
+
+      const targetScrollHeight = targetElement.scrollHeight - targetElement.clientHeight;
+
+      if (targetScrollHeight <= 0) return;
+
+      // 计算目标滚动位置
+      const targetScrollTop = scrollRatio * targetScrollHeight;
+
+      // 直接滚动到目标位置，不使用平滑动画
+      targetElement.scrollTop = targetScrollTop;
+
+    } finally {
+      // 立即重置同步标志，不使用延迟
+      this.isScrollingSync = false;
+    }
+  }
+
   private handleExportVariableLogs() {
     if (this.variableChangeLogs.length === 0) {
       this.sendLogToOutputChannel('INFO', 'No variable changes to export');
@@ -2509,6 +2627,10 @@ Includes: Right panel HTML tracking
             ${this.title}
           </div>
           <div class="header-actions">
+            <button class="header-button" @click=${this.handleToggleSyncScroll} title="${this.syncScroll ? '禁用联动滚动' : '启用联动滚动'}">
+              <span>🔗</span>
+              <span>联动</span>
+            </button>
             <button class="header-button" @click=${this.handleExportVariableLogs} title="导出变量变化日志">
               📋 变量日志
             </button>

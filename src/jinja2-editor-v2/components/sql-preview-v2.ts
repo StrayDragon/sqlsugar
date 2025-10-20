@@ -35,9 +35,15 @@ export class SqlPreviewV2 extends LitElement {
   @state() accessor viewMode: 'split' | 'rendered' | 'diff' = 'split';
   @state() accessor highlightedRendered: string = '';
   @state() accessor highlightedOriginal: string = '';
+  // syncScroll 现在由父组件控制，但仍需要作为属性接收
+  @property({ type: Boolean }) accessor syncScroll: boolean = false;
 
   private renderTimeout: number | null = null;
   private sqlHighlighter: SqlHighlighter;
+  private leftScrollContainer: HTMLElement | null = null;
+  private rightScrollContainer: HTMLElement | null = null;
+  private isScrollingSync: boolean = false;
+  private contentUpdateObserver: MutationObserver | null = null;
 
   static override styles = css`
     :host {
@@ -163,6 +169,13 @@ export class SqlPreviewV2 extends LitElement {
     .toolbar-button:disabled {
       opacity: 0.5;
       cursor: not-allowed;
+    }
+
+    .toolbar-button.active {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border-color: var(--vscode-focusBorder);
+      box-shadow: 0 0 8px rgba(66, 133, 244, 0.3);
     }
 
     /* Content Container */
@@ -545,6 +558,16 @@ export class SqlPreviewV2 extends LitElement {
         this.scheduleRender();
       }
     }
+
+    if (changedProperties.has('syncScroll')) {
+      if (this.syncScroll) {
+        // 当启用联动滚动时，初始化滚动监听
+        this.setupScrollSync();
+      } else {
+        // 当禁用联动滚动时，清理监听器
+        this.cleanupScrollSync();
+      }
+    }
   }
 
   override connectedCallback() {
@@ -570,6 +593,8 @@ export class SqlPreviewV2 extends LitElement {
       clearTimeout(this.renderTimeout);
       this.renderTimeout = null;
     }
+    // 清理联动滚动监听器
+    this.cleanupScrollSync();
   }
 
   private scheduleRender() {
@@ -714,6 +739,16 @@ export class SqlPreviewV2 extends LitElement {
 
   private handleViewModeChange(mode: 'split' | 'rendered' | 'diff') {
     this.viewMode = mode;
+
+    // 当切换到分屏模式且联动滚动已启用时，重新初始化滚动同步
+    if (mode === 'split' && this.syncScroll) {
+      setTimeout(() => {
+        this.setupScrollSync();
+      }, 100);
+    } else if (mode !== 'split') {
+      // 当离开分屏模式时，清理滚动同步
+      this.cleanupScrollSync();
+    }
   }
 
   private handleCopyResult() {
@@ -736,8 +771,184 @@ export class SqlPreviewV2 extends LitElement {
     this.wordWrap = !this.wordWrap;
   }
 
-  private showNotification(message: string) {
-    // Simple notification implementation
+  public setupScrollSync() {
+    // 等待下一个渲染周期以确保DOM已更新
+    setTimeout(() => {
+      this.initializeScrollContainers();
+    }, 100);
+
+    // 添加额外的监听器来处理内容变化
+    if (!this.contentUpdateObserver) {
+      this.contentUpdateObserver = new MutationObserver(() => {
+        if (this.syncScroll && this.viewMode === 'split') {
+          // 内容发生变化时重新初始化滚动容器
+          setTimeout(() => {
+            this.initializeScrollContainers();
+          }, 50);
+        }
+      });
+    }
+  }
+
+  public cleanupScrollSync() {
+    // 移除事件监听器
+    if (this.leftScrollContainer) {
+      this.leftScrollContainer.removeEventListener('scroll', this.handleLeftScroll);
+      this.leftScrollContainer = null;
+    }
+    if (this.rightScrollContainer) {
+      this.rightScrollContainer.removeEventListener('scroll', this.handleRightScroll);
+      this.rightScrollContainer = null;
+    }
+
+    // 清理内容变化观察器
+    if (this.contentUpdateObserver) {
+      this.contentUpdateObserver.disconnect();
+      this.contentUpdateObserver = null;
+    }
+  }
+
+  private initializeScrollContainers() {
+    // 找到左右两栏的滚动容器
+    const leftPane = this.shadowRoot?.querySelector('.split-pane:first-child .pane-content');
+    const rightPane = this.shadowRoot?.querySelector('.split-pane:last-child .pane-content');
+
+    if (leftPane && rightPane) {
+      this.leftScrollContainer = leftPane as HTMLElement;
+      this.rightScrollContainer = rightPane as HTMLElement;
+
+      // 清理旧的事件监听器
+      this.leftScrollContainer.removeEventListener('scroll', this.handleLeftScroll.bind(this));
+      this.rightScrollContainer.removeEventListener('scroll', this.handleRightScroll.bind(this));
+
+      // 添加滚动事件监听器
+      this.leftScrollContainer.addEventListener('scroll', this.handleLeftScroll.bind(this));
+      this.rightScrollContainer.addEventListener('scroll', this.handleRightScroll.bind(this));
+
+      // 设置内容变化观察器
+      if (this.contentUpdateObserver) {
+        this.contentUpdateObserver.observe(leftPane, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+        this.contentUpdateObserver.observe(rightPane, {
+          childList: true,
+          subtree: true,
+          characterData: true
+        });
+      }
+    }
+  }
+
+  private handleLeftScroll(event: Event) {
+    if (!this.syncScroll || this.isScrollingSync) return;
+
+    const leftElement = event.target as HTMLElement;
+    this.syncScrollPosition('left-to-right', leftElement);
+  }
+
+  private handleRightScroll(event: Event) {
+    if (!this.syncScroll || this.isScrollingSync) return;
+
+    const rightElement = event.target as HTMLElement;
+    this.syncScrollPosition('right-to-left', rightElement);
+  }
+
+  private syncScrollPosition(direction: 'left-to-right' | 'right-to-left', sourceElement: HTMLElement) {
+    if (!this.leftScrollContainer || !this.rightScrollContainer) return;
+
+    this.isScrollingSync = true;
+
+    try {
+      const sourceScrollTop = sourceElement.scrollTop;
+      const sourceScrollHeight = sourceElement.scrollHeight - sourceElement.clientHeight;
+
+      if (sourceScrollHeight <= 0) return;
+
+      // 获取目标元素
+      const targetElement = direction === 'left-to-right'
+        ? this.rightScrollContainer
+        : this.leftScrollContainer;
+
+      const targetScrollHeight = targetElement.scrollHeight - targetElement.clientHeight;
+
+      if (targetScrollHeight <= 0) return;
+
+      // 尝试使用行级映射，如果失败则使用简单的比例映射
+      let targetScrollTop: number;
+
+      try {
+        targetScrollTop = this.calculateScrollPositionWithLineMapping(
+          sourceScrollTop,
+          sourceScrollHeight,
+          targetScrollHeight,
+          direction
+        );
+      } catch (error) {
+        console.warn('Line mapping failed, using ratio-based mapping:', error);
+        // 回退到简单的比例映射
+        const scrollRatio = sourceScrollTop / sourceScrollHeight;
+        targetScrollTop = scrollRatio * targetScrollHeight;
+      }
+
+      // 平滑滚动到目标位置
+      targetElement.scrollTo({
+        top: targetScrollTop,
+        behavior: 'smooth'
+      });
+
+    } finally {
+      // 重置同步标志，使用短暂延迟避免循环触发
+      setTimeout(() => {
+        this.isScrollingSync = false;
+      }, 50);
+    }
+  }
+
+  private calculateScrollPositionWithLineMapping(
+    sourceScrollTop: number,
+    sourceScrollHeight: number,
+    targetScrollHeight: number,
+    direction: 'left-to-right' | 'right-to-left'
+  ): number {
+    // 获取源文本和目标文本
+    const sourceText = direction === 'left-to-right' ? this.template : this.renderedSQL;
+    const targetText = direction === 'left-to-right' ? this.renderedSQL : this.template;
+
+    if (!sourceText || !targetText) {
+      throw new Error('Missing source or target text');
+    }
+
+    // 计算源文本中当前可见的行范围
+    const sourceLines = sourceText.split('\n');
+    const sourceLineHeight = sourceScrollHeight / sourceLines.length;
+    const startLineIndex = Math.floor(sourceScrollTop / sourceLineHeight);
+    const endLineIndex = Math.min(
+      Math.ceil((sourceScrollTop + sourceScrollHeight) / sourceLineHeight),
+      sourceLines.length - 1
+    );
+
+    // 获取目标文本的行数
+    const targetLines = targetText.split('\n');
+    const targetLineHeight = targetScrollHeight / targetLines.length;
+
+    // 使用简单的线性映射作为基础
+    const sourceLinePosition = startLineIndex / sourceLines.length;
+    const targetScrollTop = sourceLinePosition * targetScrollHeight;
+
+    return Math.max(0, Math.min(targetScrollTop, targetScrollHeight));
+  }
+
+  private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+    // 获取类型对应的颜色
+    const typeColors = {
+      info: 'var(--vscode-charts-blue)',
+      success: 'var(--vscode-charts-green)',
+      warning: 'var(--vscode-charts-orange)',
+      error: 'var(--vscode-charts-red)'
+    };
+
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -746,6 +957,7 @@ export class SqlPreviewV2 extends LitElement {
       padding: 12px 16px;
       background: var(--vscode-notification-background);
       color: var(--vscode-notification-foreground);
+      border-left: 4px solid ${typeColors[type]};
       border-radius: 4px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.2);
       z-index: 10000;
@@ -753,14 +965,24 @@ export class SqlPreviewV2 extends LitElement {
       font-size: 13px;
       max-width: 300px;
       word-wrap: break-word;
+      opacity: 0;
+      transform: translateX(100%);
+      transition: all 0.3s ease;
     `;
 
     notification.textContent = message;
     document.body.appendChild(notification);
 
+    // 触发进入动画
+    requestAnimationFrame(() => {
+      notification.style.opacity = '1';
+      notification.style.transform = 'translateX(0)';
+    });
+
+    // 3秒后自动消失
     setTimeout(() => {
       notification.style.opacity = '0';
-      notification.style.transition = 'opacity 0.3s ease';
+      notification.style.transform = 'translateX(100%)';
       setTimeout(() => notification.remove(), 300);
     }, 3000);
   }

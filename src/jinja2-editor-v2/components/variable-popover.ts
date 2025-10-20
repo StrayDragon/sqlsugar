@@ -16,7 +16,7 @@ import type {
   EditorV2Config,
   Jinja2VariableValue
 } from '../types.js';
-import { getDefaultValueForType, validateValue } from '../../jinja2-editor/utils/variable-utils.js';
+import { getDefaultValueForType, validateValue } from '../utils/variable-utils.js';
 import {
   calculatePopoverPosition,
   getArrowPosition,
@@ -25,10 +25,10 @@ import {
   adjustPositionForScroll
 } from '../utils/position-calculator.js';
 
-// Import UI components (reuse existing ones for now)
-import '../../jinja2-editor/components/ui/input.js';
-import '../../jinja2-editor/components/ui/select.js';
-import '../../jinja2-editor/components/ui/button.js';
+// Import V2 UI components
+import './ui/input.js';
+import './ui/select.js';
+import './ui/button.js';
 
 // Default popover dimensions
 const POPOVER_DIMENSIONS = {
@@ -762,7 +762,7 @@ export class VariablePopover extends LitElement {
           <div class="form-row">
             <div class="form-group">
               <label class="form-label">Type</label>
-              <jinja-select
+              <v2-select
                 .value=${this.localType}
                 .options=${[
                   { value: 'string', label: 'Text' },
@@ -778,17 +778,17 @@ export class VariablePopover extends LitElement {
                   { value: 'null', label: 'Null' }
                 ]}
                 @change=${this.handleTypeChange}
-              ></jinja-select>
+              ></v2-select>
             </div>
 
             <div class="form-group">
               <label class="form-label">Value</label>
-              <jinja-input
+              <v2-input
                 type=${this.getInputType(this.localType)}
                 .value=${this.formatValue(this.localValue)}
                 .placeholder=${`Enter ${this.variable.name}`}
                 @change=${this.handleValueChange}
-              ></jinja-input>
+              ></v2-input>
             </div>
           </div>
 

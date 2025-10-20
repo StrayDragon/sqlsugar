@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 import { Logger } from './logger';
 
-import { Jinja2WebviewEditor } from '../jinja2-webview';
+import { Jinja2WebviewEditorV2 } from '../jinja2-webview-v2';
 import { TempFileManager } from './temp-file-manager';
 
 /**
@@ -107,7 +107,7 @@ export class EventHandler {
    */
   private refreshWebviewThemes(): void {
     try {
-      Jinja2WebviewEditor.refreshAllInstances();
+      Jinja2WebviewEditorV2.refreshAllInstances();
     } catch (error) {
       Logger.warn('Failed to refresh WebView themes:', error);
     }

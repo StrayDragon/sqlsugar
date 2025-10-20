@@ -9,7 +9,7 @@ import type {
   Jinja2VariableValue,
   VariableChangeEventV2
 } from '../types.js';
-import { validateValue } from '../../jinja2-editor/utils/variable-utils.js';
+import { validateValue } from './variable-utils.js';
 
 /**
  * Variable state with history tracking

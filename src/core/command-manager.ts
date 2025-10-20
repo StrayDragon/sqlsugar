@@ -90,11 +90,7 @@ export class CommandManager {
         name: 'copyJinja2TemplateWizard',
         callback: this.handleCopyJinja2TemplateWizard.bind(this),
       },
-      {
-        name: 'copyJinja2TemplateWebview',
-        callback: this.handleCopyJinja2TemplateWebview.bind(this),
-      },
-      {
+        {
         name: 'copyJinja2TemplateDefaults',
         callback: this.handleCopyJinja2TemplateDefaults.bind(this),
       },
@@ -247,14 +243,6 @@ export class CommandManager {
     }, 'Failed to process Jinja2 template');
   }
 
-  /**
-   * WebView处理Jinja2模板
-   */
-  private async handleCopyJinja2TemplateWebview(): Promise<void> {
-    await this.safeExecuteCommand('copyJinja2TemplateWebview', async () => {
-      await Jinja2NunjucksHandler.handleCopyJinja2Template('webview');
-    }, 'Failed to process Jinja2 template');
-  }
 
   /**
    * WebView V2处理Jinja2模板

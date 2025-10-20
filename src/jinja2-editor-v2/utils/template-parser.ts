@@ -12,7 +12,7 @@ import type {
   TemplateStats,
   Jinja2Variable
 } from '../types.js';
-import { inferTypeFromValue, createJinja2Variable } from '../../jinja2-editor/utils/variable-utils.js';
+import { inferTypeFromValue, createJinja2Variable } from './variable-utils.js';
 
 /**
  * Regular expressions for Jinja2 syntax parsing

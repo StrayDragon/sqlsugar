@@ -33,11 +33,7 @@
         "command": "sqlsugar.copyJinja2TemplateQuick",
         "title": "SQLSugar: Copy Jinja2 Template SQL (Quick Demo)"
       },
-      {
-        "command": "sqlsugar.copyJinja2TemplateWebview",
-        "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor)"
-      },
-      {
+        {
         "command": "sqlsugar.copyJinja2TemplateWebviewV2",
         "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor V2)"
       }
@@ -46,11 +42,6 @@
       "editor/context": [
         {
           "command": "sqlsugar.editInlineSQL",
-          "when": "editorHasSelection",
-          "group": "1_modification"
-        },
-        {
-          "command": "sqlsugar.copyJinja2TemplateWebview",
           "when": "editorHasSelection",
           "group": "1_modification"
         },
@@ -69,9 +60,6 @@
         },
         {
           "command": "sqlsugar.copyJinja2TemplateQuick"
-        },
-        {
-          "command": "sqlsugar.copyJinja2TemplateWebview"
         },
         {
           "command": "sqlsugar.copyJinja2TemplateWebviewV2"

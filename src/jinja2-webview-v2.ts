@@ -185,17 +185,23 @@ export class Jinja2WebviewEditorV2 {
       config: this.getV2EditorConfig(),
     });
 
-    // 测试全局输出频道是否工作
-    const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
-    if (outputChannel) {
-      outputChannel.appendLine('[V2 Extension] Editor initialized successfully');
-      outputChannel.appendLine(`[V2 Extension] Template: ${template.substring(0, 100)}...`);
-      outputChannel.appendLine(`[V2 Extension] Variables count: ${variables.length}`);
-      outputChannel.appendLine(`[V2 Extension] Editor opened at: ${new Date().toISOString()}`);
-      outputChannel.show();
-      console.log('[V2 Extension] Successfully wrote to global output channel');
-    } else {
-      console.log('[V2 Extension] Global output channel not available at editor initialization!');
+    // 只在非 error 等级时记录初始化信息
+    const mainConfig = vscode.workspace.getConfiguration('sqlsugar');
+    const logLevel = mainConfig.get<string>('logLevel', 'error');
+
+    if (logLevel !== 'error' && logLevel !== 'none') {
+      const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
+      if (outputChannel) {
+        outputChannel.appendLine('[V2 Extension] Editor initialized');
+        outputChannel.appendLine(`[V2 Extension] Variables: ${variables.length}`);
+
+        // 只在 info 或 debug 等级时显示详细信息
+        if (logLevel === 'info' || logLevel === 'debug') {
+          outputChannel.appendLine(`[V2 Extension] Template preview: ${template.substring(0, 50)}...`);
+        }
+
+        // 不自动显示输出频道，避免打扰用户
+      }
     }
 
     // 添加到活动实例列表
@@ -204,14 +210,10 @@ export class Jinja2WebviewEditorV2 {
 
   private setupWebviewListeners(): void {
     if (!this.panel) {
-      console.log('[V2 Extension] No panel available for setting up listeners');
       return;
     }
 
-    console.log('[V2 Extension] Setting up webview listeners');
-
     this.panel.onDidDispose(() => {
-      console.log('[V2 Extension] WebView panel disposed');
       this.panel = undefined;
 
       const index = Jinja2WebviewEditorV2.activeInstances.indexOf(this);
@@ -226,33 +228,20 @@ export class Jinja2WebviewEditorV2 {
     });
 
     this.panel.webview.onDidReceiveMessage(async message => {
-      console.log('[V2 Extension] WebView message received, calling handler');
       await this.handleWebviewMessage(message);
     });
-
-    console.log('[V2 Extension] WebView listeners setup complete');
   }
 
   private async handleWebviewMessage(message: WebViewMessage): Promise<void> {
-    // Log all received messages for debugging
-    console.log('[V2 Extension] === WEBVIEW MESSAGE RECEIVED ===');
-    console.log('[V2 Extension] Message:', JSON.stringify(message, null, 2));
-    console.log('[V2 Extension] Command:', message.command);
-    console.log('[V2 Extension] Category:', message.category);
-    console.log('[V2 Extension] Data:', message.data);
-
     if (!message || !message.command) {
-      console.log('[V2 Extension] No message or command, returning');
       return;
     }
 
     const msg = message;
-    console.log('[V2 Extension] Processing command:', msg.command);
 
     switch (msg.command) {
 
       case 'submit':
-        console.log('[V2 Extension] Handling submit command');
         if (this.resolvePromise && msg.values) {
           this.resolvePromise(msg.values as Record<string, WebViewVariableValue>);
           this.panel?.dispose();
@@ -260,22 +249,14 @@ export class Jinja2WebviewEditorV2 {
         break;
 
       case 'cancel':
-        console.log('[V2 Extension] Handling cancel command');
         if (this.rejectPromise) {
           this.rejectPromise(new Error('用户取消了操作'));
           this.panel?.dispose();
         }
         break;
 
-      case 'fallbackToV1':
-        console.log('[V2 Extension] Handling fallbackToV1 command');
-        // User requested fallback to V1 editor
-        this.panel?.dispose();
-        await this.handleFallbackToV1(msg.template as string, msg.variables as Jinja2Variable[]);
-        break;
 
       case 'copyToClipboard':
-        console.log('[V2 Extension] Handling copyToClipboard command');
         if (message.text) {
           await this.copyToClipboardWithFallback(message.text);
           const messageText = message.isTemplate ? '模板已复制到剪贴板' : 'SQL已复制到剪贴板';
@@ -284,48 +265,47 @@ export class Jinja2WebviewEditorV2 {
         break;
 
       case 'showError':
-        console.log('[V2 Extension] Handling showError command');
         if (message.message) {
           vscode.window.showErrorMessage(message.message);
         }
         break;
 
       case 'log':
-        console.log('[V2 Extension] === HANDLING LOG COMMAND ===');
-        console.log('[V2 Extension] Category:', message.category);
-        console.log('[V2 Extension] Data:', message.data);
-
-        // 处理来自WebView的精确日志消息
+        // 处理来自WebView的日志消息，根据日志等级过滤
         if (message.category && message.data) {
-          const logMessage = `[${message.category}] ${JSON.stringify(message.data, null, 2)}`;
-          console.log('[V2 Extension] Generated log message:', logMessage);
+          const category = String(message.category); // 转换为字符串类型
 
-          // 使用全局输出频道
-          const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
-          if (outputChannel) {
-            console.log('[V2 Extension] Writing to global output channel:', logMessage);
-            outputChannel.appendLine(logMessage);
-            outputChannel.show(); // Auto-show output channel
-            console.log('[V2 Extension] Message written to output channel successfully');
-          } else {
-            console.log('[V2 Extension] Global output channel not available!');
+          // 获取当前日志等级配置
+          const mainConfig = vscode.workspace.getConfiguration('sqlsugar');
+          const logLevel = mainConfig.get<string>('logLevel', 'error');
+
+          // 根据日志等级决定是否显示
+          const shouldLog = this.shouldLogToOutput(category, logLevel);
+
+          if (shouldLog) {
+            const logMessage = `[${category}] ${JSON.stringify(message.data, null, 2)}`;
+
+            // 使用全局输出频道
+            const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
+            if (outputChannel) {
+              outputChannel.appendLine(logMessage);
+
+              // 只在错误等级或关键问题时自动显示输出频道
+              if (this.shouldShowOutputChannel(category, logLevel)) {
+                outputChannel.show();
+              }
+            }
           }
 
-          // 也发送到控制台进行调试
-          console.log(`[SQLSugar] ${message.category}:`, message.data);
-        } else {
-          console.log('[V2 Extension] Log message missing category or data:', message);
-          console.log('[V2 Extension] Full message object:', message);
+          // 调试信息始终发送到开发者控制台（不影响用户体验）
+          console.log(`[SQLSugar] ${category}:`, message.data);
         }
         break;
 
       default:
-        console.log('[V2 Extension] Unknown command:', msg.command);
-        console.log('[V2 Extension] Full message:', message);
+        // Unknown command, ignore silently
         break;
     }
-
-    console.log('[V2 Extension] === WEBVIEW MESSAGE PROCESSING COMPLETE ===');
   }
 
   /**
@@ -368,6 +348,7 @@ export class Jinja2WebviewEditorV2 {
    */
   private getV2EditorConfig(): Record<string, unknown> {
     const config = vscode.workspace.getConfiguration('sqlsugar.v2Editor');
+    const mainConfig = vscode.workspace.getConfiguration('sqlsugar');
     return {
       popoverPlacement: config.get<string>('popoverPlacement', 'auto'),
       highlightStyle: config.get<string>('highlightStyle', 'background'),
@@ -375,41 +356,95 @@ export class Jinja2WebviewEditorV2 {
       keyboardNavigation: config.get<boolean>('keyboardNavigation', true),
       animationsEnabled: config.get<boolean>('animationsEnabled', true),
       showSuggestions: config.get<boolean>('showSuggestions', true),
-      autoFocusFirst: config.get<boolean>('autoFocusFirst', false)
+      autoFocusFirst: config.get<boolean>('autoFocusFirst', false),
+      logLevel: mainConfig.get<string>('logLevel', 'error') // 传递日志等级到 WebView
     };
   }
 
   /**
-   * 回退到V1编辑器
+   * 判断是否应该记录到输出频道
    */
-  private async handleFallbackToV1(template: string, variables: Jinja2Variable[]): Promise<void> {
-    try {
-      // Import V1 editor
-      const { Jinja2WebviewEditor } = await import('./jinja2-webview.js');
+  private shouldLogToOutput(category: string, logLevel: string): boolean {
+    // 如果日志等级是 none，不输出任何日志
+    if (logLevel === 'none') {
+      return false;
+    }
 
-      // Convert V2 variables to V1 format
-      const v1Variables = variables.map(v => ({
-        name: v.name,
-        type: v.type,
-        defaultValue: v.defaultValue,
-        description: v.description,
-        isRequired: v.required
-      }));
+    // 错误级别的分类
+    const errorCategories = [
+      'V2_EDITOR_ERROR',
+      'NUNJUCKS_ERROR',
+      'TEMPLATE_RENDER_ERROR',
+      'PLACEHOLDER_DETECTED',
+      'PLACEHOLDER_IN_HTML'
+    ];
 
-      // Show V1 editor
-      const result = await Jinja2WebviewEditor.showEditor(template, v1Variables);
+    // 警告级别的分类
+    const warnCategories = [
+      'V2_EDITOR_WARN',
+      'NUNJUCKS_SUSPICIOUS',
+      'SUSPICIOUS_FORMATTING',
+      'DEFAULT_PLACEHOLDER',
+      'VARIABLE_VALIDATION'
+    ];
 
-      // Resolve with the result from V1 editor
-      if (this.resolvePromise) {
-        this.resolvePromise(result);
-      }
-    } catch (error) {
-      Logger.error('Failed to fallback to V1 editor:', error);
-      if (this.rejectPromise) {
-        this.rejectPromise(error);
-      }
+    // 信息级别的分类（重要的操作）
+    const infoCategories = [
+      'V2_EDITOR_INFO',
+      'NUNJUCKS_SUCCESS',
+      'NUNJUCKS_CLEAN',
+      'VARIABLE_CLEANED'
+    ];
+
+    // 根据日志等级和分类决定是否输出
+    switch (logLevel) {
+      case 'error':
+        return errorCategories.some(cat => category.includes(cat));
+      case 'warn':
+        return errorCategories.some(cat => category.includes(cat)) ||
+               warnCategories.some(cat => category.includes(cat));
+      case 'info':
+        return errorCategories.some(cat => category.includes(cat)) ||
+               warnCategories.some(cat => category.includes(cat)) ||
+               infoCategories.some(cat => category.includes(cat));
+      case 'debug':
+        return true; // debug 级别显示所有日志
+      default:
+        return false;
     }
   }
+
+  /**
+   * 判断是否应该自动显示输出频道
+   */
+  private shouldShowOutputChannel(category: string, logLevel: string): boolean {
+    // 只在错误等级或者包含关键问题的分类时自动显示
+    const criticalCategories = [
+      'V2_EDITOR_ERROR',
+      'NUNJUCKS_ERROR',
+      'TEMPLATE_RENDER_ERROR',
+      'PLACEHOLDER_DETECTED',
+      'PLACEHOLDER_IN_HTML'
+    ];
+
+    // 如果日志等级是 error，只显示错误
+    if (logLevel === 'error') {
+      return criticalCategories.some(cat => category.includes(cat));
+    }
+
+    // warn 及以上级别，显示重要问题
+    if (logLevel === 'warn' || logLevel === 'info') {
+      return criticalCategories.some(cat => category.includes(cat));
+    }
+
+    // debug 级别不自动显示，避免打扰用户
+    if (logLevel === 'debug') {
+      return false;
+    }
+
+    return false;
+  }
+
 
   private updateContent(template: string, variables: Jinja2Variable[]): void {
     if (!this.panel) {
@@ -457,70 +492,19 @@ export class Jinja2WebviewEditorV2 {
 <body>
   <sqlsugar-webview-v2-app></sqlsugar-webview-v2-app>
   <script nonce="${nonce}">
-    // Initialize VS Code API immediately and test communication
+    // Initialize VS Code API
     (function() {
-      console.log('[V2 WebView] Starting VS Code API initialization...');
-
       try {
-        // Check if acquireVsCodeApi function exists
         if (typeof acquireVsCodeApi === 'function') {
-          console.log('[V2 WebView] acquireVsCodeApi function found, calling it...');
           const vscode = acquireVsCodeApi();
-
           if (vscode) {
-            console.log('[V2 WebView] VS Code API acquired successfully');
             window.vscode = vscode;
-
-            // Test basic postMessage
-            console.log('[V2 WebView] Testing basic postMessage...');
-            vscode.postMessage({
-              command: 'log',
-              category: 'WEBVIEW_API_TEST',
-              data: {
-                message: 'VS Code API is working!',
-                timestamp: new Date().toISOString(),
-                hasPostMessage: typeof vscode.postMessage === 'function'
-              }
-            });
-
-            // Test with different message format
-            console.log('[V2 WebView] Testing message with category...');
-            vscode.postMessage({
-              command: 'log',
-              category: 'WEBVIEW_INIT',
-              data: { message: 'WebView initialized and ready!', timestamp: new Date().toISOString() }
-            });
-
-            console.log('[V2 WebView] All test messages sent');
-          } else {
-            console.error('[V2 WebView] acquireVsCodeApi returned undefined');
           }
-        } else {
-          console.error('[V2 WebView] acquireVsCodeApi function not found');
         }
       } catch (error) {
-        console.error('[V2 WebView] Error in VS Code API initialization:', error);
+        console.error('[V2 WebView] Error initializing VS Code API:', error);
       }
     })();
-  </script>
-
-  <!-- Fallback test script -->
-  <script nonce="${nonce}">
-    // Fallback: Try to find VS Code API in global scope
-    setTimeout(() => {
-      console.log('[V2 WebView] Fallback: Checking for VS Code API...');
-
-      if (typeof window.vscode !== 'undefined') {
-        console.log('[V2 WebView] Found vscode in window, testing postMessage...');
-        window.vscode.postMessage({
-          command: 'log',
-          category: 'WEBVIEW_FALLBACK',
-          data: { message: 'Fallback test working!', timestamp: new Date().toISOString() }
-        });
-      } else {
-        console.error('[V2 WebView] VS Code API not available in window object');
-      }
-    }, 2000);
   </script>
   <script src="${nunjucksUri}"></script>
   <script src="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js'))}"></script>

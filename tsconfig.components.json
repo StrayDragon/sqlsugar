@@ -1,8 +1,8 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "outDir": "./dist/jinja2-editor/types",
-    "rootDir": "./src/jinja2-editor",
+    "outDir": "./dist/jinja2-editor-v2/types",
+    "rootDir": "./src/jinja2-editor-v2",
     "declaration": true,
     "emitDeclarationOnly": true,
     "composite": true,
@@ -13,10 +13,10 @@
     "emitDecoratorMetadata": false
   },
   "include": [
-    "src/jinja2-editor/**/*.ts"
+    "src/jinja2-editor-v2/**/*.ts"
   ],
   "exclude": [
-    "src/jinja2-editor/**/*.test.ts",
-    "src/jinja2-editor/**/test-dom-setup.ts"
+    "src/jinja2-editor-v2/**/*.test.ts",
+    "src/jinja2-editor-v2/**/test-dom-setup.ts"
   ]
 }

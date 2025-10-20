@@ -1,7 +1,15 @@
 import * as nunjucks from 'nunjucks';
 import { Logger } from './core/logger';
 import * as vscode from 'vscode';
-import { Jinja2VariableValue } from './jinja2-editor/types.js';
+export type Jinja2VariableValue =
+  | string
+  | number
+  | boolean
+  | Date
+  | null
+  | undefined
+  | Record<string, unknown>
+  | unknown[];
 
 /**
  * Nunjucks AST 节点的基本类型 - 使用宽松的类型以适应复杂的 AST 结构
@@ -54,7 +62,7 @@ function forEachChild(node: NunjucksNode, fn: (child: NunjucksNode) => void): vo
  */
 export interface Jinja2Variable {
   name: string;
-  type: 'string' | 'number' | 'date' | 'boolean';
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'email' | 'url' | 'null';
   defaultValue?: Jinja2VariableValue;
   description?: string;
   required?: boolean;

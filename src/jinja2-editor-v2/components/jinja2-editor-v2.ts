@@ -22,7 +22,8 @@ export class Jinja2EditorV2 extends LitElement {
     keyboardNavigation: true,
     animationsEnabled: true,
     showSuggestions: true,
-    autoFocusFirst: false
+    autoFocusFirst: false,
+    logLevel: 'error' // 默认日志等级
   };
   @property({ type: String }) accessor theme: string = 'vscode-dark';
   // @ts-ignore - Lit property decorators don't need override
@@ -1045,7 +1046,7 @@ export class Jinja2EditorV2 extends LitElement {
       this.sendLogToOutputChannel('DEFAULT_PLACEHOLDER', `Generated suspicious default value for type ${type}: ${defaultValue}`);
     }
 
-    this.sendLogToOutputChannel('DEFAULT_VALUE', `Generated default value for type ${type}: ${JSON.stringify(defaultValue)}`);
+    // 默认值生成日志只保留可疑情况的记录
     return defaultValue;
   }
 
@@ -1873,8 +1874,7 @@ export class Jinja2EditorV2 extends LitElement {
    */
   private renderWithNunjucks(template: string): string {
     try {
-      // 记录使用nunjucks渲染
-      this.sendLogToOutputChannel('NUNJUCKS_RENDER', `Starting pure nunjucks rendering with ${Object.keys(this.variableValues).length} variables`);
+      // 开始nunjucks渲染
 
       // 在渲染前验证变量值，检测可疑的placeholder模式
       this.validateAndCleanVariables();
@@ -1882,9 +1882,6 @@ export class Jinja2EditorV2 extends LitElement {
       // 🎯 关键：直接使用nunjucks的renderString API
       // 这是最稳定、经过充分测试的方法
       const result = this.nunjucksEnv.renderString(template, this.variableValues);
-
-      // 记录成功渲染
-      this.sendLogToOutputChannel('NUNJUCKS_SUCCESS', `Nunjucks rendering completed, result length: ${result.length}`);
 
       // 检查是否仍然存在placeholder问题（用于验证修复效果）
       const suspiciousPatterns = [
@@ -1903,11 +1900,7 @@ export class Jinja2EditorV2 extends LitElement {
       });
 
       if (detectedIssues.length > 0) {
-        this.sendLogToOutputChannel('NUNJUCKS_SUSPICIOUS', `Suspicious patterns still detected: ${detectedIssues.join(', ')}`);
-        this.recordVariableChange('NUNJUCKS_PATTERNS', result, result, 'template_render', 'after_render',
-          `WARNING: Nunjucks still produced suspicious patterns: ${detectedIssues.join(', ')}`);
-      } else {
-        this.sendLogToOutputChannel('NUNJUCKS_CLEAN', `✅ No suspicious patterns detected - nunjucks appears to have fixed the issue!`);
+        this.sendLogToOutputChannel('SUSPICIOUS', `Nunjucks produced suspicious patterns: ${detectedIssues.join(', ')}`);
       }
 
       return result;
@@ -2025,14 +2018,9 @@ export class Jinja2EditorV2 extends LitElement {
         result = result.replace(regex, formattedValue);
         replacedVariables.add(key);
 
-        // 详细记录替换过程
-        this.sendLogToOutputChannel('VARIABLE_REPLACE', `Replaced variable ${key}: ${matches.length} occurrences`);
-        this.sendLogToOutputChannel('VARIABLE_REPLACE_DETAILS', `Key: ${key}, Original value: ${JSON.stringify(value)}, Formatted: ${formattedValue}`);
-        this.sendLogToOutputChannel('VARIABLE_REPLACE_DETAILS', `Matches found: ${JSON.stringify(matches)}`);
-
-        // 检查替换是否成功
+        // 检查替换是否成功，只记录失败情况
         if (beforeReplace === result) {
-          this.sendLogToOutputChannel('REPLACE_FAILED', `WARNING: Replace operation didn't change result for variable ${key}`);
+          this.sendLogToOutputChannel('REPLACE_FAILED', `Variable replace failed for ${key}`);
         }
       }
     });
@@ -2046,7 +2034,7 @@ export class Jinja2EditorV2 extends LitElement {
       const varName = match[1];
       if (!replacedVariables.has(varName) && !this.variableValues.hasOwnProperty(varName)) {
         unreplacedVariables.push(varName);
-        this.sendLogToOutputChannel('UNREPLACED_VARIABLE', `Found unreplaced variable: ${varName} in template`);
+        // 未替换的变量不再记录，除非是错误情况
       }
     }
 
@@ -2055,9 +2043,8 @@ export class Jinja2EditorV2 extends LitElement {
       if (typeof value === 'string') {
         // Check for placeholder patterns
         if (/VAR_\d+/.test(value) || /\d+VAR\d+/.test(value) || /^VAR\d+/.test(value) || value.includes('42VAR')) {
-          this.sendLogToOutputChannel('PLACEHOLDER_VALUE', `Found potential placeholder value for ${key}: ${value}`);
-          this.recordVariableChange(key, value, value, 'template_render', 'after_render',
-            `POTENTIAL PLACEHOLDER: Variable ${key} has suspicious value: ${value}`);
+          this.recordVariableChange('PLACEHOLDER_VALUE', value, value, 'template_render', 'after_render',
+            `Variable ${key} has suspicious value: ${value}`);
         }
       }
     });
@@ -2231,12 +2218,9 @@ export class Jinja2EditorV2 extends LitElement {
       result = String(value);
     }
 
-    // 记录格式化过程
-    this.sendLogToOutputChannel('FORMAT_VALUE', `Input: ${JSON.stringify(value)} (${typeof value}), Output: ${result}`);
-
     // 检查是否出现了可疑的数字插入
     if (typeof value === 'string' && /\d+$/.test(value) && /\d+\d+$/.test(result)) {
-      this.sendLogToOutputChannel('SUSPICIOUS_FORMATTING', `Suspicious formatting detected: ${JSON.stringify(value)} -> ${result}`);
+      this.sendLogToOutputChannel('SUSPICIOUS_FORMATTING', `Suspicious formatting: ${JSON.stringify(value)} -> ${result}`);
     }
 
     return result;
@@ -2364,7 +2348,6 @@ export class Jinja2EditorV2 extends LitElement {
 
   private handleExportVariableLogs() {
     if (this.variableChangeLogs.length === 0) {
-      this.sendLogToOutputChannel('INFO', 'No variable changes to export');
       return;
     }
 
@@ -2419,8 +2402,7 @@ Includes: Right panel HTML tracking
     a.click();
     URL.revokeObjectURL(url);
 
-    // 同时发送到VS Code OUTPUT频道
-    this.sendLogToOutputChannel('INFO', `Exported ${this.variableChangeLogs.length} variable change logs with right panel HTML tracking`);
+    // 导出完成，不需要额外日志
   }
 
   private generateDebugLogs() {
@@ -2509,19 +2491,12 @@ Includes: Right panel HTML tracking
       this.variableChangeLogs = this.variableChangeLogs.slice(-50); // 保留最新50条
     }
 
-    // 发送到VS Code OUTPUT频道
-    this.sendLogToOutputChannel('VARIABLE_CHANGE', `Variable ${variableName} changed: ${JSON.stringify(oldValue)} -> ${JSON.stringify(newValue)} (${step} - ${phase})`);
+    // 变量变化日志现在由 shouldLog 方法控制
 
-    // 如果捕获到了右边页面的HTML，也记录下来
-    if (rightPanelHTML) {
-      this.sendLogToOutputChannel('RIGHT_PANEL_HTML', `Right panel HTML captured: ${rightPanelHTML.length} characters`);
-
-      // 检查是否包含可疑的占位符模式
-      if (/VAR_\d+/.test(rightPanelHTML) || /\d+VAR\d+/.test(rightPanelHTML) || /42VAR/.test(rightPanelHTML)) {
-        this.sendLogToOutputChannel('PLACEHOLDER_IN_HTML', `Found placeholder pattern in right panel HTML!`);
-        this.recordVariableChange('PLACEHOLDER_DETECTED', rightPanelHTML, rightPanelHTML, 'html_change', 'html_update',
-          `CRITICAL: Found placeholder pattern (VAR_*, *VAR*, 42VAR) in right panel HTML`);
-      }
+    // 检查右边面板HTML是否包含可疑的占位符模式
+    if (rightPanelHTML && (/VAR_\d+/.test(rightPanelHTML) || /\d+VAR\d+/.test(rightPanelHTML) || /42VAR/.test(rightPanelHTML))) {
+      this.recordVariableChange('PLACEHOLDER_DETECTED', rightPanelHTML, rightPanelHTML, 'html_change', 'html_update',
+        `Found placeholder pattern in right panel HTML`);
     }
   }
 
@@ -2553,9 +2528,68 @@ Includes: Right panel HTML tracking
   }
 
   /**
+   * 检查是否应该发送日志
+   */
+  private shouldLog(category: string): boolean {
+    const logLevel = this.config?.logLevel || 'error';
+
+    // 如果日志等级是 none，不输出任何日志
+    if (logLevel === 'none') {
+      return false;
+    }
+
+    // 错误级别的分类
+    const errorCategories = [
+      'ERROR',
+      'TEMPLATE_RENDER_ERROR',
+      'PLACEHOLDER_DETECTED',
+      'PLACEHOLDER_IN_HTML'
+    ];
+
+    // 警告级别的分类
+    const warnCategories = [
+      'WARN',
+      'SUSPICIOUS',
+      'DEFAULT_PLACEHOLDER',
+      'VARIABLE_VALIDATION',
+      'REPLACE_FAILED'
+    ];
+
+    // 信息级别的分类（重要的操作）
+    const infoCategories = [
+      'INFO',
+      'SUCCESS',
+      'CLEAN',
+      'VARIABLE_CLEANED'
+    ];
+
+    // 根据日志等级和分类决定是否输出
+    switch (logLevel) {
+      case 'error':
+        return errorCategories.some(cat => category.includes(cat));
+      case 'warn':
+        return errorCategories.some(cat => category.includes(cat)) ||
+               warnCategories.some(cat => category.includes(cat));
+      case 'info':
+        return errorCategories.some(cat => category.includes(cat)) ||
+               warnCategories.some(cat => category.includes(cat)) ||
+               infoCategories.some(cat => category.includes(cat));
+      case 'debug':
+        return true; // debug 级别显示所有日志
+      default:
+        return false;
+    }
+  }
+
+  /**
    * 发送日志到VS Code OUTPUT频道
    */
   private sendLogToOutputChannel(category: string, message: string) {
+    // 根据日志等级过滤
+    if (!this.shouldLog(category)) {
+      return;
+    }
+
     try {
       if (typeof window !== 'undefined' && window.vscode) {
         window.vscode.postMessage({

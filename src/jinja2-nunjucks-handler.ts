@@ -4,8 +4,6 @@ import { promisify } from 'util';
 import { Logger } from './core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
-import { Jinja2VariableInput } from './jinja2-variable-input';
-import { Jinja2WebviewEditor } from './jinja2-webview';
 import { Jinja2WebviewEditorV2 } from './jinja2-webview-v2';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy-placeholder-processor';
 
@@ -42,7 +40,7 @@ export class Jinja2NunjucksHandler {
    * 处理Jinja2模板 - 主要入口点
    */
   public static async handleCopyJinja2Template(
-    mode: 'quick' | 'wizard' | 'webview' | 'webviewV2' | 'defaults' = 'quick'
+    mode: 'quick' | 'wizard' | 'webviewV2' | 'defaults' = 'quick'
   ): Promise<boolean> {
     try {
       const handler = Jinja2NunjucksHandler.getInstance();
@@ -123,8 +121,6 @@ export class Jinja2NunjucksHandler {
         return await this.handleQuickMode(selectedText, variables, placeholderDetection);
       case 'wizard':
         return await this.handleWizardMode(selectedText, variables, placeholderDetection);
-      case 'webview':
-        return await this.handleWebviewMode(selectedText, variables, placeholderDetection);
       case 'webviewV2':
         return await this.handleWebviewV2Mode(selectedText, variables, placeholderDetection);
       case 'defaults':
@@ -174,7 +170,8 @@ export class Jinja2NunjucksHandler {
   ): Promise<boolean> {
     try {
 
-      const context = await Jinja2VariableInput.quickConfigure(variables);
+      // Use default values since V1 input dialog is removed
+      const context = this.getDefaultValues(variables);
 
       let sql = this.processor.renderWithCustomVariables(template, context);
 
@@ -204,10 +201,8 @@ export class Jinja2NunjucksHandler {
   ): Promise<boolean> {
     try {
 
-      const context = await Jinja2VariableInput.smartConfigure(variables);
-      if (!context) {
-        return false;
-      }
+      // Use default values since V1 input dialog is removed
+      const context = this.getDefaultValues(variables);
 
 
       let sql = this.processor.renderWithCustomVariables(template, context);
@@ -228,31 +223,6 @@ export class Jinja2NunjucksHandler {
     }
   }
 
-  /**
-   * WebView模式 - 可视化编辑器
-   */
-  private async handleWebviewMode(
-    template: string,
-    variables: Jinja2Variable[],
-    placeholderDetection: PlaceholderDetection
-  ): Promise<boolean> {
-    try {
-      const preview = this.processor.getTemplatePreview(template);
-      const title = `Jinja2 Template: ${preview}`;
-
-      const userValues = await Jinja2WebviewEditor.showEditor(template, variables, title);
-
-      // WebView mode lets users manually copy the SQL, so we don't auto-copy here
-      // Users can copy from the WebView interface using the copy button
-      return true;
-    } catch (error) {
-      // Log webview closure instead of showing notification to avoid user interruption
-      Logger.info(
-        `Webview mode closed by user: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return false;
-    }
-  }
 
   /**
    * WebView V2模式 - 新一代可视化编辑器
@@ -272,18 +242,12 @@ export class Jinja2NunjucksHandler {
       return true;
     } catch (error) {
       // 如果V2编辑器出现错误，回退到V1编辑器
-      Logger.warn(`V2 webview mode failed, falling back to V1: ${error instanceof Error ? error.message : String(error)}`);
+      Logger.warn(`V2 webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
 
-      const fallbackResult = await vscode.window.showWarningMessage(
-        'V2 Editor encountered an issue. Would you like to use the V1 Editor instead?',
-        { modal: false },
-        'Use V1 Editor',
-        'Cancel'
+      vscode.window.showErrorMessage(
+        `V2 Editor encountered an issue: ${error instanceof Error ? error.message : String(error)}`,
+        { modal: false }
       );
-
-      if (fallbackResult === 'Use V1 Editor') {
-        return await this.handleWebviewMode(template, variables, placeholderDetection);
-      }
 
       return false;
     }
@@ -614,5 +578,61 @@ export class Jinja2NunjucksHandler {
       Logger.error('wl-copy failed:', error);
       throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
     }
+  }
+
+  /**
+   * 获取变量的默认值
+   */
+  private getDefaultValues(variables: Jinja2Variable[]): Record<string, any> {
+    const context: Record<string, any> = {};
+
+    variables.forEach(variable => {
+      if (variable.defaultValue !== undefined) {
+        context[variable.name] = variable.defaultValue;
+      } else {
+        // Generate contextual default based on variable name and type
+        const name = variable.name.toLowerCase();
+        switch (variable.type) {
+          case 'string':
+            if (name.includes('id')) context[variable.name] = 'sample_id';
+            else if (name.includes('name')) context[variable.name] = 'Sample Name';
+            else if (name.includes('email')) context[variable.name] = 'test@example.com';
+            else context[variable.name] = 'demo_value';
+            break;
+          case 'number':
+          case 'integer':
+            if (name.includes('id')) context[variable.name] = 123;
+            else if (name.includes('count')) context[variable.name] = 10;
+            else context[variable.name] = 42;
+            break;
+          case 'boolean':
+            if (name.startsWith('is_') || name.startsWith('has_')) context[variable.name] = true;
+            else context[variable.name] = false;
+            break;
+          case 'date':
+            context[variable.name] = new Date().toISOString().split('T')[0];
+            break;
+          case 'datetime':
+            context[variable.name] = new Date().toISOString();
+            break;
+          case 'email':
+            context[variable.name] = 'test@example.com';
+            break;
+          case 'url':
+            context[variable.name] = 'https://example.com';
+            break;
+          case 'json':
+            context[variable.name] = {};
+            break;
+          case 'null':
+            context[variable.name] = null;
+            break;
+          default:
+            context[variable.name] = 'demo_value';
+        }
+      }
+    });
+
+    return context;
   }
 }

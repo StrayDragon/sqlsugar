@@ -1,14 +1,68 @@
 /**
  * Jinja2 Editor V2 Type Definitions
+ *
+ * Independent type definitions for V2 editor, extracted from V1 to make V2 fully independent
  */
 
-import type { Jinja2Variable as BaseJinja2Variable, Jinja2VariableValue as BaseJinja2VariableValue, TemplateRenderEvent as BaseTemplateRenderEvent, Jinja2VariableType as BaseJinja2VariableType } from '../jinja2-editor/types.js';
+/**
+ * Variable value types
+ */
+export type Jinja2VariableValue =
+  | string
+  | number
+  | boolean
+  | Date
+  | null
+  | undefined
+  | Record<string, unknown>
+  | unknown[];
 
-// Re-export types from the original module
-export type Jinja2Variable = BaseJinja2Variable;
-export type Jinja2VariableValue = BaseJinja2VariableValue;
-export type TemplateRenderEvent = BaseTemplateRenderEvent;
-export type Jinja2VariableType = BaseJinja2VariableType;
+/**
+ * HTML input element types
+ */
+export type HTMLInputType = 'number' | 'text' | 'email' | 'url' | 'password';
+
+/**
+ * Supported variable types
+ */
+export type Jinja2VariableType =
+  | 'string'
+  | 'number'
+  | 'integer'
+  | 'boolean'
+  | 'date'
+  | 'time'
+  | 'datetime'
+  | 'json'
+  | 'uuid'
+  | 'email'
+  | 'url'
+  | 'null';
+
+/**
+ * Base Jinja2 variable interface
+ */
+export interface Jinja2Variable {
+  name: string;
+  type: Jinja2VariableType;
+  description?: string;
+  defaultValue?: Jinja2VariableValue;
+  filters?: string[];
+  isRequired?: boolean;
+  valid?: boolean;
+  validationError?: string;
+  extractionMethod?: 'nunjucks' | 'regex' | 'fallback';
+}
+
+/**
+ * Template render event
+ */
+export interface TemplateRenderEvent {
+  template: string;
+  values: Record<string, Jinja2VariableValue>;
+  result: string;
+  error?: string;
+}
 
 /**
  * Enhanced variable information for V2 editor

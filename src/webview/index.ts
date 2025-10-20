@@ -1,6 +1,13 @@
 import { html, LitElement, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
-import { Jinja2Variable } from '../jinja2-editor/types.js';
+export type Jinja2Variable = {
+  name: string;
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'email' | 'url' | 'null';
+  description?: string;
+  defaultValue?: unknown;
+  filters?: string[];
+  isRequired?: boolean;
+};
 
 declare global {
   interface Window {

@@ -12,9 +12,9 @@ const extensionOnly = process.argv.includes('--extension-only');
 const webviewOnly = process.argv.includes('--webview-only');
 
 /**
- * 复制artifacts、debug和resources目录到dist目录
+ * 复制artifacts和resources目录到dist目录
  */
-function copyArtifactsAndDebugDirectories() {
+function copyArtifactsAndResourcesDirectories() {
     // 复制artifacts目录
     const artifactsDir = path.join(__dirname, 'artifacts');
     const distArtifactsDir = path.join(__dirname, 'dist', 'artifacts');
@@ -26,24 +26,6 @@ function copyArtifactsAndDebugDirectories() {
 
         copyDirectoryRecursive(artifactsDir, distArtifactsDir);
         console.log(`Copied artifacts directory: ${artifactsDir} -> ${distArtifactsDir}`);
-    }
-
-    // 复制debug目录（保持向后兼容）
-    const debugDir = path.join(__dirname, 'debug');
-    const distDebugDir = path.join(__dirname, 'dist', 'debug');
-
-    if (fs.existsSync(debugDir)) {
-        if (!fs.existsSync(distDebugDir)) {
-            fs.mkdirSync(distDebugDir, { recursive: true });
-        }
-
-        const files = fs.readdirSync(debugDir);
-        for (const file of files) {
-            const srcPath = path.join(debugDir, file);
-            const destPath = path.join(distDebugDir, file);
-            fs.copyFileSync(srcPath, destPath);
-            console.log(`Copied: ${srcPath} -> ${destPath}`);
-        }
     }
 
     // 复制resources目录（包含静态资源）
@@ -295,7 +277,7 @@ async function main() {
 		await Promise.all(buildPromises);
 		// 只在非watch模式和非单组件构建下复制资源目录
 		if (!extensionOnly && !webviewOnly) {
-			copyArtifactsAndDebugDirectories();
+			copyArtifactsAndResourcesDirectories();
 		}
 	} else {
 		// watch模式下启动监听

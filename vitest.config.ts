@@ -8,7 +8,6 @@ export default defineConfig({
     setupFiles: ['./src/test/test-setup.ts'],
     include: ['src/**/*.{test,spec}.ts'],
     exclude: [
-      'src/jinja2-editor/**/*',
       'node_modules/**/*',
       '.vscode-test/**/*',
       'dist/**/*',

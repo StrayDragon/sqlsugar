@@ -1,5 +1,6 @@
 import { html, LitElement, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
+
 export type Jinja2Variable = {
   name: string;
   type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'email' | 'url' | 'null';
@@ -20,6 +21,15 @@ export class SqlsugarWebviewApp extends LitElement {
   static override styles = css`
     :host { display: block; }
     .container { display: flex; flex-direction: column; height: 100%; }
+    .deprecated-message {
+      padding: 20px;
+      text-align: center;
+      color: var(--vscode-editor-warningForeground);
+      background: var(--vscode-editor-warningBackground);
+      border: 1px solid var(--vscode-inputValidation-warningBorder);
+      border-radius: 4px;
+      margin: 20px;
+    }
   `;
 
   @state() private templateText: string = '';
@@ -64,11 +74,11 @@ export class SqlsugarWebviewApp extends LitElement {
   override render() {
     return html`
       <div class="container">
-        <jinja2-editor
-          .template=${this.templateText}
-          .variables=${this.variables}
-          @template-render=${(e: CustomEvent) => this.handleSubmit(e)}
-        ></jinja2-editor>
+        <div class="deprecated-message">
+          <h3>⚠️ V1 WebView App 已弃用</h3>
+          <p>此 WebView App 已被 Jinja2 Editor V2 替代。</p>
+          <p>请使用 V2 Editor 以获得更好的体验。</p>
+        </div>
       </div>
     `;
   }

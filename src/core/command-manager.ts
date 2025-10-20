@@ -87,14 +87,6 @@ export class CommandManager {
       { name: 'toggleDebugMode', callback: this.handleToggleDebugMode.bind(this) },
       { name: 'copyJinja2TemplateQuick', callback: this.handleCopyJinja2TemplateQuick.bind(this) },
       {
-        name: 'copyJinja2TemplateWizard',
-        callback: this.handleCopyJinja2TemplateWizard.bind(this),
-      },
-        {
-        name: 'copyJinja2TemplateDefaults',
-        callback: this.handleCopyJinja2TemplateDefaults.bind(this),
-      },
-      {
         name: 'copyJinja2TemplateWebviewV2',
         callback: this.handleCopyJinja2TemplateWebviewV2.bind(this),
       },
@@ -235,31 +227,12 @@ export class CommandManager {
   }
 
   /**
-   * 向导式处理Jinja2模板
-   */
-  private async handleCopyJinja2TemplateWizard(): Promise<void> {
-    await this.safeExecuteCommand('copyJinja2TemplateWizard', async () => {
-      await Jinja2NunjucksHandler.handleCopyJinja2Template('wizard');
-    }, 'Failed to process Jinja2 template');
-  }
-
-
-  /**
    * WebView V2处理Jinja2模板
    */
   private async handleCopyJinja2TemplateWebviewV2(): Promise<void> {
     await this.safeExecuteCommand('copyJinja2TemplateWebviewV2', async () => {
       await Jinja2NunjucksHandler.handleCopyJinja2Template('webviewV2');
     }, 'Failed to process Jinja2 template with V2 editor');
-  }
-
-  /**
-   * 默认值处理Jinja2模板
-   */
-  private async handleCopyJinja2TemplateDefaults(): Promise<void> {
-    await this.safeExecuteCommand('copyJinja2TemplateDefaults', async () => {
-      await Jinja2NunjucksHandler.handleCopyJinja2Template('defaults');
-    }, 'Failed to process Jinja2 template');
   }
 
   /**

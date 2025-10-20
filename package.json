@@ -33,7 +33,7 @@
         "command": "sqlsugar.copyJinja2TemplateQuick",
         "title": "SQLSugar: Copy Jinja2 Template SQL (Quick Demo)"
       },
-        {
+      {
         "command": "sqlsugar.copyJinja2TemplateWebviewV2",
         "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor V2)"
       }
@@ -260,7 +260,6 @@
   },
   "icon": "icon.png",
   "devDependencies": {
-    "@types/js-yaml": "^4.0.9",
     "@types/jsdom": "^27.0.0",
     "@types/node": "22.x",
     "@types/nunjucks": "^3.2.6",

@@ -15,10 +15,7 @@
     ".vscode-test",
     "examples",
     "docs",
-    "debug",
     "scripts",
-    "standalone-jinja-editor",
-    "src/jinja2-editor/**/*",
     "src/test/**/*"
   ]
 }

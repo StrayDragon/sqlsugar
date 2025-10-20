@@ -48,17 +48,6 @@
 		".vscode-test",
 		"examples",
 		"docs",
-		"debug",
-		"scripts",
-		"standalone-jinja-editor",
-		"src/jinja2-editor",
-		"src/test/result-type.test.ts",
-		"src/test/core-architecture.test.ts",
-		"src/test/extension-refactored.test.ts",
-		"src/test/jinja2-*.test.ts",
-		"src/test/test-dom-setup.ts",
-		"src/test/di-container.test.ts",
-		"src/test/utils/jinja2-test-helpers.ts",
-		"src/types/result.ts"
+		"scripts"
 	]
 }

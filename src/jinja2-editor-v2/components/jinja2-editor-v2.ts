@@ -2635,7 +2635,7 @@ Includes: Right panel HTML tracking
               📋 变量日志
             </button>
             <button class="header-button primary" @click=${this.handleSubmit}>
-              ✅ Submit
+              ✅ 提交
             </button>
           </div>
         </header>
@@ -2646,12 +2646,12 @@ Includes: Right panel HTML tracking
           <section class="editor-panel">
             <div class="panel-header">
               <div class="panel-title">
-                <span>📝</span> Template Editor
-                <span class="panel-subtitle">${this.variables.length} variables found</span>
+                <span>📝</span> 模板编辑器
+                <span class="panel-subtitle">发现 ${this.variables.length} 个变量</span>
               </div>
               <div class="header-actions">
-                <button class="header-button" @click=${this.handleCopyTemplate} title="Copy template">
-                  📄 Copy
+                <button class="header-button" @click=${this.handleCopyTemplate} title="复制模板">
+                  📄 复制
                 </button>
               </div>
             </div>
@@ -2662,9 +2662,9 @@ Includes: Right panel HTML tracking
               ` : html`
                 <div class="empty-state">
                   <div class="empty-icon">📝</div>
-                  <div class="empty-title">No template to edit</div>
+                  <div class="empty-title">没有模板可编辑</div>
                   <div class="empty-description">
-                    Add a Jinja2 template with variables like {{ variable_name }} to start editing.
+                    添加包含变量的 Jinja2 模板（例如：{{ variable_name }}）来开始编辑。
                   </div>
                 </div>
               `}
@@ -2675,14 +2675,14 @@ Includes: Right panel HTML tracking
           <section class="preview-panel">
             <div class="panel-header">
               <div class="panel-title">
-                <span>👁️</span> SQL Preview
+                <span>👁️</span> SQL 预览
                 ${this.processingTime > 0 ? html`
                   <span class="panel-subtitle">${Math.round(this.processingTime)}ms</span>
                 ` : ''}
               </div>
               <div class="header-actions">
-                <button class="header-button" @click=${this.handleCopyResult} title="Copy SQL result">
-                  📋 Copy
+                <button class="header-button" @click=${this.handleCopyResult} title="复制SQL结果">
+                  📋 复制
                 </button>
               </div>
             </div>
@@ -2692,9 +2692,9 @@ Includes: Right panel HTML tracking
               ` : html`
                 <div class="empty-state">
                   <div class="empty-icon">🔍</div>
-                  <div class="empty-title">No SQL preview</div>
+                  <div class="empty-title">没有SQL预览</div>
                   <div class="empty-description">
-                    Click on variables in the template above to configure them and see the rendered SQL here.
+                    点击模板编辑器中的变量来配置它们，并在此处查看渲染后的SQL。
                   </div>
                 </div>
               `}

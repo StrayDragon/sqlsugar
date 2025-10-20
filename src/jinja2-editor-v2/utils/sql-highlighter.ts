@@ -293,6 +293,78 @@ export class SqlHighlighter {
   }
 
   /**
+   * 🚀 NEW: Simplified SQL highlighting without placeholder replacement
+   * This method directly highlights the SQL without replacing variables with placeholders
+   * This prevents the __VAR_XXX and 42VAR_XXX issues in HTML preview
+   */
+  highlightSQLSimple(sql: string): { html: string } {
+    if (!sql) {
+      return { html: '' };
+    }
+
+    try {
+      // Directly highlight SQL using highlight.js without variable processing
+      const hljs = (globalThis as any).hljs;
+      if (hljs && hljs.highlight) {
+        const highlighted = hljs.highlight(sql, {
+          language: 'sql',
+          ignoreIllegals: true
+        });
+
+        return {
+          html: `<pre><code class="hljs sql ${this.getCSSClasses()}">${highlighted.value}</code></pre>`
+        };
+      }
+    } catch (error) {
+      console.warn('Highlight.js not available, using simple highlighting:', error);
+    }
+
+    // Fallback: simple syntax highlighting without external library
+    const highlighted = this.simpleKeywordHighlighting(sql);
+    return {
+      html: `<pre><code class="${this.getCSSClasses()}">${highlighted}</code></pre>`
+    };
+  }
+
+  /**
+   * Simple keyword highlighting as fallback
+   */
+  private simpleKeywordHighlighting(sql: string): string {
+    if (!sql) return '';
+
+    // Escape HTML first
+    let highlighted = this.escapeHtml(sql);
+
+    // Basic SQL keyword highlighting
+    const keywords = [
+      'select', 'from', 'where', 'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null',
+      'true', 'false', 'exists', 'distinct', 'order by', 'group by', 'having', 'join',
+      'left join', 'right join', 'inner join', 'outer join', 'union', 'insert', 'update',
+      'delete', 'create', 'drop', 'alter', 'table', 'index', 'view', 'procedure', 'function'
+    ];
+
+    keywords.forEach(keyword => {
+      const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
+      highlighted = highlighted.replace(regex,
+        `<span class="hljs-keyword">${keyword.toUpperCase()}</span>`);
+    });
+
+    // Highlight strings
+    highlighted = highlighted.replace(/'([^']*)'/g,
+      '<span class="hljs-string">\'$1\'</span>');
+
+    // Highlight numbers
+    highlighted = highlighted.replace(/\b(\d+)\b/g,
+      '<span class="hljs-number">$1</span>');
+
+    // Highlight comments
+    highlighted = highlighted.replace(/(--[^\n\r]*)/g,
+      '<span class="hljs-comment">$1</span>');
+
+    return highlighted;
+  }
+
+  /**
    * Registers custom SQL language definition if needed
    */
   static registerCustomLanguage(): void {

@@ -24,7 +24,6 @@ export function activate(context: vscode.ExtensionContext) {
     sqlsugarOutputChannel.appendLine(`[SQLSugar] Activation time: ${new Date().toISOString()}`);
     sqlsugarOutputChannel.show();
 
-    console.log('[SQLSugar] Output channel created successfully');
 
     extensionCore = ExtensionCore.getInstance(context);
     Logger.debug('ExtensionCore instance created successfully');

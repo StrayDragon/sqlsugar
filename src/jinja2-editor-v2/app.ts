@@ -10,11 +10,9 @@ declare global {
   }
 }
 
-console.log('V2 Editor App: Script loaded');
 
 // Simple initialization function
 window.initializeV2Editor = function() {
-  console.log('V2 Editor App: Initializing...');
 
   // Hide loading indicator
   const loadingElement = document.getElementById('loading');

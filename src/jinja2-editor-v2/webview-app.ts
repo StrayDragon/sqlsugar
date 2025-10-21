@@ -52,11 +52,7 @@ export class SqlsugarWebviewV2App extends LitElement {
         if (data.config) {
           this.config = data.config;
 
-          // 发送日志等级信息到编辑器组件
-          if (this.config.logLevel) {
-            console.log(`[WebView App] Log level set to: ${this.config.logLevel}`);
           }
-        }
 
         // Force re-rendering
         this.requestUpdate();

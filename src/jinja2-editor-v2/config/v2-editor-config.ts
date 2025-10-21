@@ -67,8 +67,7 @@ export class V2EditorConfig {
       ...instance.config,
       ...newConfig
     };
-    console.log('V2 Editor configuration updated:', instance.config);
-  }
+    }
 
   /**
    * Check if V2 editor is enabled
@@ -132,8 +131,7 @@ export class V2EditorConfig {
   static resetToDefaults(): void {
     const instance = V2EditorConfig.getInstance();
     instance.config = { ...DEFAULT_CONFIG };
-    console.log('V2 Editor configuration reset to defaults');
-  }
+      }
 
   /**
    * Validate configuration values

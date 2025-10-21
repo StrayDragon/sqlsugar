@@ -5,10 +5,9 @@
  * while maintaining clickable variable functionality
  */
 
-// Use global hljs loaded from resources (like V1)
-declare const hljs: any;
 import type { EnhancedVariable } from '../types.js';
 import type { Jinja2VariableValue } from '../types.js';
+import type { HighlightJs } from '../types/external-libraries.js';
 
 export interface TemplateVariable {
   name: string;
@@ -103,7 +102,8 @@ export class TemplateHighlighter {
   ): string {
     try {
       // Step 1: Apply highlight.js SQL syntax highlighting to the entire template
-      const highlighted = hljs.highlight(template, {
+      const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
+      const highlighted = hljsInstance.highlight(template, {
         language: 'sql',
         ignoreIllegals: true
       });

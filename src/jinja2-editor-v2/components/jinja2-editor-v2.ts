@@ -8,14 +8,16 @@ import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
 import TemplateHighlighter from '../utils/template-highlighter.js';
 import SqlHighlighter from '../utils/sql-highlighter.js';
-import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable } from '../types.js';
+import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
+import type { CompleteEditorV2Config } from '../types/config.js';
 import nunjucks from 'nunjucks';
 
 @customElement('jinja2-editor-v2')
 export class Jinja2EditorV2 extends LitElement {
   @property({ type: String }) accessor template: string = '';
   @property({ type: Array }) accessor variables: Jinja2Variable[] = [];
-  @property({ attribute: false }) accessor config: any = {
+  @property({ attribute: false }) accessor config: CompleteEditorV2Config = {
+    enabled: false,
     popoverPlacement: 'auto',
     highlightStyle: 'background',
     autoPreview: true,
@@ -23,7 +25,7 @@ export class Jinja2EditorV2 extends LitElement {
     animationsEnabled: true,
     showSuggestions: true,
     autoFocusFirst: false,
-    logLevel: 'error' // 默认日志等级
+    logLevel: 'error'
   };
   @property({ type: String }) accessor theme: string = 'vscode-dark';
   // @ts-ignore - Lit property decorators don't need override
@@ -1584,12 +1586,29 @@ export class Jinja2EditorV2 extends LitElement {
     const variableIndex = this.variables.findIndex(v => v.name === variableName);
     if (variableIndex >= 0) {
       const updatedVariables = [...this.variables];
-      updatedVariables[variableIndex] = {
-        ...updatedVariables[variableIndex],
-        type: newType as any
-      };
-      this.variables = updatedVariables;
+      // Type-safe conversion with validation
+      const validType = this.validateVariableType(newType);
+      if (validType) {
+        updatedVariables[variableIndex] = {
+          ...updatedVariables[variableIndex],
+          type: validType
+        };
+        this.variables = updatedVariables;
+      }
     }
+  }
+
+  /**
+   * Validate and convert string to Jinja2VariableType
+   */
+  private validateVariableType(type: string): Jinja2VariableType | null {
+    const validTypes: Jinja2VariableType[] = [
+      'string', 'number', 'integer', 'boolean', 'date', 'time',
+      'datetime', 'json', 'uuid', 'email', 'url', 'null'
+    ];
+    return validTypes.includes(type as Jinja2VariableType)
+      ? type as Jinja2VariableType
+      : null;
   }
 
   private parseValueFromEdit(value: string, variableType?: string): Jinja2VariableValue {
@@ -1816,11 +1835,15 @@ export class Jinja2EditorV2 extends LitElement {
     const variableIndex = this.variables.findIndex(v => v.name === variableName);
     if (variableIndex >= 0) {
       const updatedVariables = [...this.variables];
-      updatedVariables[variableIndex] = {
-        ...updatedVariables[variableIndex],
-        type: newType as any
-      };
-      this.variables = updatedVariables;
+      // Type-safe type conversion
+      const validType = this.validateVariableType(newType);
+      if (validType) {
+        updatedVariables[variableIndex] = {
+          ...updatedVariables[variableIndex],
+          type: validType
+        };
+        this.variables = updatedVariables;
+      }
     }
   }
 
@@ -2181,10 +2204,11 @@ export class Jinja2EditorV2 extends LitElement {
           // Replace item variable in the loop content
           const itemRegex = new RegExp(`{{\\s*${itemVar}\\s*}}`, 'g');
           if (typeof item === 'object' && item !== null) {
-            // Handle object properties
+            // Handle object properties with type safety
             Object.keys(item).forEach(key => {
               const propRegex = new RegExp(`{{\\s*${itemVar}\\.${key}\\s*}}`, 'g');
-              itemContent = itemContent.replace(propRegex, this.formatValue((item as any)[key]));
+              const value = (item as Record<string, unknown>)[key];
+              itemContent = itemContent.replace(propRegex, this.formatValue(value as Jinja2VariableValue));
             });
           } else {
             itemContent = itemContent.replace(itemRegex, this.formatValue(item as Jinja2VariableValue));
@@ -2594,8 +2618,8 @@ Includes: Right panel HTML tracking
       if (typeof window !== 'undefined' && window.vscode) {
         window.vscode.postMessage({
           command: 'log',
-          category: `V2_EDITOR_${category}`,
           data: {
+            category: `V2_EDITOR_${category}`,
             message,
             timestamp: new Date().toISOString(),
             variableCount: this.variables.length,

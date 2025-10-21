@@ -5,6 +5,7 @@ import { Logger } from './core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
 import { Jinja2WebviewEditorV2 } from './jinja2-webview-v2';
+import type { VariableProcessingContext } from './jinja2-editor-v2/types/data-processing.js';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy-placeholder-processor';
 
 /**
@@ -583,8 +584,8 @@ export class Jinja2NunjucksHandler {
   /**
    * 获取变量的默认值
    */
-  private getDefaultValues(variables: Jinja2Variable[]): Record<string, any> {
-    const context: Record<string, any> = {};
+  private getDefaultValues(variables: Jinja2Variable[]): VariableProcessingContext {
+    const context: VariableProcessingContext = {};
 
     variables.forEach(variable => {
       if (variable.defaultValue !== undefined) {

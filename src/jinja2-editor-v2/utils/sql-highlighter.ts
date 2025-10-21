@@ -5,8 +5,8 @@
  * while maintaining support for clickable variables
  */
 
-import hljs from 'highlight.js';
 import type { Jinja2VariableValue } from '../types.js';
+import type { HighlightJs } from '../types/external-libraries.js';
 
 export interface VariablePosition {
   name: string;
@@ -304,9 +304,9 @@ export class SqlHighlighter {
 
     try {
       // Directly highlight SQL using highlight.js without variable processing
-      const hljs = (globalThis as any).hljs;
-      if (hljs && hljs.highlight) {
-        const highlighted = hljs.highlight(sql, {
+      const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
+      if (hljsInstance && hljsInstance.highlight) {
+        const highlighted = hljsInstance.highlight(sql, {
           language: 'sql',
           ignoreIllegals: true
         });

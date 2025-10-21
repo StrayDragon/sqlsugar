@@ -4,13 +4,6 @@
  * This script initializes the V2 editor when the webview loads
  */
 
-declare global {
-  interface Window {
-    initializeV2Editor: () => void;
-  }
-}
-
-
 // Simple initialization function
 window.initializeV2Editor = function() {
 
@@ -27,7 +20,7 @@ window.initializeV2Editor = function() {
   if (window.vscode) {
     window.vscode.postMessage({
       command: 'ready',
-      message: 'V2 Editor is ready'
+      data: 'V2 Editor is ready'
     });
   }
 };

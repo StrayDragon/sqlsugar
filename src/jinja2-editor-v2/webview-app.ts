@@ -1,10 +1,12 @@
 import { html, LitElement, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { Jinja2Variable } from './types.js';
+import type { CompleteEditorV2Config } from './types/config.js';
+import type { VscodeWebviewMessage } from './types/external-libraries.js';
 
 declare global {
   interface Window {
-    vscode?: { postMessage: (message: unknown) => void };
+    vscode?: { postMessage: (message: VscodeWebviewMessage) => void };
   }
 }
 
@@ -27,7 +29,7 @@ export class SqlsugarWebviewV2App extends LitElement {
 
   @state() accessor templateText: string = '';
   @state() accessor variables: Jinja2Variable[] = [];
-  @state() accessor config: any = null;
+  @state() accessor config: CompleteEditorV2Config | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();

@@ -7,8 +7,10 @@
 import type {
   EnhancedVariable,
   Jinja2VariableValue,
-  VariableChangeEventV2
+  VariableChangeEventV2,
+  Jinja2VariableType
 } from '../types.js';
+import type { SerializableVariableState } from '../types/data-processing.js';
 import { validateValue } from './variable-utils.js';
 
 /**
@@ -16,10 +18,10 @@ import { validateValue } from './variable-utils.js';
  */
 export interface VariableState {
   current: Jinja2VariableValue;
-  type: string;
+  type: Jinja2VariableType;
   history: VariableHistoryEntry[];
   isValid: boolean;
-  validationError: string | null;
+  validationError?: string | null;
   lastModified: Date;
 }
 
@@ -28,10 +30,15 @@ export interface VariableState {
  */
 export interface VariableHistoryEntry {
   value: Jinja2VariableValue;
-  type: string;
+  type: Jinja2VariableType;
   timestamp: Date;
-  source: 'user' | 'default' | 'inferred' | 'suggestion';
+  changeReason: 'user-input' | 'validation' | 'type-change' | 'import';
 }
+
+/**
+ * Map of variable states
+ */
+export type VariableStateMap = Map<string, VariableState>;
 
 /**
  * State change event
@@ -75,9 +82,9 @@ export class VariableStateManager {
       type: variable.type,
       history: [{
         value: defaultValue,
-        type: variable.type,
+        type: variable.type as Jinja2VariableType,
         timestamp: new Date(),
-        source: 'default'
+        changeReason: 'default' as const
       }],
       isValid: this.validateValue(defaultValue, variable.type),
       validationError: this.getValidationError(defaultValue, variable.type),
@@ -454,14 +461,14 @@ export class VariableStateManager {
    * Validate a value against a type
    */
   private validateValue(value: Jinja2VariableValue, type: string): boolean {
-    return validateValue(value, type as any) === null;
+    return validateValue(value, type as Jinja2VariableType) === null;
   }
 
   /**
    * Get validation error for a value
    */
   private getValidationError(value: Jinja2VariableValue, type: string): string | null {
-    return validateValue(value, type as any);
+    return validateValue(value, type as Jinja2VariableType);
   }
 
   /**
@@ -570,7 +577,7 @@ export class VariableStateManager {
         throw new Error('Invalid import data format');
       }
 
-      data.variables.forEach((item: any) => {
+      data.variables.forEach((item: { name: string; state: VariableState }) => {
         if (item.name && item.state) {
           this.states.set(item.name, item.state);
         }

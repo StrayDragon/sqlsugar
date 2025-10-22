@@ -1,4 +1,5 @@
 import { vi, beforeEach, afterEach } from 'vitest';
+import type { GlobalVSCode } from './types/vscode-test-types';
 
 // Mock types for test setup
 interface MockPosition {
@@ -18,9 +19,19 @@ interface MockSelection {
 
 type ConfigValue = string | number | boolean | object | null;
 
+// Mock console interface with all required methods
+interface MockConsole extends Partial<Console> {
+  error: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+  log: ReturnType<typeof vi.fn>;
+}
+
 // Extend global interface for proper typing
 declare global {
-  var vscode: any;
+  var vscode: GlobalVSCode;
+  var console: Console;
 }
 
 interface MockTextRange {
@@ -134,14 +145,14 @@ export const testUtils = {
   },
 
   mockConsole: () => {
-    const mockConsole = {
+    const mockConsole: MockConsole = {
       error: vi.fn(),
       warn: vi.fn(),
       info: vi.fn(),
       debug: vi.fn(),
       log: vi.fn(),
     };
-    global.console = mockConsole as any;
+    global.console = mockConsole as Console;
     return mockConsole;
   },
 

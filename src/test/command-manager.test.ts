@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { testUtils } from './test-setup';
+import type { GlobalVSCode } from './types/vscode-test-types';
 
 // Mock types for testing
 interface MockVSCode {
@@ -47,7 +48,17 @@ interface MockVSCodeAPI {
 
 // Extend global interface for proper typing
 declare global {
-  var vscode: any;
+  var vscode: GlobalVSCode;
+}
+
+// Type guard function for MockCommand
+function isMockCommand(obj: unknown): obj is MockCommand {
+  return (
+    obj !== null &&
+    typeof obj === 'object' &&
+    'name' in obj &&
+    'callback' in obj
+  );
 }
 
 // Create a simplified test class that only contains the validation functions
@@ -99,7 +110,7 @@ class TestCommandManager {
   /**
    * 验证命令配置
    */
-  validateCommandConfiguration(commands: MockCommand[] | null | any[]): { valid: boolean; error?: string } {
+  validateCommandConfiguration(commands: MockCommand[] | null | unknown[]): { valid: boolean; error?: string } {
     if (!Array.isArray(commands)) {
       return { valid: false, error: 'Commands must be an array' };
     }
@@ -110,6 +121,11 @@ class TestCommandManager {
 
     const commandNames = new Set<string>();
     for (const command of commands) {
+      // Type guard to ensure command has the expected structure
+      if (!isMockCommand(command)) {
+        return { valid: false, error: 'Invalid command structure' };
+      }
+
       if (!command.name || typeof command.name !== 'string') {
         return { valid: false, error: 'Command name must be a non-empty string' };
       }

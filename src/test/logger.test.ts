@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Logger } from '../core/logger';
 import { testUtils } from './test-setup';
+import type { GlobalVSCode } from './types/vscode-test-types';
 
 // Mock console interface
 interface MockConsole {
@@ -24,7 +25,7 @@ interface MockVSCodeForLogger {
 
 // Extend global interface for proper typing
 declare global {
-  var vscode: any;
+  var vscode: GlobalVSCode;
 }
 
 describe('Logger', () => {

@@ -2,7 +2,7 @@
   "name": "sqlsugar",
   "displayName": "sqlsugar",
   "description": "SQLSugar enables inline SQL editing across multiple programming languages with advanced features like Jinja2 template processing and precise SQL synchronization.",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "publisher": "l8ng",
   "engines": {
     "pnpm": ">=10",

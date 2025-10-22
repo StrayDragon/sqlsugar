@@ -6,7 +6,11 @@ import type { VscodeWebviewMessage } from './types/external-libraries.js';
 
 declare global {
   interface Window {
-    vscode?: { postMessage: (message: VscodeWebviewMessage) => void };
+    vscode?: {
+      postMessage: (message: VscodeWebviewMessage) => void;
+      getState: () => unknown;
+      setState: (state: unknown) => void;
+    };
   }
 }
 

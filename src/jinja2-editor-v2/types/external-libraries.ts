@@ -34,13 +34,16 @@ export interface HighlightJsOptions {
 
 export interface HighlightJs {
   /** Highlight code with language auto-detection */
-  highlight: (code: string, language?: string, ignore_illegals?: boolean) => HighlightJsResult;
+  highlight: (code: string, languageOrOptions?: string | { language: string; ignoreIllegals?: boolean }) => HighlightJsResult;
 
   /** Highlight code with specific language */
   highlightAuto: (code: string, languageSubset?: string[]) => HighlightJsResult;
 
   /** Configure highlight.js */
   configure: (options: HighlightJsOptions) => void;
+
+  /** Legacy compatibility - direct highlight with string parameter */
+  highlightLanguage: (code: string, language: string, ignoreIllegals?: boolean) => HighlightJsResult;
 
   /** Register a language */
   registerLanguage: (name: string, language: HighlightJsLanguage) => void;

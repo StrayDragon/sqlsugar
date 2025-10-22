@@ -10,9 +10,15 @@ export type Jinja2Variable = {
   isRequired?: boolean;
 };
 
+import type { VscodeWebviewMessage } from '../jinja2-editor-v2/types/external-libraries.js';
+
 declare global {
   interface Window {
-    vscode?: { postMessage: (message: unknown) => void };
+    vscode?: {
+      postMessage: (message: VscodeWebviewMessage) => void;
+      getState: () => unknown;
+      setState: (state: unknown) => void;
+    };
   }
 }
 

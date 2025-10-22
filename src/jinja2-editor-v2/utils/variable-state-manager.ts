@@ -84,7 +84,7 @@ export class VariableStateManager {
         value: defaultValue,
         type: variable.type as Jinja2VariableType,
         timestamp: new Date(),
-        changeReason: 'default' as const
+        changeReason: 'user-input' as const
       }],
       isValid: this.validateValue(defaultValue, variable.type),
       validationError: this.getValidationError(defaultValue, variable.type),
@@ -202,14 +202,14 @@ export class VariableStateManager {
     // Create new state
     const newState: VariableState = {
       current: value,
-      type,
+      type: type as Jinja2VariableType,
       history: [
         ...currentState.history.slice(-this.maxHistorySize + 1),
         {
           value,
-          type,
+          type: type as Jinja2VariableType,
           timestamp: new Date(),
-          source
+          changeReason: 'type-change' as const
         }
       ],
       isValid,

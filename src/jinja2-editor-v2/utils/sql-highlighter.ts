@@ -305,11 +305,8 @@ export class SqlHighlighter {
     try {
       // Directly highlight SQL using highlight.js without variable processing
       const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
-      if (hljsInstance && hljsInstance.highlight) {
-        const highlighted = hljsInstance.highlight(sql, {
-          language: 'sql',
-          ignoreIllegals: true
-        });
+      if (hljsInstance) {
+        const highlighted = hljsInstance.highlightLanguage(sql, 'sql', true);
 
         return {
           html: `<pre><code class="hljs sql ${this.getCSSClasses()}">${highlighted.value}</code></pre>`

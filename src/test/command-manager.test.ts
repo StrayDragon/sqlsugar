@@ -2,19 +2,67 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { testUtils } from './test-setup';
 
+// Mock types for testing
+interface MockVSCode {
+  window: {
+    activeTextEditor: MockTextEditor | null;
+  };
+}
+
+interface MockTextEditor {
+  document: {
+    isClosed: boolean;
+    getText: ReturnType<typeof vi.fn>;
+  };
+  selection: MockSelection | null;
+}
+
+interface MockTextDocument {
+  isClosed: boolean;
+  getText(selection: MockSelection): string;
+}
+
+interface MockSelection {
+  isEmpty: boolean;
+}
+
+interface MockExtensionContext {
+  subscriptions: Array<{ dispose: () => void }>;
+}
+
+interface MockCommand {
+  name: string;
+  callback: () => void;
+}
+
+interface MockVSCodeAPI {
+  window: {
+    activeTextEditor: MockTextEditor | null;
+  };
+  commands: {
+    registerCommand: ReturnType<typeof vi.fn>;
+    executeCommand: ReturnType<typeof vi.fn>;
+  };
+}
+
+// Extend global interface for proper typing
+declare global {
+  var vscode: any;
+}
+
 // Create a simplified test class that only contains the validation functions
 class TestCommandManager {
-  private context: any;
+  private context: MockExtensionContext;
 
-  constructor(context: any) {
+  constructor(context: MockExtensionContext) {
     this.context = context;
   }
 
   /**
    * 验证基本的前置条件
    */
-  validateCommandPrerequisites(): { valid: boolean; editor?: any; error?: string } {
-    const vscode = (global as any).vscode;
+  validateCommandPrerequisites(): { valid: boolean; editor?: MockTextEditor; error?: string } {
+    const vscode = global.vscode as MockVSCodeAPI;
     const editor = vscode.window.activeTextEditor;
     if (!editor) {
       return { valid: false, error: 'No active editor found' };
@@ -30,7 +78,7 @@ class TestCommandManager {
   /**
    * 验证选中的文本
    */
-  validateSelection(editor: any): { valid: boolean; selection?: any; selectedText?: string; error?: string } {
+  validateSelection(editor: MockTextEditor): { valid: boolean; selection?: MockSelection; selectedText?: string; error?: string } {
     const selection = editor.selection;
     if (!selection) {
       return { valid: false, error: 'No selection found' };
@@ -51,7 +99,7 @@ class TestCommandManager {
   /**
    * 验证命令配置
    */
-  validateCommandConfiguration(commands: any): { valid: boolean; error?: string } {
+  validateCommandConfiguration(commands: MockCommand[] | null | any[]): { valid: boolean; error?: string } {
     if (!Array.isArray(commands)) {
       return { valid: false, error: 'Commands must be an array' };
     }
@@ -84,7 +132,7 @@ class TestCommandManager {
    * 注册单个命令
    */
   registerSingleCommand(name: string, callback: () => void): void {
-    const vscode = (global as any).vscode;
+    const vscode = global.vscode as MockVSCodeAPI;
     try {
       this.context.subscriptions.push(
         vscode.commands.registerCommand(`sqlsugar.${name}`, callback)
@@ -100,13 +148,13 @@ class TestCommandManager {
 }
 
 describe('CommandManager Validation Utils', () => {
-  let vscode: any;
-  let mockContext: any;
+  let vscode: MockVSCodeAPI;
+  let mockContext: MockExtensionContext;
   let commandManager: TestCommandManager;
 
   beforeEach(() => {
     // Get vscode mock from global
-    vscode = (global as any).vscode;
+    vscode = global.vscode as MockVSCodeAPI;
 
     // Clear all mocks
     vi.clearAllMocks();
@@ -135,7 +183,9 @@ describe('CommandManager Validation Utils', () => {
       const mockEditor = {
         document: {
           isClosed: true,
+          getText: vi.fn(),
         },
+        selection: null,
       };
       vscode.window.activeTextEditor = mockEditor;
 
@@ -149,7 +199,9 @@ describe('CommandManager Validation Utils', () => {
       const mockEditor = {
         document: {
           isClosed: false,
+          getText: vi.fn(),
         },
+        selection: null,
       };
       vscode.window.activeTextEditor = mockEditor;
 
@@ -162,7 +214,7 @@ describe('CommandManager Validation Utils', () => {
   });
 
   describe('validateSelection', () => {
-    let mockEditor: any;
+    let mockEditor: MockTextEditor;
 
     beforeEach(() => {
       mockEditor = {

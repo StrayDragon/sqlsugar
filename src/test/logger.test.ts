@@ -3,14 +3,38 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Logger } from '../core/logger';
 import { testUtils } from './test-setup';
 
+// Mock console interface
+interface MockConsole {
+  log: ReturnType<typeof vi.fn>;
+  warn: ReturnType<typeof vi.fn>;
+  error: ReturnType<typeof vi.fn>;
+  info: ReturnType<typeof vi.fn>;
+  debug: ReturnType<typeof vi.fn>;
+}
+
+// VSCode mock interface for testing
+interface MockVSCodeForLogger {
+  workspace: {
+    getConfiguration: ReturnType<typeof vi.fn>;
+  };
+  env: {
+    appName: string;
+  };
+}
+
+// Extend global interface for proper typing
+declare global {
+  var vscode: any;
+}
+
 describe('Logger', () => {
-  let originalVscode: any;
+  let originalVscode: MockVSCodeForLogger;
   let originalConsole: typeof console;
-  let mockConsole: any;
+  let mockConsole: MockConsole;
 
   beforeEach(() => {
     // Store original modules
-    originalVscode = (global as any).vscode;
+    originalVscode = global.vscode as MockVSCodeForLogger;
     originalConsole = global.console;
 
     // Mock console
@@ -19,13 +43,13 @@ describe('Logger', () => {
 
   afterEach(() => {
     // Restore original modules
-    (global as any).vscode = originalVscode;
+    global.vscode = originalVscode;
     testUtils.resetConsole();
   });
 
   describe('log level configuration', () => {
     it('should use default log level when configuration fails', () => {
-      const vscode = (global as any).vscode;
+      const vscode = global.vscode as MockVSCodeForLogger;
       vscode.workspace.getConfiguration.mockImplementation(() => {
         throw new Error('Configuration error');
       });
@@ -46,7 +70,7 @@ describe('Logger', () => {
     });
 
     it('should use configured log level', () => {
-      const vscode = (global as any).vscode;
+      const vscode = global.vscode as MockVSCodeForLogger;
       const mockConfig = {
         get: vi.fn().mockReturnValue('debug'),
       };
@@ -66,7 +90,7 @@ describe('Logger', () => {
     });
 
     it('should handle invalid log level gracefully', () => {
-      const vscode = (global as any).vscode;
+      const vscode = global.vscode as MockVSCodeForLogger;
       const mockConfig = {
         get: vi.fn().mockReturnValue('invalid-level'),
       };
@@ -89,7 +113,7 @@ describe('Logger', () => {
 
   describe('log filtering', () => {
     beforeEach(() => {
-      const vscode = (global as any).vscode;
+      const vscode = global.vscode as MockVSCodeForLogger;
       const mockConfig = {
         get: vi.fn().mockReturnValue('warn'),
       };
@@ -125,7 +149,7 @@ describe('Logger', () => {
 
   describe('none log level', () => {
     beforeEach(() => {
-      const vscode = (global as any).vscode;
+      const vscode = global.vscode as MockVSCodeForLogger;
       const mockConfig = {
         get: vi.fn().mockReturnValue('none'),
       };

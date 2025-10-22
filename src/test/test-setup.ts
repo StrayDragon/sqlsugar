@@ -1,10 +1,68 @@
 import { vi, beforeEach, afterEach } from 'vitest';
 
+// Mock types for test setup
+interface MockPosition {
+  line: number;
+  character: number;
+}
+
+interface MockRange {
+  start: MockPosition;
+  end: MockPosition;
+}
+
+interface MockSelection {
+  anchor: MockPosition;
+  active: MockPosition;
+}
+
+type ConfigValue = string | number | boolean | object | null;
+
+// Extend global interface for proper typing
+declare global {
+  var vscode: any;
+}
+
+interface MockTextRange {
+  start: number;
+  end: number;
+}
+
+interface MockEditor {
+  document: {
+    getText: ReturnType<typeof vi.fn>;
+    getTextAt: ReturnType<typeof vi.fn>;
+    positionAt: ReturnType<typeof vi.fn>;
+    offsetAt: ReturnType<typeof vi.fn>;
+    uri: { fsPath: string };
+    isClosed: boolean;
+    fileName: string;
+    languageId: string;
+    lineCount: number;
+  };
+  selection: MockSelection;
+  edit: ReturnType<typeof vi.fn>;
+  selections: MockSelection[];
+  revealRange: ReturnType<typeof vi.fn>;
+}
+
+interface MockTextDocument {
+  getText: ReturnType<typeof vi.fn>;
+  getTextAt: ReturnType<typeof vi.fn>;
+  positionAt: ReturnType<typeof vi.fn>;
+  offsetAt: ReturnType<typeof vi.fn>;
+  uri: { fsPath: string };
+  isClosed: boolean;
+  fileName: string;
+  languageId: string;
+  lineCount: number;
+}
+
 // Mock vscode module
 const mockVscode = {
   workspace: {
     getConfiguration: vi.fn(() => ({
-      get: vi.fn((section: string, defaultValue: any) => defaultValue),
+      get: vi.fn((section: string, defaultValue: ConfigValue) => defaultValue),
       update: vi.fn(),
     })),
     onDidChangeConfiguration: vi.fn(),
@@ -30,8 +88,8 @@ const mockVscode = {
     parse: vi.fn(),
   },
   Position: vi.fn((line: number, character: number) => ({ line, character })),
-  Range: vi.fn((start: any, end: any) => ({ start, end })),
-  Selection: vi.fn((anchor: any, active: any) => ({ anchor, active })),
+  Range: vi.fn((start: MockPosition, end: MockPosition) => ({ start, end })),
+  Selection: vi.fn((anchor: MockPosition, active: MockPosition) => ({ anchor, active })),
   ViewColumn: {
     Active: 1,
     Beside: 2,
@@ -61,7 +119,7 @@ const mockVscode = {
 };
 
 // Set up globals before test modules are loaded
-(global as any).vscode = mockVscode;
+global.vscode = mockVscode;
 
 // Mock vscode module for import resolution
 vi.mock('vscode', () => mockVscode);
@@ -87,12 +145,12 @@ export const testUtils = {
     return mockConsole;
   },
 
-  createMockEditor: (text: string, selection?: any) => ({
+  createMockEditor: (text: string, selection?: MockSelection): MockEditor => ({
     document: {
-      getText: vi.fn((range?: any) => range ? text.substring(range.start, range.end) : text),
-      getTextAt: vi.fn((range: any) => text.substring(range.start, range.end)),
+      getText: vi.fn((range?: MockTextRange) => range ? text.substring(range.start, range.end) : text),
+      getTextAt: vi.fn((range: MockTextRange) => text.substring(range.start, range.end)),
       positionAt: vi.fn((offset: number) => ({ line: 0, character: offset })),
-      offsetAt: vi.fn((position: any) => position.character),
+      offsetAt: vi.fn((position: MockPosition) => position.character),
       uri: { fsPath: '/test/file.ts' },
       isClosed: false,
       fileName: '/test/file.ts',
@@ -108,11 +166,11 @@ export const testUtils = {
     revealRange: vi.fn(),
   }),
 
-  createMockTextDocument: (text: string) => ({
+  createMockTextDocument: (text: string): MockTextDocument => ({
     getText: vi.fn(() => text),
-    getTextAt: vi.fn((range: any) => text.substring(range.start, range.end)),
+    getTextAt: vi.fn((range: MockTextRange) => text.substring(range.start, range.end)),
     positionAt: vi.fn((offset: number) => ({ line: 0, character: offset })),
-    offsetAt: vi.fn((position: any) => position.character),
+    offsetAt: vi.fn((position: MockPosition) => position.character),
     uri: { fsPath: '/test/file.ts' },
     isClosed: false,
     fileName: '/test/file.ts',

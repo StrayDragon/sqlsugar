@@ -14,6 +14,11 @@ import type {
 } from '../types.js';
 import { parseTemplate } from '../utils/template-parser.js';
 
+/**
+ * Union type for events that can trigger variable interactions
+ */
+type VariableInteractionEvent = MouseEvent | KeyboardEvent;
+
 @customElement('template-highlighter')
 export class TemplateHighlighter extends LitElement {
   @property({ type: String }) accessor template: string = '';
@@ -473,7 +478,7 @@ export class TemplateHighlighter extends LitElement {
     return div.innerHTML;
   }
 
-  private handleVariableClick(event: MouseEvent) {
+  private handleVariableClick(event: VariableInteractionEvent) {
     const target = event.target as HTMLElement;
     const variableElement = target.closest('.variable-highlight') as HTMLElement;
 
@@ -525,7 +530,7 @@ export class TemplateHighlighter extends LitElement {
     if (target.classList.contains('variable-highlight')) {
       if (event.key === 'Enter' || event.key === ' ') {
         event.preventDefault();
-        this.handleVariableClick(event as any);
+        this.handleVariableClick(event);
       }
     }
   }

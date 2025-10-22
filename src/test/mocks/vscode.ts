@@ -1,9 +1,28 @@
 import { vi } from 'vitest';
 
+// VS Code mock types
+interface MockPosition {
+  line: number;
+  character: number;
+}
+
+interface MockRange {
+  start: MockPosition;
+  end: MockPosition;
+}
+
+interface MockSelection {
+  anchor: MockPosition;
+  active: MockPosition;
+}
+
+// Configuration value types
+type ConfigValue = string | number | boolean | object | null;
+
 // Mock vscode module
 export const workspace = {
   getConfiguration: vi.fn(() => ({
-    get: vi.fn((section: string, defaultValue: any) => defaultValue),
+    get: vi.fn((section: string, defaultValue: ConfigValue) => defaultValue),
     update: vi.fn(),
   })),
   onDidChangeConfiguration: vi.fn(),
@@ -36,9 +55,9 @@ export const Uri = {
 
 export const Position = vi.fn((line: number, character: number) => ({ line, character }));
 
-export const Range = vi.fn((start: any, end: any) => ({ start, end }));
+export const Range = vi.fn((start: MockPosition, end: MockPosition) => ({ start, end }));
 
-export const Selection = vi.fn((anchor: any, active: any) => ({ anchor, active }));
+export const Selection = vi.fn((anchor: MockPosition, active: MockPosition) => ({ anchor, active }));
 
 export const ViewColumn = {
   Active: 1,

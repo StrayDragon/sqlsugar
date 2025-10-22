@@ -638,7 +638,7 @@ export class KeyboardNavigationManager {
    * Generate help text
    */
   generateHelpText(): string {
-    const categories = {
+    const categories: Record<KeyboardShortcut['category'], string> = {
       navigation: 'Navigation',
       editing: 'Editing',
       view: 'View Controls',
@@ -648,7 +648,7 @@ export class KeyboardNavigationManager {
     let helpText = 'Keyboard Shortcuts:\n\n';
 
     Object.entries(categories).forEach(([category, title]) => {
-      const shortcuts = this.getShortcutsByCategory(category as any);
+      const shortcuts = this.getShortcutsByCategory(category as KeyboardShortcut['category']);
       if (shortcuts.length > 0) {
         helpText += `${title}:\n`;
         shortcuts.forEach(shortcut => {
@@ -666,7 +666,7 @@ export class KeyboardNavigationManager {
    * Create quick pick items for shortcuts
    */
   createQuickPickItems(): QuickPickItem[] {
-    const categories = {
+    const categories: Record<KeyboardShortcut['category'], string> = {
       navigation: '🧭 Navigation',
       editing: '✏️ Editing',
       view: '👁️ View Controls',
@@ -676,7 +676,7 @@ export class KeyboardNavigationManager {
     const items: QuickPickItem[] = [];
 
     Object.entries(categories).forEach(([category, title]) => {
-      const shortcuts = this.getShortcutsByCategory(category as any);
+      const shortcuts = this.getShortcutsByCategory(category as KeyboardShortcut['category']);
       if (shortcuts.length > 0) {
         items.push({
           label: title,

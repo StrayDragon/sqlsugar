@@ -14,7 +14,8 @@ import type {
   PopoverPosition,
   VariableChangeEventV2,
   EditorV2Config,
-  Jinja2VariableValue
+  Jinja2VariableValue,
+  Jinja2VariableType
 } from '../types.js';
 import { getDefaultValueForType, validateValue } from '../utils/variable-utils.js';
 import {
@@ -58,7 +59,7 @@ export class VariablePopover extends LitElement {
   @state() accessor isVisible: boolean = false;
   @state() accessor position: PopoverPosition | null = null;
   @state() accessor localValue: Jinja2VariableValue = undefined;
-  @state() accessor localType: string = 'string';
+  @state() accessor localType: Jinja2VariableType = 'string';
   @state() accessor showAdvancedOptions: boolean = false;
   @state() accessor isAnimating: boolean = false;
 
@@ -657,8 +658,8 @@ export class VariablePopover extends LitElement {
 
   private handleTypeChange(event: CustomEvent) {
     const { value } = event.detail;
-    this.localType = value;
-    this.localValue = getDefaultValueForType(value as any);
+    this.localType = value as Jinja2VariableType;
+    this.localValue = getDefaultValueForType(this.localType);
   }
 
   private handleSuggestionClick(suggestion: Jinja2VariableValue) {
@@ -668,7 +669,7 @@ export class VariablePopover extends LitElement {
   private applyChanges() {
     if (!this.variable) return;
 
-    const validationError = validateValue(this.localValue, this.localType as any);
+    const validationError = validateValue(this.localValue, this.localType);
     if (validationError) {
       this.showValidationMessage(validationError);
       return;
@@ -730,7 +731,7 @@ export class VariablePopover extends LitElement {
     if (!this.variable || !this.isVisible) return null;
 
     const quickSuggestions = this.config.showSuggestions ? this.getQuickSuggestions() : [];
-    const validationError = validateValue(this.localValue, this.localType as any);
+    const validationError = validateValue(this.localValue, this.localType);
 
     return html`
       <div class="popover-container ${classMap({

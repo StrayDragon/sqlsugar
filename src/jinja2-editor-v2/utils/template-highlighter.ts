@@ -103,7 +103,7 @@ export class TemplateHighlighter {
     try {
       // Step 1: Apply highlight.js SQL syntax highlighting to the entire template
       const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
-      const highlighted = hljsInstance.highlightLanguage(template, 'sql', true);
+      const highlighted = hljsInstance.highlight(template, { language: 'sql', ignoreIllegals: true });
 
       // Step 2: Replace variables in the highlighted HTML with our clickable elements
       let result = highlighted.value;

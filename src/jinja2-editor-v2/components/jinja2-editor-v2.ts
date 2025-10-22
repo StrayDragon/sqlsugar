@@ -1093,7 +1093,10 @@ export class Jinja2EditorV2 extends LitElement {
     } catch (error) {
       console.error('Template highlighting failed:', error);
       // Fallback to basic highlighting if TemplateHighlighter fails
-      this.highlightedTemplate = this.fallbackTemplateHighlight();
+      let fallbackHighlighted = this.fallbackTemplateHighlight();
+      // Still apply control structure highlighting to ensure variables are properly wrapped
+      fallbackHighlighted = this.applyControlStructureHighlighting(fallbackHighlighted);
+      this.highlightedTemplate = fallbackHighlighted;
     }
   }
 

@@ -8,22 +8,6 @@ jobs:
   test:
     runs-on: ubuntu-latest
 
-    services:
-      mysql:
-        image: mysql:5.7
-        env:
-          MYSQL_ROOT_PASSWORD: rootpassword
-          MYSQL_DATABASE: testdb
-          MYSQL_USER: testuser
-          MYSQL_PASSWORD: testpass
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -38,8 +22,11 @@ jobs:
         with:
           run_install: false
 
+      - name: Setup just
+        uses: extractions/setup-just@v3
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: just install
 
       - name: Setup sqls
         run: |
@@ -50,24 +37,10 @@ jobs:
           sudo mv sqls /usr/local/bin/sqls
           sqls --version
 
-      - name: Run linting
-        run: pnpm run lint
+      - name: Run linting and type checking
+        run: just lint
 
-      - name: Run type check
-        run: pnpm run check-types
-
-
-      # - name: Setup test database
-      #   run: |
-      #     # Wait for MySQL to be ready
-      #     until mysql -h 127.0.0.1 -u testuser -ptestpass -e "SELECT 1"; do
-      #       echo "Waiting for MySQL..."
-      #       sleep 2
-      #     done
-      #     # Initialize test data
-      #     mysql -h 127.0.0.1 -u testuser -ptestpass testdb < docker/init.sql
-
+      # Note: Tests are currently disabled in the project
+      # When tests are re-enabled, we can add them back here
       # - name: Run tests
-      #   run: xvfb-run -a pnpm run test
-      #   env:
-      #     DISPLAY: ':99.0'
+      #   run: just test

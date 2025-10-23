@@ -55,7 +55,7 @@ package-vsix:
     pnpm run vsix
 
 # Install the extension locally for testing
-install-local: package-vsix
+install-vsix: package-vsix
     code --install-extension sqlsugar.vsix --force
 
 # Create backup of current vsix

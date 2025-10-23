@@ -100,7 +100,7 @@ just after-ai-write-remove-comments  # Clean unnecessary line comments in src/
 
 # Packaging and distribution
 just package-vsix    # Create .vsix package
-just install-local   # Install extension locally for testing
+just install-vsix   # Install extension locally for testing
 just backup          # Create backup of current vsix
 
 # Cleanup
@@ -225,7 +225,7 @@ The extension provides extensive configuration options:
 1. Install dependencies: `pnpm install --frozen-lockfile`
 2. Build extension: `pnpm run compile` or `just build`
 3. Package for testing: `just package-vsix`
-4. Install locally: `just install-local`
+4. Install locally: `just install-vsix`
 5. Debug in VS Code with F5 (requires extension development host)
 
 ### Development Tools

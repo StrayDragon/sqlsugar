@@ -87,7 +87,7 @@ export class TemplateHighlighter {
       };
     } catch (error) {
       console.warn('Template highlighting failed, using fallback:', error);
-      return this.fallbackHighlight(template, variables, values);
+      return this.fallbackHighlight(template);
     }
   }
 
@@ -122,7 +122,7 @@ export class TemplateHighlighter {
       });
 
       // Step 3: Also highlight variables in control structures like {% if variable %}
-      result = this.highlightVariablesInControlStructures(result, variables, values);
+      result = this.highlightVariablesInControlStructures(result, variables);
       return result;
     } catch (error) {
       console.warn('Template highlighting failed:', error);
@@ -135,8 +135,7 @@ export class TemplateHighlighter {
    */
   private highlightVariablesInControlStructures(
     highlightedHTML: string,
-    variables: EnhancedVariable[],
-    values: Record<string, Jinja2VariableValue>
+    variables: EnhancedVariable[]
   ): string {
     let result = highlightedHTML;
 
@@ -154,7 +153,7 @@ export class TemplateHighlighter {
     });
 
     // Highlight variables in {% for item in items %} structures
-    result = result.replace(/{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%}/g, (match: string, itemVar: string, arrayVar: string) => {
+    result = result.replace(/{%\s*for\s+\w+\s+in\s+\w+\s*%}/g, (match: string) => {
       let highlightedMatch = match;
 
       variables.forEach(variable => {
@@ -186,11 +185,7 @@ export class TemplateHighlighter {
    * Fallback highlighting when main highlighting fails
    * Returns escaped HTML to ensure the template is still displayable
    */
-  private fallbackHighlight(
-    template: string,
-    variables: EnhancedVariable[],
-    values: Record<string, Jinja2VariableValue>
-  ): TemplateHighlightResult {
+  private fallbackHighlight(template: string): TemplateHighlightResult {
     // Just return escaped HTML - let jinja2-editor-v2.ts handle variable highlighting
     return {
       html: this.escapeHtml(template),

@@ -486,7 +486,7 @@ export class KeyboardNavigationManager {
   /**
    * Switch view mode
    */
-  private switchViewMode(mode: 'split' | 'rendered' | 'diff') {
+  private switchViewMode(_mode: 'split' | 'rendered' | 'diff') {
     // This would be handled by the parent component
     this.notifyListeners({
       action: 'next', // Generic action

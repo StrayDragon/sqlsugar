@@ -83,17 +83,18 @@ export class Jinja2WebviewEditorV2 {
    */
   public static async showEditor(
     template: string,
-    variables: Jinja2Variable[],
+    _variables: Jinja2Variable[],
     title: string = 'Jinja2 V2 模板编辑器'
   ): Promise<Record<string, WebViewVariableValue>> {
-    return new Promise(async (resolve, reject) => {
-      const editor = new Jinja2WebviewEditorV2();
+    return new Promise((resolve, reject) => {
+      void (async () => {
+        const editor = new Jinja2WebviewEditorV2();
 
       try {
         const extensionCore = ExtensionCore.getInstance();
         editor.context = extensionCore['context'];
         editor.extensionPath = extensionCore['context'].extensionPath;
-      } catch (error) {
+      } catch (_error) {
         editor.extensionPath = process.cwd();
       }
 
@@ -113,11 +114,12 @@ export class Jinja2WebviewEditorV2 {
         });
 
         editor.show(template, extractedVariables, title);
-      } catch (error) {
-        Logger.warn('V2 Editor: V1 processor failed, using provided variables:', error);
+      } catch (_error) {
+        Logger.warn('V2 Editor: V1 processor failed, using provided variables:', _error);
         // 如果V1处理器失败，回退到传入的变量
-        editor.show(template, variables, title);
+        editor.show(template, _variables, title);
       }
+      })();
     });
   }
 
@@ -131,8 +133,8 @@ export class Jinja2WebviewEditorV2 {
 
       Logger.info(`V2 Editor: Extracted ${variables.length} variables using V1 processor`);
       return variables;
-    } catch (error) {
-      Logger.error('V2 Editor: Failed to extract variables using V1 processor:', error);
+    } catch (_error) {
+      Logger.error('V2 Editor: Failed to extract variables using V1 processor:', _error);
       return [];
     }
   }
@@ -181,7 +183,7 @@ export class Jinja2WebviewEditorV2 {
     this.panel.webview.postMessage({
       command: 'init',
       template,
-      variables,
+      variables: variables,
       config: this.getV2EditorConfig(),
     });
 
@@ -233,7 +235,7 @@ export class Jinja2WebviewEditorV2 {
   }
 
   private async handleWebviewMessage(message: WebViewMessage): Promise<void> {
-    if (!message || !message.command) {
+    if (!message?.command) {
       return;
     }
 
@@ -298,7 +300,7 @@ export class Jinja2WebviewEditorV2 {
           }
 
           // 调试信息始终发送到开发者控制台（不影响用户体验）
-          console.log(`[SQLSugar] ${category}:`, message.data);
+          Logger.debug(`${category}:`, message.data);
         }
         break;
 
@@ -314,8 +316,8 @@ export class Jinja2WebviewEditorV2 {
   private async copyToClipboardWithFallback(text: string): Promise<void> {
     try {
       await vscode.env.clipboard.writeText(text);
-    } catch (error) {
-      Logger.warn('VS Code clipboard failed, trying fallback:', error);
+    } catch (_error) {
+      Logger.warn('VS Code clipboard failed, trying fallback:', _error);
 
       const config = vscode.workspace.getConfiguration('sqlsugar');
       const enableWlCopyFallback = config.get<boolean>('enableWlCopyFallback', false);
@@ -337,8 +339,8 @@ export class Jinja2WebviewEditorV2 {
     try {
       await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
       Logger.info('Text copied to clipboard using wl-copy');
-    } catch (error) {
-      Logger.error('wl-copy failed:', error);
+    } catch (_error) {
+      Logger.error('wl-copy failed:', _error);
       throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
     }
   }
@@ -446,18 +448,18 @@ export class Jinja2WebviewEditorV2 {
   }
 
 
-  private updateContent(template: string, variables: Jinja2Variable[]): void {
+  private updateContent(template: string, _variables: Jinja2Variable[]): void {
     if (!this.panel) {
       return;
     }
 
     this.currentTemplate = template;
-    this.currentVariables = variables;
+    this.currentVariables = _variables;
 
     this.panel.webview.postMessage({
       command: 'init',
       template,
-      variables,
+      variables: _variables,
       config: this.getV2EditorConfig(),
     });
   }
@@ -468,7 +470,7 @@ export class Jinja2WebviewEditorV2 {
   private getAppHtml(
     webview: vscode.Webview,
     template: string,
-    variables: Jinja2Variable[]
+    _variables: Jinja2Variable[]
   ): string {
     const nonce = getNonce();
     const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
@@ -501,8 +503,8 @@ export class Jinja2WebviewEditorV2 {
             window.vscode = vscode;
           }
         }
-      } catch (error) {
-        console.error('[V2 WebView] Error initializing VS Code API:', error);
+      } catch (_error) {
+        console.error('[V2 WebView] Error initializing VS Code API:', _error);
       }
     })();
   </script>

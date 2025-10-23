@@ -33,12 +33,30 @@ export default [
       '@typescript-eslint': tseslint
     },
     rules: {
-      // TypeScript rules
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // TypeScript rules - Type Safety
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }],
+      '@typescript-eslint/no-explicit-any': 'error',
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-empty-function': 'warn',
+      '@typescript-eslint/no-empty-function': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off', // Too noisy for existing codebase
+      '@typescript-eslint/prefer-optional-chain': 'warn',
+      '@typescript-eslint/strict-boolean-expressions': 'off',
+
+      // Code Quality
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      'no-debugger': 'error',
+      'no-alert': 'error',
+      'prefer-const': 'error',
+      'no-var': 'error',
 
       // Basic style rules
       'no-trailing-spaces': 'error',
@@ -60,12 +78,29 @@ export default [
       '@typescript-eslint': tseslint
     },
     rules: {
-      // TypeScript rules
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      // TypeScript rules - Type Safety
+      '@typescript-eslint/no-unused-vars': ['error', {
+        argsIgnorePattern: '^_',
+        varsIgnorePattern: '^_',
+        caughtErrorsIgnorePattern: '^_'
+      }],
+      '@typescript-eslint/no-explicit-any': 'warn', // Keep as warn for webview components
       '@typescript-eslint/explicit-function-return-type': 'off',
       '@typescript-eslint/explicit-module-boundary-types': 'off',
-      '@typescript-eslint/no-empty-function': 'warn',
+      '@typescript-eslint/no-empty-function': 'error',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/await-thenable': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/prefer-nullish-coalescing': 'off', // Too noisy for existing codebase
+      '@typescript-eslint/prefer-optional-chain': 'warn',
+
+      // Code Quality
+      'no-console': 'off', // Allow console in webview components
+      'no-debugger': 'error',
+      'no-alert': 'error',
+      'prefer-const': 'error',
+      'no-var': 'error',
 
       // Basic style rules
       'no-trailing-spaces': 'error',

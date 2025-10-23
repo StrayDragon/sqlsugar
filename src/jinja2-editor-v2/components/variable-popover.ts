@@ -10,7 +10,6 @@ import { classMap } from 'lit/directives/class-map.js';
 import { styleMap } from 'lit/directives/style-map.js';
 import type {
   EnhancedVariable,
-  PopoverState,
   PopoverPosition,
   VariableChangeEventV2,
   EditorV2Config,
@@ -560,7 +559,7 @@ export class VariablePopover extends LitElement {
     this.isVisible = true;
 
     // Calculate position after DOM update
-    this.updateComplete.then(() => {
+    void this.updateComplete.then(() => {
       this.calculatePosition();
     });
 
@@ -603,7 +602,7 @@ export class VariablePopover extends LitElement {
 
     if (this.config.animationsEnabled && this.position) {
       this.isAnimating = true;
-      animatePositionChange(
+      void animatePositionChange(
         this,
         this.position,
         newPosition,

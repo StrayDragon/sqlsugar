@@ -50,10 +50,12 @@ export class Logger {
   }
 
   public static info(...args: unknown[]): void {
+    // eslint-disable-next-line no-console
     if (shouldLog('info', Logger.level)) console.info('[SQLSugar]', ...args);
   }
 
   public static debug(...args: unknown[]): void {
+    // eslint-disable-next-line no-console
     if (shouldLog('debug', Logger.level)) console.debug('[SQLSugar]', ...args);
   }
 }

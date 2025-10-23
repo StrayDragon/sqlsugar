@@ -100,7 +100,11 @@ export class CommandManager {
 
     // 注册命令
     commands.forEach(({ name, callback }) => {
-      this.registerSingleCommand(name, callback);
+      this.registerSingleCommand(name, () => {
+        Promise.resolve(callback()).catch(err => {
+          Logger.error(`Command ${name} failed:`, err);
+        });
+      });
     });
   }
 

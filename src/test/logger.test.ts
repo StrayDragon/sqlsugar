@@ -30,13 +30,13 @@ declare global {
 
 describe('Logger', () => {
   let originalVscode: MockVSCodeForLogger;
-  let originalConsole: typeof console;
+  let _originalConsole: typeof console;
   let mockConsole: MockConsole;
 
   beforeEach(() => {
     // Store original modules
     originalVscode = global.vscode as MockVSCodeForLogger;
-    originalConsole = global.console;
+    _originalConsole = global.console;
 
     // Mock console
     mockConsole = testUtils.mockConsole();

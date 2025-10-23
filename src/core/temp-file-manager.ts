@@ -159,7 +159,7 @@ export class TempFileManager {
   private registerSaveListener(tempFileInfo: TempFileInfo): void {
     const disposable = vscode.workspace.onDidSaveTextDocument(e => {
       if (e.uri.fsPath === tempFileInfo.uri.fsPath) {
-        this.handleTempFileChange(tempFileInfo);
+        void this.handleTempFileChange(tempFileInfo);
       }
     });
 
@@ -289,7 +289,7 @@ export class TempFileManager {
     if (currentSelectedText !== tempFileInfo.lastSyncedContent) {
       const fullText = currentDocument.getText();
       const searchStr = tempFileInfo.lastSyncedContent;
-      let originalIndex = this.findContentIndex(fullText, searchStr);
+      const originalIndex = this.findContentIndex(fullText, searchStr);
 
       if (originalIndex !== -1) {
 
@@ -314,7 +314,7 @@ export class TempFileManager {
     const exactMatch = fullText.match(exactRegex);
 
     let originalIndex = -1;
-    if (exactMatch && exactMatch.index !== undefined) {
+    if (exactMatch?.index !== undefined) {
       originalIndex = exactMatch.index;
     } else {
 

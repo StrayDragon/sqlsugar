@@ -6,12 +6,12 @@ interface MockPosition {
   character: number;
 }
 
-interface MockRange {
+interface _MockRange {
   start: MockPosition;
   end: MockPosition;
 }
 
-interface MockSelection {
+interface _MockSelection {
   anchor: MockPosition;
   active: MockPosition;
 }

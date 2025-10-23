@@ -28,8 +28,6 @@ export function activate(context: vscode.ExtensionContext) {
     extensionCore = ExtensionCore.getInstance(context);
     Logger.debug('ExtensionCore instance created successfully');
 
-    registerDeveloperCommands();
-
     Logger.info('SQLSugar extension activated successfully');
 
     // 在输出频道也记录激活成功
@@ -78,10 +76,3 @@ export async function deactivate() {
 export function getSqlSugarOutputChannel(): vscode.OutputChannel | undefined {
   return sqlsugarOutputChannel;
 }
-
-/**
- * 注册开发者命令
- * 开发者命令已移至CommandManager中统一管理
- */
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-function registerDeveloperCommands() {}

@@ -6,13 +6,13 @@
 
 import type {
   EnhancedVariable,
-  VariablePosition,
+
   VariableContext,
   TemplateHighlight,
   TemplateStats,
   Jinja2Variable
 } from '../types.js';
-import { inferTypeFromValue, createJinja2Variable } from './variable-utils.js';
+import { createJinja2Variable } from './variable-utils.js';
 
 /**
  * Regular expressions for Jinja2 syntax parsing
@@ -96,7 +96,7 @@ function extractVariables(template: string): EnhancedVariable[] {
 
     // Track usage statistics
     if (variableMap.has(variableName)) {
-      const existing = variableMap.get(variableName)!;
+      const _existing = variableMap.get(variableName)!;
       // Update usage count would go here if we implement usage tracking
     } else {
       variableMap.set(variableName, enhancedVar);

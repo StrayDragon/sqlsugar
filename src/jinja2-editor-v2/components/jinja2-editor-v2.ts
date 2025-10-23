@@ -5,7 +5,6 @@
 
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { classMap } from 'lit/directives/class-map.js';
 import TemplateHighlighter from '../utils/template-highlighter.js';
 import SqlHighlighter from '../utils/sql-highlighter.js';
 import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
@@ -1555,8 +1554,8 @@ export class Jinja2EditorV2 extends LitElement {
       `HTML update triggered by ${variableName} change`);
 
     // Re-render the template with new values
-    this.renderTemplate();
-    this.highlightTemplate();
+    void this.renderTemplate();
+    void this.highlightTemplate();
 
     // 记录变量变化 - after render (包含更新后的HTML)
     this.recordVariableChange(variableName, oldValue, newValue, 'variable_change', 'after_render',
@@ -1830,7 +1829,7 @@ export class Jinja2EditorV2 extends LitElement {
     };
 
     if (this.config?.autoPreview) {
-      this.renderTemplate();
+      void this.renderTemplate();
     }
   }
 
@@ -1869,7 +1868,7 @@ export class Jinja2EditorV2 extends LitElement {
       this.processingTime = performance.now() - startTime;
 
       // 🚀 NEW: Use pure nunjucks rendering to fix placeholder issues
-      let result = this.renderWithNunjucks(this.template);
+      const result = this.renderWithNunjucks(this.template);
 
       // Store result for display
       this.renderedResult = result;
@@ -2254,7 +2253,7 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private handleCopyTemplate() {
-    navigator.clipboard.writeText(this.template).then(() => {
+    void navigator.clipboard.writeText(this.template).then(() => {
       this.showNotification('模板已复制到剪贴板');
     });
   }
@@ -2465,13 +2464,13 @@ Includes: Right panel HTML tracking
   }
 
   private handleCopyResult() {
-    navigator.clipboard.writeText(this.renderedResult).then(() => {
+    void navigator.clipboard.writeText(this.renderedResult).then(() => {
       this.showNotification('SQL已复制到剪贴板');
     });
   }
 
   private handleSubmit() {
-    this.renderTemplate(); // Ensure latest result
+    void this.renderTemplate(); // Ensure latest result
     this.dispatchEvent(new CustomEvent('template-submit', {
       detail: {
         template: this.template,
@@ -2637,7 +2636,7 @@ Includes: Right panel HTML tracking
     }
   }
 
-  private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+  private showNotification(message: string, _type: 'info' | 'success' | 'warning' | 'error' = 'info') {
     const notification = document.createElement('div');
     notification.style.cssText = `
       position: fixed;
@@ -2775,7 +2774,7 @@ Includes: Right panel HTML tracking
             </div>
             <div class="variable-popup-content">
               ${(() => {
-                const currentValue = this.variableValues[this.activeVariable!];
+                const currentValue = this.activeVariable ? this.variableValues[this.activeVariable] : undefined;
 
                 return html`
                   <div class="variable-info-row">

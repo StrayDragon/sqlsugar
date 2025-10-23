@@ -7,7 +7,7 @@ interface MockPosition {
   character: number;
 }
 
-interface MockRange {
+interface _MockRange {
   start: MockPosition;
   end: MockPosition;
 }

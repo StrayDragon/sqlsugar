@@ -1,10 +1,10 @@
 /// <reference types="vitest" />
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { testUtils } from './test-setup';
+// import { testUtils } from './test-setup';
 import type { GlobalVSCode } from './types/vscode-test-types';
 
 // Mock types for testing
-interface MockVSCode {
+interface _MockVSCode {
   window: {
     activeTextEditor: MockTextEditor | null;
   };
@@ -18,7 +18,7 @@ interface MockTextEditor {
   selection: MockSelection | null;
 }
 
-interface MockTextDocument {
+interface _MockTextDocument {
   isClosed: boolean;
   getText(selection: MockSelection): string;
 }

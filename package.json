@@ -250,9 +250,9 @@
   "dependencies": {
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
-    "highlight.js": "^11.9.0",
     "lit": "^3.3.1",
-    "nunjucks": "^3.2.4"
+    "nunjucks": "^3.2.4",
+    "highlight.js": "^11.9.0"
   },
   "repository": {
     "type": "git",

@@ -60,7 +60,7 @@ export class Jinja2NunjucksHandler {
    */
   private async processTemplate(mode: string): Promise<boolean> {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || !editor.selection || editor.selection.isEmpty) {
+    if (!editor?.selection || editor.selection.isEmpty) {
       vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', {
         modal: false,
       });
@@ -231,7 +231,7 @@ export class Jinja2NunjucksHandler {
   private async handleWebviewV2Mode(
     template: string,
     variables: Jinja2Variable[],
-    placeholderDetection: PlaceholderDetection
+    _placeholderDetection: PlaceholderDetection
   ): Promise<boolean> {
     try {
       const preview = this.processor.getTemplatePreview(template);
@@ -391,7 +391,7 @@ export class Jinja2NunjucksHandler {
    * 提示输入变量值
    */
   private async promptForVariable(variable: Jinja2Variable): Promise<unknown> {
-    const prompt = `Enter ${variable.type} value for "${variable.name}"`;
+    const _prompt = `Enter ${variable.type} value for "${variable.name}"`;
 
     switch (variable.type) {
       case 'string':

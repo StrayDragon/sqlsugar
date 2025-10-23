@@ -1,6 +1,6 @@
 import * as nunjucks from 'nunjucks';
 import { Logger } from './core/logger';
-import * as vscode from 'vscode';
+
 export type Jinja2VariableValue =
   | string
   | number
@@ -113,14 +113,14 @@ export class Jinja2NunjucksProcessor {
    * 使用 nunjucks 直接渲染模板
    * 这是推荐的渲染方式，确保完全兼容 nunjucks 语法
    */
-  public renderTemplate(template: string, context: Record<string, unknown>): string {
+  public renderTemplate(_template: string, context: Record<string, unknown>): string {
     try {
 
       const nestedContext = this.buildNestedContext(context);
-      return this.env.renderString(template, nestedContext);
-    } catch (error) {
+      return this.env.renderString(_template, nestedContext);
+    } catch (_error) {
 
-      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorMessage = _error instanceof Error ? _error.message : String(_error);
       if (errorMessage.includes('filter not found')) {
 
         const filterMatch = errorMessage.match(/filter not found: (\w+)/);
@@ -128,7 +128,7 @@ export class Jinja2NunjucksProcessor {
           Logger.warn(`Unknown filter "${filterMatch[1]}" ignored, returning original value`);
         }
 
-        const contentMatch = template.match(/\{\{\s*([^}]+)\s*\}\}/);
+        const contentMatch = _template.match(/\{\{\s*([^}]+)\s*\}\}/);
         if (contentMatch) {
           const fullContent = contentMatch[1].trim();
 
@@ -153,7 +153,7 @@ export class Jinja2NunjucksProcessor {
         }
         return '';
       }
-      Logger.error('nunjucks 渲染失败:', error);
+      Logger.error('nunjucks 渲染失败:', _error);
       throw new Error(`模板渲染失败: ${errorMessage}`);
     }
   }
@@ -398,7 +398,7 @@ export class Jinja2NunjucksProcessor {
       return String(Math.abs(num));
     });
 
-    this.env.addFilter('round', (value: unknown, precision: number = 0, method: string = 'common') => {
+    this.env.addFilter('round', (value: unknown, precision: number = 0, _method: string = 'common') => {
       if (value === null || value === undefined || value === '') {
         return '0';
       }
@@ -546,7 +546,7 @@ export class Jinja2NunjucksProcessor {
         ? ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
         : ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
 
-      let bytes = Number(value);
+      const bytes = Number(value);
       if (bytes < base) {
         return bytes + ' ' + units[0];
       }
@@ -573,20 +573,20 @@ export class Jinja2NunjucksProcessor {
    * 从模板中提取变量 (优先使用 nunjucks AST 解析)
    * 提供最准确的变量提取和模板验证
    */
-  public extractVariables(template: string): Jinja2Variable[] {
+  public extractVariables(_template: string): Jinja2Variable[] {
     try {
 
-      return this.extractVariablesFromAST(template);
-    } catch (error) {
-      Logger.warn('nunjucks AST 解析失败，尝试 nunjucks 编译验证:', error);
+      return this.extractVariablesFromAST(_template);
+    } catch (_error) {
+      Logger.warn('nunjucks AST 解析失败，尝试 nunjucks 编译验证:', _error);
 
       try {
 
-        return this.extractVariablesWithNunjucksValidation(template);
+        return this.extractVariablesWithNunjucksValidation(_template);
       } catch (fallbackError) {
         Logger.warn('nunjucks 验证失败，回退到正则表达式方法:', fallbackError);
 
-        return this.extractVariablesWithRegex(template);
+        return this.extractVariablesWithRegex(_template);
       }
     }
   }
@@ -594,10 +594,10 @@ export class Jinja2NunjucksProcessor {
   /**
    * 使用 nunjucks 编译验证 + 正则表达式提取 (备选方法)
    */
-  private extractVariablesWithNunjucksValidation(template: string): Jinja2Variable[] {
+  private extractVariablesWithNunjucksValidation(_template: string): Jinja2Variable[] {
 
     try {
-      nunjucks.compile(template, this.env);
+      nunjucks.compile(_template, this.env);
     } catch (validationError) {
 
       Logger.warn(
@@ -607,24 +607,24 @@ export class Jinja2NunjucksProcessor {
     }
 
 
-    const extractedVariables = this.extractVariablesWithRegex(template);
+    const extractedVariables = this.extractVariablesWithRegex(_template);
 
 
-    return this.enrichVariablesWithNunjucksContext(extractedVariables, template);
+    return this.enrichVariablesWithNunjucksContext(extractedVariables, _template);
   }
 
   /**
    * 基于AST解析提取变量
    * 使用nunjucks内部API进行更精确的模板分析
    */
-  private extractVariablesFromAST(template: string): Jinja2Variable[] {
+  private extractVariablesFromAST(_template: string): Jinja2Variable[] {
     const variables: Jinja2Variable[] = [];
     const processedNames = new Set<string>();
 
     try {
 
       const nunjucksInternal = nunjucks as unknown as NunjucksInternal;
-      const parser = nunjucksInternal.parser as NunjucksParser | undefined;
+      const parser = nunjucksInternal.parser;
       const nodes = nunjucksInternal.nodes;
 
       if (!parser || typeof parser.parse !== 'function' || !nodes) {
@@ -632,7 +632,7 @@ export class Jinja2NunjucksProcessor {
       }
 
 
-      const ast = parser.parse(template, [], {});
+      const ast = parser.parse(_template, [], {});
 
 
       this.extractVariablesFromNode(ast, variables, processedNames);
@@ -648,8 +648,8 @@ export class Jinja2NunjucksProcessor {
         extractionMethod: 'nunjucks' as const,
         valid: true,
       }));
-    } catch (error) {
-      throw new Error(`AST解析失败: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (_error) {
+      throw new Error(`AST解析失败: ${_error instanceof Error ? _error.message : String(_error)}`);
     }
   }
 
@@ -798,7 +798,7 @@ export class Jinja2NunjucksProcessor {
     variables: Jinja2Variable[],
     processedNames: Set<string>
   ): void {
-    if (node.target && node.target.value && node.val && node.val.value) {
+    if (node.target?.value && node.val?.value) {
       const fullVarName = `${node.target.value}.${node.val.value}`;
       if (!processedNames.has(fullVarName)) {
         variables.push({
@@ -851,7 +851,7 @@ export class Jinja2NunjucksProcessor {
             } else if (typeof filterName === 'string') {
 
               const existingVar = variables.find(v => v.name === varName);
-              if (existingVar && existingVar.filters && !existingVar.filters.includes(filterName)) {
+              if (existingVar?.filters && !existingVar.filters.includes(filterName)) {
                 existingVar.filters.push(filterName);
               }
             }
@@ -868,7 +868,7 @@ export class Jinja2NunjucksProcessor {
   /**
    * 使用正则表达式进行变量提取 (备选方法)
    */
-  private extractVariablesWithRegex(template: string): Jinja2Variable[] {
+  private extractVariablesWithRegex(_template: string): Jinja2Variable[] {
     const variables: Jinja2Variable[] = [];
     const regex = /\{\{\s*([^}]+)\s*\}\}/g;
     const conditionRegex = /\{%\s*(if|elif|for)\s+([^%]+)\s*%}/g;
@@ -876,7 +876,7 @@ export class Jinja2NunjucksProcessor {
 
 
     let match;
-    while ((match = regex.exec(template)) !== null) {
+    while ((match = regex.exec(_template)) !== null) {
       const expr = match[1].trim();
       const parsed = this.parseExpressionWithFilters(expr);
 
@@ -894,7 +894,7 @@ export class Jinja2NunjucksProcessor {
     }
 
 
-    while ((match = conditionRegex.exec(template)) !== null) {
+    while ((match = conditionRegex.exec(_template)) !== null) {
       const condition = match[2].trim();
       const vars = this.extractVariablesFromExpression(condition);
 
@@ -920,7 +920,7 @@ export class Jinja2NunjucksProcessor {
    */
   private enrichVariablesWithNunjucksContext(
     variables: Jinja2Variable[],
-    template: string
+    _template: string
   ): Jinja2Variable[] {
 
     return variables.map(variable => {
@@ -938,12 +938,12 @@ export class Jinja2NunjucksProcessor {
           valid: true,
           extractionMethod: 'nunjucks' as const,
         };
-      } catch (error) {
+      } catch (_error) {
 
         return {
           ...variable,
           valid: false,
-          validationError: error instanceof Error ? error.message : String(error),
+          validationError: _error instanceof Error ? _error.message : String(_error),
           extractionMethod: 'nunjucks' as const,
         };
       }
@@ -1176,8 +1176,8 @@ export class Jinja2NunjucksProcessor {
   /**
    * 生成演示SQL
    */
-  public generateDemoSQL(template: string): { sql: string; variables: Jinja2Variable[] } {
-    const variables = this.extractVariables(template);
+  public generateDemoSQL(_template: string): { sql: string; variables: Jinja2Variable[] } {
+    const variables = this.extractVariables(_template);
     const context: Record<string, unknown> = {};
 
 
@@ -1186,7 +1186,7 @@ export class Jinja2NunjucksProcessor {
     });
 
 
-    const sql = this.renderTemplate(template, context);
+    const sql = this.renderTemplate(_template, context);
 
     return { sql, variables };
   }
@@ -1194,28 +1194,28 @@ export class Jinja2NunjucksProcessor {
   /**
    * 使用自定义变量渲染模板
    */
-  public renderWithCustomVariables(template: string, variables: Record<string, unknown>): string {
-    return this.renderTemplate(template, variables);
+  public renderWithCustomVariables(_template: string, variables: Record<string, unknown>): string {
+    return this.renderTemplate(_template, variables);
   }
 
   /**
    * 验证模板语法
    */
-  public validateTemplate(template: string): { valid: boolean; errors: string[] } {
+  public validateTemplate(_template: string): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     try {
 
-      if (!template.includes('{{') && !template.includes('{%')) {
+      if (!_template.includes('{{') && !_template.includes('{%')) {
         return { valid: true, errors: [] };
       }
 
 
-      nunjucks.compile(template, this.env);
+      nunjucks.compile(_template, this.env);
 
       return { valid: true, errors: [] };
-    } catch (error) {
-      errors.push(`Syntax error: ${error instanceof Error ? error.message : String(error)}`);
+    } catch (_error) {
+      errors.push(`Syntax error: ${_error instanceof Error ? _error.message : String(_error)}`);
       return { valid: false, errors };
     }
   }
@@ -1254,8 +1254,8 @@ export class Jinja2NunjucksProcessor {
   /**
    * 获取模板预览
    */
-  public getTemplatePreview(template: string, maxLength: number = 100): string {
-    let preview = template.replace(/\{\{\s*([^}]+)\s*\}\}/g, '{{$1}}');
+  public getTemplatePreview(_template: string, maxLength: number = 100): string {
+    let preview = _template.replace(/\{\{\s*([^}]+)\s*\}\}/g, '{{$1}}');
     preview = preview.replace(/\{%\s*([^%]+)\s*%}/g, '{%$1%}');
 
     if (preview.length > maxLength) {
@@ -1276,9 +1276,9 @@ export class Jinja2NunjucksProcessor {
     unknownFilters.forEach(filterName => {
       try {
         this.env.getFilter(filterName);
-      } catch (error) {
+      } catch (_error) {
 
-        this.env.addFilter(filterName, (value: unknown, ...args: unknown[]) => {
+        this.env.addFilter(filterName, (value: unknown, ..._args: unknown[]) => {
           Logger.warn(`Unknown filter "${filterName}" ignored, returning original value`);
           return value;
         });

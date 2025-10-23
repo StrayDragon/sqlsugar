@@ -4,7 +4,7 @@
  * Type-safe data processing and context management
  */
 
-import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
+import type { Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
 
 /**
  * Type-safe variable processing context for Nunjucks rendering

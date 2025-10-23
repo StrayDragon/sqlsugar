@@ -7,10 +7,8 @@
 import type {
   EnhancedVariable,
   Jinja2VariableValue,
-  VariableChangeEventV2,
   Jinja2VariableType
 } from '../types.js';
-import type { SerializableVariableState } from '../types/data-processing.js';
 import { validateValue } from './variable-utils.js';
 
 /**
@@ -82,7 +80,7 @@ export class VariableStateManager {
       type: variable.type,
       history: [{
         value: defaultValue,
-        type: variable.type as Jinja2VariableType,
+        type: variable.type,
         timestamp: new Date(),
         changeReason: 'user-input' as const
       }],

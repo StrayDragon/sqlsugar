@@ -6,7 +6,6 @@
 
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
-import { repeat } from 'lit/directives/repeat.js';
 import type {
   EnhancedVariable,
   TemplateHighlight,
@@ -364,9 +363,6 @@ export class TemplateHighlighter extends LitElement {
     // First, highlight all {{ variable }} patterns
     const variablePattern = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}/g;
     let offset = 0;
-
-    // Sort variables by name length to handle overlapping matches correctly
-    const sortedVars = [...variables].sort((a, b) => b.name.length - a.name.length);
 
     variablePattern.lastIndex = 0;
     let match;

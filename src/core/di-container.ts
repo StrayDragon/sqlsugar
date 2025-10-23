@@ -98,7 +98,10 @@ export class DIContainer {
       if (!service.instance) {
         service.instance = (service.factory as ServiceFactory<T>)();
       }
-      return service.instance!;
+      if (!service.instance) {
+        throw new Error(`Failed to initialize service: ${key}`);
+      }
+      return service.instance;
     } else {
 
       return (service.factory as ServiceFactory<T>)();
@@ -144,7 +147,7 @@ export class DIContainer {
    */
   public remove(key: string): void {
     const service = this.services.get(key);
-    if (service && service.instance) {
+    if (service?.instance) {
       if (isDisposable(service.instance)) {
         try {
           service.instance.dispose();

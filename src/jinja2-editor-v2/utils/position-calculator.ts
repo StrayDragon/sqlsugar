@@ -58,8 +58,7 @@ export function calculatePopoverPosition(
     placement,
     rect,
     containerRect,
-    dimensions,
-    availableSpace
+    dimensions
   );
 
   return {
@@ -173,8 +172,7 @@ function calculateCoordinates(
   placement: PopoverPosition['placement'],
   targetRect: DOMRect,
   containerRect: DOMRect,
-  dimensions: typeof POPOVER_DIMENSIONS,
-  availableSpace: PopoverPosition['availableSpace']
+  dimensions: typeof POPOVER_DIMENSIONS
 ): { x: number; y: number } {
   const targetCenterX = targetRect.left + targetRect.width / 2 - containerRect.left;
   const targetCenterY = targetRect.top + targetRect.height / 2 - containerRect.top;

@@ -7,7 +7,6 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import { classMap } from 'lit/directives/class-map.js';
-import { styleMap } from 'lit/directives/style-map.js';
 import { unsafeHTML } from 'lit/directives/unsafe-html.js';
 import SqlHighlighter from '../utils/sql-highlighter.js';
 import type {
@@ -603,7 +602,7 @@ export class SqlPreviewV2 extends LitElement {
     }
 
     this.renderTimeout = window.setTimeout(() => {
-      this.performRender();
+      void this.performRender();
     }, 300); // Debounce for 300ms
   }
 
@@ -752,13 +751,13 @@ export class SqlPreviewV2 extends LitElement {
   }
 
   private handleCopyResult() {
-    navigator.clipboard.writeText(this.renderedSQL).then(() => {
+    void navigator.clipboard.writeText(this.renderedSQL).then(() => {
       this.showNotification('SQL已复制到剪贴板');
     });
   }
 
   private handleCopyTemplate() {
-    navigator.clipboard.writeText(this.template).then(() => {
+    void navigator.clipboard.writeText(this.template).then(() => {
       this.showNotification('模板已复制到剪贴板');
     });
   }
@@ -924,14 +923,6 @@ export class SqlPreviewV2 extends LitElement {
     const sourceLines = sourceText.split('\n');
     const sourceLineHeight = sourceScrollHeight / sourceLines.length;
     const startLineIndex = Math.floor(sourceScrollTop / sourceLineHeight);
-    const endLineIndex = Math.min(
-      Math.ceil((sourceScrollTop + sourceScrollHeight) / sourceLineHeight),
-      sourceLines.length - 1
-    );
-
-    // 获取目标文本的行数
-    const targetLines = targetText.split('\n');
-    const targetLineHeight = targetScrollHeight / targetLines.length;
 
     // 使用简单的线性映射作为基础
     const sourceLinePosition = startLineIndex / sourceLines.length;

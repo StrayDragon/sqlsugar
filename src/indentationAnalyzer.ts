@@ -415,12 +415,6 @@ export class IndentationPatternAnalyzer {
     return lines[index] || '';
   }
 
-  private getLineTextFromPattern(): string {
-
-
-    return '';
-  }
-
   private getHierarchicalIndent(lineType: string, pattern: IndentationPattern): string {
     switch (lineType) {
       case 'WHERE':

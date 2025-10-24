@@ -1,4 +1,4 @@
-import { Logger } from './logger';
+import { Logger } from '../../core/logger';
 
 /**
  * 精确缩进同步器 - 追求100%一致的缩进保持

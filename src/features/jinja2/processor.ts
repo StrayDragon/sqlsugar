@@ -1,5 +1,5 @@
 import * as nunjucks from 'nunjucks';
-import { Logger } from './core/logger';
+import { Logger } from '../../core/logger';
 
 export type Jinja2VariableValue =
   | string

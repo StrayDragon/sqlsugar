@@ -2,11 +2,11 @@ import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 
-import { ExtensionCore } from './core/extension-core';
-import { Logger } from './core/logger';
-import { Jinja2Variable } from './jinja2-nunjucks-processor';
-import { Jinja2NunjucksHandler } from './jinja2-nunjucks-handler';
-import { getSqlSugarOutputChannel } from './extension';
+import { Logger } from '../../core/logger';
+import { getOutputChannel } from '../../core/extension';
+import { DIContainer } from '../../core/di-container';
+import { Jinja2Variable } from './processor';
+import { Jinja2NunjucksHandler } from './command-handler';
 
 /**
  * WebView 消息类型
@@ -46,7 +46,7 @@ export class Jinja2WebviewEditorV2 {
    * 获取全局输出频道
    */
   private static getOutputChannel(): vscode.OutputChannel | undefined {
-    return getSqlSugarOutputChannel();
+    return getOutputChannel();
   }
 
   /**
@@ -91,9 +91,10 @@ export class Jinja2WebviewEditorV2 {
         const editor = new Jinja2WebviewEditorV2();
 
       try {
-        const extensionCore = ExtensionCore.getInstance();
-        editor.context = extensionCore['context'];
-        editor.extensionPath = extensionCore['context'].extensionPath;
+        const container = DIContainer.getInstance();
+        const context = container.get<vscode.ExtensionContext>('context');
+        editor.context = context;
+        editor.extensionPath = context.extensionPath;
       } catch (_error) {
         editor.extensionPath = process.cwd();
       }

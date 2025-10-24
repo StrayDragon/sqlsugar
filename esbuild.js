@@ -169,7 +169,7 @@ async function buildExtension() {
 async function buildJinja2EditorV2() {
     const ctx = await esbuild.context({
         entryPoints: [
-            'src/jinja2-editor-v2/index.ts'
+            'src/features/jinja2/ui/index.ts'
         ],
         bundle: true,
         format: 'esm',

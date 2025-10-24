@@ -1,11 +1,11 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { Logger } from './logger';
+import { Logger } from '../../core/logger';
 
-import { Result } from '../types/result';
+import { Result } from '../../core/result';
 import { LanguageHandler, LanguageType, QuoteType } from './language-handler';
-import { PreciseIndentSyncManager } from './precise-indent-sync';
+import { PreciseIndentSyncManager } from './indent-sync';
 
 /**
  * 临时文件信息接口
@@ -31,9 +31,9 @@ export class TempFileManager {
   private languageHandler: LanguageHandler;
   private preciseIndentSync: PreciseIndentSyncManager;
 
-  constructor(languageHandler: LanguageHandler, preciseIndentSync: PreciseIndentSyncManager) {
+  constructor(languageHandler: LanguageHandler) {
     this.languageHandler = languageHandler;
-    this.preciseIndentSync = preciseIndentSync;
+    this.preciseIndentSync = new PreciseIndentSyncManager();
   }
 
   /**

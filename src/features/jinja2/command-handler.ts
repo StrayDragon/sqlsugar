@@ -1,12 +1,12 @@
 import * as vscode from 'vscode';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { Logger } from './core/logger';
+import { Logger } from '../../core/logger';
 
-import { Jinja2NunjucksProcessor, Jinja2Variable } from './jinja2-nunjucks-processor';
-import { Jinja2WebviewEditorV2 } from './jinja2-webview-v2';
-import type { VariableProcessingContext } from './jinja2-editor-v2/types/data-processing.js';
-import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy-placeholder-processor';
+import { Jinja2NunjucksProcessor, Jinja2Variable } from './processor';
+import { Jinja2WebviewEditorV2 } from './webview';
+import type { VariableProcessingContext } from './ui/types/data-processing';
+import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy';
 
 /**
  * 占位符检测结果

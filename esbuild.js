@@ -244,7 +244,7 @@ async function buildJinja2EditorV2() {
             '.ts': 'ts',
             '.js': 'js',
         },
-        tsconfig: './tsconfig.components.json',
+        tsconfig: './tsconfig.json',
         plugins: [
             esbuildProblemMatcherPlugin,
         ],

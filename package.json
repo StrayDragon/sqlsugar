@@ -235,7 +235,7 @@
     "vscode:prepublish": "pnpm run package",
     "compile": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js",
     "package": "pnpm run check-types && pnpm run lint && pnpm run build:declarations && node esbuild.js --production",
-    "build:declarations": "tsc --declaration --emitDeclarationOnly --project tsconfig.declarations.json",
+    "build:declarations": "tsc --declaration --emitDeclarationOnly --outDir ./dist/types",
     "vsix": "vsce package --no-yarn --no-dependencies --out sqlsugar.vsix",
     "check-types": "tsc --noEmit",
     "lint": "eslint src",

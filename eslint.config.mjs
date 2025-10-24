@@ -64,11 +64,11 @@ export default [
     }
   },
   {
-    files: ['src/jinja2-editor/**/*.{ts,js}'],
+    files: ['src/jinja2-editor-v2/**/*.{ts,js}', 'src/webview/**/*.{ts,js}'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: './tsconfig.components.json',
+        project: './tsconfig.json',
         tsconfigRootDir: '.',
         ecmaVersion: 2022,
         sourceType: 'module'

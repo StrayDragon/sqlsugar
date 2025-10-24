@@ -111,9 +111,10 @@ just deep-clean      # Clean including node_modules
 ## Build Configuration
 
 ### TypeScript Configuration
-- **Main Extension**: `tsconfig.json` - CommonJS output for VS Code/Cursor compatibility
-- **Component Build**: `tsconfig.components.json` - ESM output for browser components
-- **Declarations**: `tsconfig.declarations.json` - Type declaration generation
+- **Single Configuration**: `tsconfig.json` - Unified configuration for all builds
+  - CommonJS output for VS Code/Cursor extension compatibility
+  - Supports both Node.js (extension) and browser (webview) targets
+  - Type declaration generation included
 
 ### ESBuild Configuration
 - **Extension Build**: Outputs to `dist/extension.cjs` (CommonJS)

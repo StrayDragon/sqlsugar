@@ -1,66 +1,66 @@
-# Jinja2 Template Feature
+# Jinja2 模板功能
 
-## Overview
+## 概述
 
-Provides visual editing for Jinja2 SQL templates with variable substitution, real-time preview, and intelligent type inference.
+为 Jinja2 SQL 模板提供可视化编辑，支持变量替换、实时预览和智能类型推断。
 
-## Components
+## 组件
 
-### Core
-- **command-handler.ts**: Implements `sqlsugar.copyJinja2Template` command
-- **processor.ts**: Nunjucks-based Jinja2 template rendering
-- **webview.ts**: WebView panel management
-- **sqlalchemy.ts**: SQLAlchemy placeholder (`:param`) support
+### 核心
+- **command-handler.ts**：实现 `sqlsugar.copyJinja2Template` 命令
+- **processor.ts**：基于 Nunjucks 的 Jinja2 模板渲染
+- **webview.ts**：WebView 面板管理
+- **sqlalchemy.ts**：SQLAlchemy 占位符（`:param`）支持
 
-### UI (Visual Editor)
-- **ui/editor/**: Main editor components (Jinja2EditorV2, SqlPreviewV2, etc.)
-- **ui/components/**: Reusable UI components (Button, Input, Select)
-- **ui/utils/**: Utilities (template parser, keyboard navigation, etc.)
-- **ui/styles/**: Design system and animations
-- **ui/types/**: TypeScript type definitions
+### UI（可视化编辑器）
+- **ui/editor/**：主编辑器组件（Jinja2EditorV2、SqlPreviewV2 等）
+- **ui/components/**：可复用 UI 组件（Button、Input、Select）
+- **ui/utils/**：工具（模板解析器、键盘导航等）
+- **ui/styles/**：设计系统和动画
+- **ui/types/**：TypeScript 类型定义
 
-## Workflow
+## 工作流程
 
-1. User selects Jinja2 template in code
-2. Command opens visual editor in WebView
-3. User edits variables directly in template (click-to-edit)
-4. Real-time SQL preview updates
-5. On submit, rendered SQL copied to clipboard
+1. 用户在代码中选择 Jinja2 模板
+2. 命令在 WebView 中打开可视化编辑器
+3. 用户直接在模板中编辑变量（点击编辑）
+4. 实时 SQL 预览更新
+5. 提交时，渲染的 SQL 复制到剪贴板
 
-## Features
+## 功能
 
-### Template Processing
-- **Variable Extraction**: Automatically detects `{{ variable }}` patterns
-- **Control Structures**: Supports `{% if %}`, `{% for %}`, etc.
-- **Filters**: Jinja2 filters like `|upper`, `|lower`, `|default`
-- **Type Inference**: Smart type detection from variable names
+### 模板处理
+- **变量提取**：自动检测 `{{ variable }}` 模式
+- **控制结构**：支持 `{% if %}`、`{% for %}` 等
+- **过滤器**：Jinja2 过滤器如 `|upper`、`|lower`、`|default`
+- **类型推断**：从变量名智能检测类型
 
-### Visual Editor
-- **Direct Interaction**: Click variables to edit inline
-- **Smart Popovers**: Context-aware editing with positioning
-- **Keyboard Navigation**: Full keyboard support (Tab, Enter, Escape)
-- **Syntax Highlighting**: SQL and template syntax highlighting
-- **Theme Support**: Adapts to VSCode theme
+### 可视化编辑器
+- **直接交互**：点击变量进行内联编辑
+- **智能弹出框**：具有定位的上下文感知编辑
+- **键盘导航**：完整键盘支持（Tab、Enter、Escape）
+- **语法高亮**：SQL 和模板语法高亮
+- **主题支持**：适配 VSCode 主题
 
-### SQLAlchemy Support
-- Mixed placeholders: Both `{{ jinja2 }}` and `:sqlalchemy` in same template
-- Automatic detection and handling
-- Separate value prompts for each type
+### SQLAlchemy 支持
+- 混合占位符：同一模板中同时支持 `{{ jinja2 }}` 和 `:sqlalchemy`
+- 自动检测和处理
+- 为每种类型分别提示值
 
-## Technology
+## 技术栈
 
-- **Lit**: Modern web components framework
-- **Nunjucks**: Jinja2-compatible template engine
-- **Highlight.js**: Syntax highlighting
-- **VSCode Webview API**: Native integration
+- **Lit**：现代 web components 框架
+- **Nunjucks**：Jinja2 兼容的模板引擎
+- **Highlight.js**：语法高亮
+- **VSCode Webview API**：原生集成
 
-## Configuration
+## 配置
 
-All settings under `sqlsugar.v2Editor.*`:
-- `popoverPlacement`: Popover positioning strategy
-- `highlightStyle`: Variable highlight style
-- `autoPreview`: Auto-update preview on changes
-- `keyboardNavigation`: Enable keyboard shortcuts
-- `animationsEnabled`: Enable animations
-- `showSuggestions`: Show value suggestions
+所有设置在 `sqlsugar.v2Editor.*` 下：
+- `popoverPlacement`：弹出框定位策略
+- `highlightStyle`：变量高亮样式
+- `autoPreview`：更改时自动更新预览
+- `keyboardNavigation`：启用键盘快捷键
+- `animationsEnabled`：启用动画
+- `showSuggestions`：显示值建议
 

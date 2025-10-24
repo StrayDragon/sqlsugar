@@ -1,35 +1,35 @@
-# Inline SQL Editing Feature
+# 内联 SQL 编辑功能
 
-## Overview
+## 概述
 
-Enables editing SQL strings embedded in code (Python, JavaScript, TypeScript, etc.) in a dedicated SQL file with automatic synchronization back to the source.
+支持在专用 SQL 文件中编辑嵌入在代码（Python、JavaScript、TypeScript 等）中的 SQL 字符串，并自动同步回源文件。
 
-## Components
+## 组件
 
-- **command-handler.ts**: Implements `sqlsugar.editInlineSQL` command
-- **temp-file-manager.ts**: Creates and manages temporary SQL files
-- **language-handler.ts**: Detects programming language and handles quote types
-- **indent-sync.ts**: Maintains precise indentation between source and temp file
+- **command-handler.ts**：实现 `sqlsugar.editInlineSQL` 命令
+- **temp-file-manager.ts**：创建和管理临时 SQL 文件
+- **language-handler.ts**：检测编程语言并处理引号类型
+- **indent-sync.ts**：维护源文件和临时文件之间的精确缩进
 
-## Workflow
+## 工作流程
 
-1. User selects SQL string in code
-2. Command extracts SQL, removes quotes
-3. Creates temporary `.sql` file in `.vscode/sqlsugar/temp/`
-4. Opens temp file in side-by-side editor
-5. On save, syncs changes back to original file
-6. Preserves indentation and quote style
+1. 用户在代码中选择 SQL 字符串
+2. 命令提取 SQL，移除引号
+3. 在 `.vscode/sqlsugar/temp/` 中创建临时 `.sql` 文件
+4. 在并排编辑器中打开临时文件
+5. 保存时，将更改同步回原始文件
+6. 保留缩进和引号样式
 
-## Supported Languages
+## 支持的语言
 
-- Python (single, double, triple quotes, f-strings)
-- JavaScript/TypeScript (single, double, template literals)
-- Generic (basic quote handling)
+- Python（单引号、双引号、三引号、f-strings）
+- JavaScript/TypeScript（单引号、双引号、模板字面量）
+- 通用（基本引号处理）
 
-## Key Features
+## 关键特性
 
-- **Smart Quote Detection**: Automatically detects and preserves quote style
-- **Precise Indentation**: Maintains exact indentation from original code
-- **SQL Validation**: Warns if selected text doesn't look like SQL
-- **Automatic Cleanup**: Removes temp files when editor closes
+- **智能引号检测**：自动检测并保留引号样式
+- **精确缩进**：维护原始代码的精确缩进
+- **SQL 验证**：如果选中文本不像 SQL 则发出警告
+- **自动清理**：编辑器关闭时移除临时文件
 

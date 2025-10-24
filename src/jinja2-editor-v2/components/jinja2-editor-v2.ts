@@ -1,6 +1,6 @@
 /**
- * Jinja2 Editor V2 - Simplified version following V1 pattern
- * Includes V2 features: template highlighting, variable interaction, left-right split layout
+ * Jinja2 Editor V2 - Modern visual template editor
+ * Features: template highlighting, variable interaction, left-right split layout
  */
 
 import { LitElement, html, css } from 'lit';
@@ -1011,11 +1011,11 @@ export class Jinja2EditorV2 extends LitElement {
       } else if (this.values[variable.name] !== undefined) {
         newValues[variable.name] = this.values[variable.name];
       } else {
-        // Prioritize V1 processor default values
+        // Use processor default values if available
         if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
           newValues[variable.name] = variable.defaultValue;
         } else {
-          // Only generate fallback defaults if V1 processor didn't provide a value
+          // Generate fallback defaults if processor didn't provide a value
           newValues[variable.name] = this.generateDefaultValue(variable.type);
         }
       }
@@ -1339,7 +1339,7 @@ export class Jinja2EditorV2 extends LitElement {
     });
 
     // Additional check: Also look for variables that might not be in variableValues yet
-    // but are in the variables array (from V1 processor)
+    // but are in the variables array (from processor)
     this.variables.forEach(variable => {
       if (!varNames.includes(variable.name) && condition.includes(variable.name)) {
         const regex = new RegExp(`\\b${this.escapeRegex(variable.name)}\\b`, 'g');
@@ -1936,8 +1936,8 @@ export class Jinja2EditorV2 extends LitElement {
       this.recordVariableChange('NUNJUCKS_ERROR', null, { error: errorMessage }, 'template_render', 'after_render',
         `Nunjucks render failed: ${errorMessage}`);
 
-      // 作为后备，尝试使用原来的方法（但应该不再需要）
-      console.warn('Nunjucks rendering failed, falling back to legacy method:', error);
+      // 作为后备，尝试使用模拟渲染方法
+      console.warn('Nunjucks rendering failed, falling back to simulation method:', error);
       return this.simulateTemplateRendering(template);
     }
   }

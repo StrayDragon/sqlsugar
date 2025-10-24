@@ -1,7 +1,7 @@
 /**
  * Jinja2 Editor V2 Type Definitions
  *
- * Independent type definitions for V2 editor, extracted from V1 to make V2 fully independent
+ * Independent type definitions for V2 editor
  */
 
 /**

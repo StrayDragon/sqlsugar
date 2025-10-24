@@ -1,7 +1,7 @@
 /**
  * Button Component for V2 Editor
  *
- * Simple button component extracted from V1 to make V2 independent
+ * Simple reusable button component
  */
 
 import { LitElement, html, css } from 'lit';

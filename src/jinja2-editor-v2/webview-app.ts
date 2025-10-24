@@ -76,10 +76,11 @@ export class SqlsugarWebviewV2App extends LitElement {
     });
   }
 
-  private handleFallbackToV1() {
+  private handleError(ev: CustomEvent) {
     const g = globalThis as unknown as { vscode?: { postMessage: (msg: unknown) => void } };
     g.vscode?.postMessage({
-      command: 'fallbackToV1',
+      command: 'error',
+      error: ev.detail.error,
       template: this.templateText,
       variables: this.variables
     });
@@ -94,7 +95,7 @@ export class SqlsugarWebviewV2App extends LitElement {
           .config=${this.config}
           .title="Jinja2 V2 Template Editor"
           @template-submit=${this.handleSubmit}
-          @template-error=${() => this.handleFallbackToV1()}
+          @template-error=${this.handleError}
         ></jinja2-editor-v2>
       </div>
     `;

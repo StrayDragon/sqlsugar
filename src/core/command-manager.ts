@@ -83,13 +83,6 @@ export class CommandManager {
     const commands = [
       { name: 'editInlineSQL', callback: this.handleEditInlineSQL.bind(this) },
       { name: 'copyJinja2Template', callback: this.handleCopyJinja2Template.bind(this) },
-      { name: '_devGetMetrics', callback: this.handleGetMetrics.bind(this) },
-      { name: 'toggleDebugMode', callback: this.handleToggleDebugMode.bind(this) },
-      { name: 'copyJinja2TemplateQuick', callback: this.handleCopyJinja2TemplateQuick.bind(this) },
-      {
-        name: 'copyJinja2TemplateWebviewV2',
-        callback: this.handleCopyJinja2TemplateWebviewV2.bind(this),
-      },
     ];
 
     // 验证命令配置
@@ -213,55 +206,11 @@ export class CommandManager {
   }
 
   /**
-   * 处理Jinja2模板复制命令
+   * 处理Jinja2模板复制命令 - 使用可视化编辑器
    */
   private async handleCopyJinja2Template(): Promise<void> {
     await this.safeExecuteCommand('copyJinja2Template', async () => {
-      await Jinja2NunjucksHandler.handleCopyJinja2Template();
-    }, 'Failed to process Jinja2 template');
-  }
-
-  /**
-   * 快速处理Jinja2模板
-   */
-  private async handleCopyJinja2TemplateQuick(): Promise<void> {
-    await this.safeExecuteCommand('copyJinja2TemplateQuick', async () => {
-      await Jinja2NunjucksHandler.handleCopyJinja2Template('quick');
-    }, 'Failed to process Jinja2 template');
-  }
-
-  /**
-   * WebView V2处理Jinja2模板
-   */
-  private async handleCopyJinja2TemplateWebviewV2(): Promise<void> {
-    await this.safeExecuteCommand('copyJinja2TemplateWebviewV2', async () => {
       await Jinja2NunjucksHandler.handleCopyJinja2Template('webviewV2');
-    }, 'Failed to process Jinja2 template with V2 editor');
-  }
-
-  /**
-   * 获取开发指标
-   */
-  private async handleGetMetrics(): Promise<void> {
-    await this.safeExecuteCommand('_devGetMetrics', async () => {
-      const extensionCore = ExtensionCore.getInstance(this.context);
-      const metrics = extensionCore.getMetrics();
-
-      vscode.window.showInformationMessage(
-        'SQLSugar Dev Metrics:\n' +
-          `• Active Disposables: ${metrics.activeDisposables}\n` +
-          `• Active Temp Files: ${metrics.activeTempFiles}\n` +
-          `• Total Commands: ${metrics.totalCommandInvocations}`
-      );
-    }, 'Failed to get metrics');
-  }
-
-  /**
-   * 切换调试模式
-   */
-  private async handleToggleDebugMode(): Promise<void> {
-    await this.safeExecuteCommand('toggleDebugMode', async () => {
-      vscode.window.showInformationMessage('Debug mode toggle feature coming soon');
-    }, 'Failed to toggle debug mode');
+    }, 'Failed to process Jinja2 template with visual editor');
   }
 }

@@ -164,52 +164,7 @@ async function buildExtension() {
 
 
 /**
- * WebView App 构建（Lit 根组件与业务逻辑）
- */
-async function buildWebviewApp() {
-    const ctx = await esbuild.context({
-        entryPoints: [
-            'src/webview/index.ts'
-        ],
-        bundle: true,
-        format: 'esm',
-        minify: production,
-        sourcemap: !production,
-        sourcesContent: false,
-        platform: 'browser',
-        outfile: 'dist/webview/app.js',
-        external: ['vscode'],
-        // Note: 'lit' should NOT be external for webview since it needs to run in browser
-        logLevel: 'silent',
-        treeShaking: true,
-        legalComments: 'none',
-        minifyIdentifiers: production,
-        minifySyntax: production,
-        minifyWhitespace: production,
-        metafile: false,
-        define: {
-            'process.env.NODE_ENV': production ? '"production"' : '"development"'
-        },
-        loader: {
-            '.ts': 'ts',
-            '.js': 'js',
-        },
-        tsconfig: './tsconfig.json',
-        plugins: [
-            esbuildProblemMatcherPlugin,
-        ],
-    });
-
-    if (watch) {
-        await ctx.watch();
-    } else {
-        await ctx.rebuild();
-        await ctx.dispose();
-    }
-}
-
-/**
- * Jinja2 Editor V2构建（新一代可视化编辑器）
+ * Jinja2 Editor V2构建（可视化编辑器）
  */
 async function buildJinja2EditorV2() {
     const ctx = await esbuild.context({
@@ -267,10 +222,10 @@ async function main() {
 		buildPromises = [buildExtension()];
 	} else if (webviewOnly) {
 		// 只构建WebView组件
-		buildPromises = [buildJinja2EditorV2(), buildWebviewApp()];
+		buildPromises = [buildJinja2EditorV2()];
     } else {
-        // 默认：并行构建主扩展、Jinja2 Editor V2 与 WebView App
-        buildPromises = [buildExtension(), buildJinja2EditorV2(), buildWebviewApp()];
+        // 默认：并行构建主扩展和 Jinja2 Editor V2
+        buildPromises = [buildExtension(), buildJinja2EditorV2()];
 	}
 
 	if (!watch) {

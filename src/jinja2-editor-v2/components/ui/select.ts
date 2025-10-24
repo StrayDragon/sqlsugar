@@ -1,7 +1,7 @@
 /**
  * Select Component for V2 Editor
  *
- * Simple select component extracted from V1 to make V2 independent
+ * Simple reusable select component
  */
 
 import { LitElement, html, css } from 'lit';

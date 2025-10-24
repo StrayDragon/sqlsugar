@@ -22,20 +22,8 @@
         "title": "SQLSugar: Edit Inline SQL"
       },
       {
-        "command": "sqlsugar.toggleDebugMode",
-        "title": "SQLSugar: Toggle Debug Mode"
-      },
-      {
         "command": "sqlsugar.copyJinja2Template",
-        "title": "SQLSugar: Copy Jinja2 Template SQL (Generate Demo)"
-      },
-      {
-        "command": "sqlsugar.copyJinja2TemplateQuick",
-        "title": "SQLSugar: Copy Jinja2 Template SQL (Quick Demo)"
-      },
-      {
-        "command": "sqlsugar.copyJinja2TemplateWebviewV2",
-        "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor V2)"
+        "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor)"
       }
     ],
     "menus": {
@@ -46,23 +34,9 @@
           "group": "1_modification"
         },
         {
-          "command": "sqlsugar.copyJinja2TemplateWebviewV2",
+          "command": "sqlsugar.copyJinja2Template",
           "when": "editorHasSelection",
           "group": "1_modification"
-        }
-      ],
-      "commandPalette": [
-        {
-          "command": "sqlsugar.toggleDebugMode"
-        },
-        {
-          "command": "sqlsugar.copyJinja2Template"
-        },
-        {
-          "command": "sqlsugar.copyJinja2TemplateQuick"
-        },
-        {
-          "command": "sqlsugar.copyJinja2TemplateWebviewV2"
         }
       ]
     },

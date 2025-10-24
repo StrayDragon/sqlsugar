@@ -79,7 +79,7 @@ export class Jinja2WebviewEditorV2 {
   }
 
   /**
-   * 显示 V2 WebView 编辑器（使用V1处理器提取变量）
+   * 显示 V2 WebView 编辑器
    */
   public static async showEditor(
     template: string,
@@ -101,12 +101,12 @@ export class Jinja2WebviewEditorV2 {
       editor.resolvePromise = resolve;
       editor.rejectPromise = reject;
 
-      // 使用V1的成熟处理器提取变量，确保能识别{% if %}中的变量
+      // 提取变量，确保能识别{% if %}中的变量
       try {
         const handler = Jinja2NunjucksHandler.getInstance();
         const extractedVariables = handler.extractVariables(template);
 
-        Logger.info(`V2 Editor: Using V1 processor extracted ${extractedVariables.length} variables from template`);
+        Logger.info(`V2 Editor: Extracted ${extractedVariables.length} variables from template`);
 
         // 记录提取到的变量，用于调试
         extractedVariables.forEach((variable, index) => {
@@ -115,8 +115,8 @@ export class Jinja2WebviewEditorV2 {
 
         editor.show(template, extractedVariables, title);
       } catch (_error) {
-        Logger.warn('V2 Editor: V1 processor failed, using provided variables:', _error);
-        // 如果V1处理器失败，回退到传入的变量
+        Logger.warn('V2 Editor: Variable extraction failed, using provided variables:', _error);
+        // 如果提取失败，回退到传入的变量
         editor.show(template, _variables, title);
       }
       })();
@@ -124,17 +124,17 @@ export class Jinja2WebviewEditorV2 {
   }
 
   /**
-   * 静态方法：使用V1处理器提取变量（供外部调用）
+   * 静态方法：提取模板变量（供外部调用）
    */
-  public static extractVariablesUsingV1Processor(template: string): Jinja2Variable[] {
+  public static extractVariables(template: string): Jinja2Variable[] {
     try {
       const handler = Jinja2NunjucksHandler.getInstance();
       const variables = handler.extractVariables(template);
 
-      Logger.info(`V2 Editor: Extracted ${variables.length} variables using V1 processor`);
+      Logger.info(`V2 Editor: Extracted ${variables.length} variables`);
       return variables;
     } catch (_error) {
-      Logger.error('V2 Editor: Failed to extract variables using V1 processor:', _error);
+      Logger.error('V2 Editor: Failed to extract variables:', _error);
       return [];
     }
   }
@@ -465,7 +465,7 @@ export class Jinja2WebviewEditorV2 {
   }
 
   /**
-   * V2 WebView HTML - 使用V1相同架构
+   * V2 WebView HTML
    */
   private getAppHtml(
     webview: vscode.Webview,

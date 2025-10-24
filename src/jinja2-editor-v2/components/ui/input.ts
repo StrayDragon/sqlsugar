@@ -1,7 +1,7 @@
 /**
  * Input Component for V2 Editor
  *
- * Simple input component extracted from V1 to make V2 independent
+ * Simple reusable input component
  */
 
 import { LitElement, html, css } from 'lit';

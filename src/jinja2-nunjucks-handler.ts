@@ -171,7 +171,7 @@ export class Jinja2NunjucksHandler {
   ): Promise<boolean> {
     try {
 
-      // Use default values since V1 input dialog is removed
+      // Use default values for quick mode
       const context = this.getDefaultValues(variables);
 
       let sql = this.processor.renderWithCustomVariables(template, context);
@@ -202,7 +202,7 @@ export class Jinja2NunjucksHandler {
   ): Promise<boolean> {
     try {
 
-      // Use default values since V1 input dialog is removed
+      // Use default values for wizard mode
       const context = this.getDefaultValues(variables);
 
 
@@ -242,11 +242,11 @@ export class Jinja2NunjucksHandler {
 
       return true;
     } catch (error) {
-      // 如果V2编辑器出现错误，回退到V1编辑器
-      Logger.warn(`V2 webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
+      // 如果编辑器出现错误
+      Logger.warn(`Webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
 
       vscode.window.showErrorMessage(
-        `V2 Editor encountered an issue: ${error instanceof Error ? error.message : String(error)}`,
+        `Editor encountered an issue: ${error instanceof Error ? error.message : String(error)}`,
         { modal: false }
       );
 

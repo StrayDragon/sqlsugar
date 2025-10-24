@@ -2,7 +2,6 @@
  * Variable Utilities for V2 Editor
  *
  * Utility functions for variable validation, type checking, and value formatting
- * Extracted from V1 utilities to make V2 fully independent
  */
 
 import type { EnhancedVariable, Jinja2Variable, Jinja2VariableValue } from '../types.js';

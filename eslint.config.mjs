@@ -14,12 +14,11 @@ export default [
       'out/**',
       '*.d.ts',
       '*.js.map',
-      'src/**/*.d.ts',
-      'src/jinja2-editor/**/*'
+      'src/**/*.d.ts'
     ]
   },
   {
-    files: ['src/**/*.{ts,js}', '!src/jinja2-editor/**/*'],
+    files: ['src/**/*.{ts,js}'],
     languageOptions: {
       parser: tsparser,
       parserOptions: {

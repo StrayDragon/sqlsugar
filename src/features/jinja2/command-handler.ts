@@ -171,7 +171,7 @@ export class Jinja2NunjucksHandler {
   ): Promise<boolean> {
     try {
 
-      // Use default values for quick mode
+
       const context = this.getDefaultValues(variables);
 
       let sql = this.processor.renderWithCustomVariables(template, context);
@@ -202,7 +202,7 @@ export class Jinja2NunjucksHandler {
   ): Promise<boolean> {
     try {
 
-      // Use default values for wizard mode
+
       const context = this.getDefaultValues(variables);
 
 
@@ -237,12 +237,12 @@ export class Jinja2NunjucksHandler {
       const preview = this.processor.getTemplatePreview(template);
       const title = `V2 Jinja2 Template: ${preview}`;
 
-      // 显示V2编辑器
+
       await Jinja2WebviewEditorV2.showEditor(template, variables, title);
 
       return true;
     } catch (error) {
-      // 如果编辑器出现错误
+
       Logger.warn(`Webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
 
       vscode.window.showErrorMessage(
@@ -591,7 +591,7 @@ export class Jinja2NunjucksHandler {
       if (variable.defaultValue !== undefined) {
         context[variable.name] = variable.defaultValue;
       } else {
-        // Generate contextual default based on variable name and type
+
         const name = variable.name.toLowerCase();
         switch (variable.type) {
           case 'string':

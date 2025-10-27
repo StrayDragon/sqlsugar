@@ -25,7 +25,7 @@ export class InlineSQLCommandHandler {
     try {
       Logger.debug('Executing editInlineSQL command');
 
-      // 验证前置条件
+
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showInformationMessage('No active editor found');
@@ -37,7 +37,7 @@ export class InlineSQLCommandHandler {
         return;
       }
 
-      // 验证选中文本
+
       const selection = editor.selection;
       if (!selection || selection.isEmpty) {
         vscode.window.showInformationMessage('Please select SQL text to edit');
@@ -50,7 +50,7 @@ export class InlineSQLCommandHandler {
         return;
       }
 
-      // 验证是否为SQL
+
       if (!this.languageHandler.looksLikeSQL(selectedText)) {
         const confirm = await vscode.window.showWarningMessage(
           'Selected text may not be SQL. Continue?',
@@ -63,7 +63,7 @@ export class InlineSQLCommandHandler {
         }
       }
 
-      // 创建临时文件
+
       const result = await this.tempFileManager.createTempSQLFile(
         editor,
         selection,
@@ -79,7 +79,7 @@ export class InlineSQLCommandHandler {
         throw new Error('Failed to create temporary file - no URI returned');
       }
 
-      // 打开临时文件
+
       const doc = await vscode.workspace.openTextDocument(tempUri);
       await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 

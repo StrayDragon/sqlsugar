@@ -34,7 +34,7 @@ export class SqlPreviewV2 extends LitElement {
   @state() accessor viewMode: 'split' | 'rendered' | 'diff' = 'split';
   @state() accessor highlightedRendered: string = '';
   @state() accessor highlightedOriginal: string = '';
-  // syncScroll 现在由父组件控制，但仍需要作为属性接收
+
   @property({ type: Boolean }) accessor syncScroll: boolean = false;
 
   private renderTimeout: number | null = null;
@@ -560,10 +560,10 @@ export class SqlPreviewV2 extends LitElement {
 
     if (changedProperties.has('syncScroll')) {
       if (this.syncScroll) {
-        // 当启用联动滚动时，初始化滚动监听
+
         this.setupScrollSync();
       } else {
-        // 当禁用联动滚动时，清理监听器
+
         this.cleanupScrollSync();
       }
     }
@@ -572,7 +572,7 @@ export class SqlPreviewV2 extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
 
-    // Initialize SQL highlighter
+
     this.sqlHighlighter = new SqlHighlighter({
       theme: this.theme,
       fontSize: 14,
@@ -592,7 +592,7 @@ export class SqlPreviewV2 extends LitElement {
       clearTimeout(this.renderTimeout);
       this.renderTimeout = null;
     }
-    // 清理联动滚动监听器
+
     this.cleanupScrollSync();
   }
 
@@ -603,7 +603,7 @@ export class SqlPreviewV2 extends LitElement {
 
     this.renderTimeout = window.setTimeout(() => {
       void this.performRender();
-    }, 300); // Debounce for 300ms
+    }, 300);
   }
 
   private async performRender() {
@@ -618,13 +618,13 @@ export class SqlPreviewV2 extends LitElement {
     const startTime = performance.now();
 
     try {
-      // Simulate rendering process (replace with actual Nunjucks rendering)
+
       await new Promise(resolve => setTimeout(resolve, 100));
 
       let result = this.template;
       const usedVariables: string[] = [];
 
-      // Replace variables with their values
+
       Object.entries(this.values).forEach(([key, value]) => {
         const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
         if (regex.test(result)) {
@@ -646,7 +646,7 @@ export class SqlPreviewV2 extends LitElement {
         templateLength: this.template.length
       };
 
-      // Apply syntax highlighting
+
       this.highlightedRendered = this.highlightSQL(result);
       this.highlightedOriginal = this.highlightSQL(this.template);
 
@@ -711,7 +711,7 @@ export class SqlPreviewV2 extends LitElement {
       return result.html;
     } catch (error) {
       console.warn('SQL highlighting failed, using fallback:', error);
-      // Fallback to basic highlighting if highlight.js fails
+
       return this.fallbackSQLHighlight(sql);
     }
   }
@@ -720,32 +720,32 @@ export class SqlPreviewV2 extends LitElement {
    * Fallback SQL highlighting when highlight.js fails
    */
   private fallbackSQLHighlight(sql: string): string {
-    // Simple SQL syntax highlighting
+
     return sql
-      // SQL Keywords
+
       .replace(/\b(SELECT|FROM|WHERE|INSERT|UPDATE|DELETE|CREATE|DROP|ALTER|JOIN|INNER|LEFT|RIGHT|FULL|OUTER|ON|AS|AND|OR|NOT|IN|EXISTS|BETWEEN|LIKE|ORDER BY|GROUP BY|HAVING|LIMIT|OFFSET|UNION|ALL|DISTINCT|COUNT|SUM|AVG|MIN|MAX|CASE|WHEN|THEN|ELSE|END|NULL|IS|TRUE|FALSE)\b/gi, '<span class="sql-keyword">$1</span>')
-      // Strings
+
       .replace(/'([^']*)'/g, '<span class="sql-string">\'$1\'</span>')
-      // Numbers
+
       .replace(/\b(\d+)\b/g, '<span class="sql-number">$1</span>')
-      // Functions
+
       .replace(/\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g, '<span class="sql-function">$1</span>(')
-      // Operators
+
       .replace(/([=<>!]+|LIKE|IN|IS|AND|OR|NOT|BETWEEN)/gi, '<span class="sql-operator">$1</span>')
-      // Comments
+
       .replace(/(--.*$)/gm, '<span class="sql-comment">$1</span>');
   }
 
   private handleViewModeChange(mode: 'split' | 'rendered' | 'diff') {
     this.viewMode = mode;
 
-    // 当切换到分屏模式且联动滚动已启用时，重新初始化滚动同步
+
     if (mode === 'split' && this.syncScroll) {
       setTimeout(() => {
         this.setupScrollSync();
       }, 100);
     } else if (mode !== 'split') {
-      // 当离开分屏模式时，清理滚动同步
+
       this.cleanupScrollSync();
     }
   }
@@ -771,16 +771,16 @@ export class SqlPreviewV2 extends LitElement {
   }
 
   public setupScrollSync() {
-    // 等待下一个渲染周期以确保DOM已更新
+
     setTimeout(() => {
       this.initializeScrollContainers();
     }, 100);
 
-    // 添加额外的监听器来处理内容变化
+
     if (!this.contentUpdateObserver) {
       this.contentUpdateObserver = new MutationObserver(() => {
         if (this.syncScroll && this.viewMode === 'split') {
-          // 内容发生变化时重新初始化滚动容器
+
           setTimeout(() => {
             this.initializeScrollContainers();
           }, 50);
@@ -790,7 +790,7 @@ export class SqlPreviewV2 extends LitElement {
   }
 
   public cleanupScrollSync() {
-    // 移除事件监听器
+
     if (this.leftScrollContainer) {
       this.leftScrollContainer.removeEventListener('scroll', this.handleLeftScroll);
       this.leftScrollContainer = null;
@@ -800,7 +800,7 @@ export class SqlPreviewV2 extends LitElement {
       this.rightScrollContainer = null;
     }
 
-    // 清理内容变化观察器
+
     if (this.contentUpdateObserver) {
       this.contentUpdateObserver.disconnect();
       this.contentUpdateObserver = null;
@@ -808,7 +808,7 @@ export class SqlPreviewV2 extends LitElement {
   }
 
   private initializeScrollContainers() {
-    // 找到左右两栏的滚动容器
+
     const leftPane = this.shadowRoot?.querySelector('.split-pane:first-child .pane-content');
     const rightPane = this.shadowRoot?.querySelector('.split-pane:last-child .pane-content');
 
@@ -816,15 +816,15 @@ export class SqlPreviewV2 extends LitElement {
       this.leftScrollContainer = leftPane as HTMLElement;
       this.rightScrollContainer = rightPane as HTMLElement;
 
-      // 清理旧的事件监听器
+
       this.leftScrollContainer.removeEventListener('scroll', this.handleLeftScroll.bind(this));
       this.rightScrollContainer.removeEventListener('scroll', this.handleRightScroll.bind(this));
 
-      // 添加滚动事件监听器
+
       this.leftScrollContainer.addEventListener('scroll', this.handleLeftScroll.bind(this));
       this.rightScrollContainer.addEventListener('scroll', this.handleRightScroll.bind(this));
 
-      // 设置内容变化观察器
+
       if (this.contentUpdateObserver) {
         this.contentUpdateObserver.observe(leftPane, {
           childList: true,
@@ -865,7 +865,7 @@ export class SqlPreviewV2 extends LitElement {
 
       if (sourceScrollHeight <= 0) return;
 
-      // 获取目标元素
+
       const targetElement = direction === 'left-to-right'
         ? this.rightScrollContainer
         : this.leftScrollContainer;
@@ -874,7 +874,7 @@ export class SqlPreviewV2 extends LitElement {
 
       if (targetScrollHeight <= 0) return;
 
-      // 尝试使用行级映射，如果失败则使用简单的比例映射
+
       let targetScrollTop: number;
 
       try {
@@ -886,19 +886,19 @@ export class SqlPreviewV2 extends LitElement {
         );
       } catch (error) {
         console.warn('Line mapping failed, using ratio-based mapping:', error);
-        // 回退到简单的比例映射
+
         const scrollRatio = sourceScrollTop / sourceScrollHeight;
         targetScrollTop = scrollRatio * targetScrollHeight;
       }
 
-      // 平滑滚动到目标位置
+
       targetElement.scrollTo({
         top: targetScrollTop,
         behavior: 'smooth'
       });
 
     } finally {
-      // 重置同步标志，使用短暂延迟避免循环触发
+
       setTimeout(() => {
         this.isScrollingSync = false;
       }, 50);
@@ -911,7 +911,7 @@ export class SqlPreviewV2 extends LitElement {
     targetScrollHeight: number,
     direction: 'left-to-right' | 'right-to-left'
   ): number {
-    // 获取源文本和目标文本
+
     const sourceText = direction === 'left-to-right' ? this.template : this.renderedSQL;
     const targetText = direction === 'left-to-right' ? this.renderedSQL : this.template;
 
@@ -919,12 +919,12 @@ export class SqlPreviewV2 extends LitElement {
       throw new Error('Missing source or target text');
     }
 
-    // 计算源文本中当前可见的行范围
+
     const sourceLines = sourceText.split('\n');
     const sourceLineHeight = sourceScrollHeight / sourceLines.length;
     const startLineIndex = Math.floor(sourceScrollTop / sourceLineHeight);
 
-    // 使用简单的线性映射作为基础
+
     const sourceLinePosition = startLineIndex / sourceLines.length;
     const targetScrollTop = sourceLinePosition * targetScrollHeight;
 
@@ -932,7 +932,7 @@ export class SqlPreviewV2 extends LitElement {
   }
 
   private showNotification(message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
-    // 获取类型对应的颜色
+
     const typeColors = {
       info: 'var(--vscode-charts-blue)',
       success: 'var(--vscode-charts-green)',
@@ -964,13 +964,13 @@ export class SqlPreviewV2 extends LitElement {
     notification.textContent = message;
     document.body.appendChild(notification);
 
-    // 触发进入动画
+
     requestAnimationFrame(() => {
       notification.style.opacity = '1';
       notification.style.transform = 'translateX(0)';
     });
 
-    // 3秒后自动消失
+
     setTimeout(() => {
       notification.style.opacity = '0';
       notification.style.transform = 'translateX(100%)';

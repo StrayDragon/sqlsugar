@@ -12,7 +12,7 @@ export function registerJinja2Feature(
 ): void {
   Logger.debug('Registering Jinja2 feature');
 
-  // 注册命令
+
   const disposable = vscode.commands.registerCommand(
     'sqlsugar.copyJinja2Template',
     async () => {

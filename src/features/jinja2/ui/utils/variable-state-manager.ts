@@ -100,7 +100,7 @@ export class VariableStateManager {
       return variable.defaultValue;
     }
 
-    // Generate contextual default values based on variable name and type
+
     const name = variable.name.toLowerCase();
 
     switch (variable.type) {
@@ -193,11 +193,11 @@ export class VariableStateManager {
       return false;
     }
 
-    // Validate the new value
+
     const isValid = this.validateValue(value, type);
     const validationError = this.getValidationError(value, type);
 
-    // Create new state
+
     const newState: VariableState = {
       current: value,
       type: type as Jinja2VariableType,
@@ -215,13 +215,13 @@ export class VariableStateManager {
       lastModified: new Date()
     };
 
-    // Store old state for event
+
     const oldState = { ...currentState };
 
-    // Update state
+
     this.states.set(variableName, newState);
 
-    // Notify listeners
+
     this.notifyListeners({
       variableName,
       oldState,
@@ -239,7 +239,7 @@ export class VariableStateManager {
     const currentState = this.states.get(variableName);
     if (!currentState) return false;
 
-    // Convert current value to new type if possible
+
     const convertedValue = this.convertValueToType(currentState.current, newType);
 
     return this.updateValue(variableName, convertedValue, newType, 'user');
@@ -395,18 +395,18 @@ export class VariableStateManager {
 
     if (!state || !variable) return [];
 
-    // Get unique values from history
+
     const uniqueValues = new Set<Jinja2VariableValue>();
     state.history.forEach(entry => {
       uniqueValues.add(entry.value);
     });
 
-    // Convert to array and sort by frequency and recency
+
     const suggestions = Array.from(uniqueValues)
       .filter(value => value !== null && value !== undefined && value !== '')
       .slice(0, limit);
 
-    // Add some contextual suggestions if we don't have enough
+
     if (suggestions.length < limit) {
       const contextualSuggestions = this.getContextualSuggestions(variable);
       contextualSuggestions.forEach(suggestion => {

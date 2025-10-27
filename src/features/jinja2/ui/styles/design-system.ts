@@ -8,13 +8,13 @@
  * Spacing scale (8px base unit)
  */
 export const SPACING = {
-  xs: '4px',    // 0.5rem
-  sm: '8px',    // 1rem
-  md: '12px',   // 1.5rem
-  lg: '16px',   // 2rem
-  xl: '24px',   // 3rem
-  xxl: '32px',  // 4rem
-  xxxl: '48px'  // 6rem
+  xs: '4px',
+  sm: '8px',
+  md: '12px',
+  lg: '16px',
+  xl: '24px',
+  xxl: '32px',
+  xxxl: '48px'
 } as const;
 
 /**
@@ -293,7 +293,7 @@ export function generateDesignSystemCSS(): string {
  * Mixin utilities for common patterns
  */
 export const MIXINS = {
-  // Focus styles
+
   focus: `
     outline: none;
     box-shadow: var(--shadow-focus);
@@ -306,7 +306,7 @@ export const MIXINS = {
     }
   `,
 
-  // Button base styles
+
   button: `
     display: inline-flex;
     align-items: center;
@@ -335,7 +335,7 @@ export const MIXINS = {
     }
   `,
 
-  // Input base styles
+
   input: `
     display: block;
     width: 100%;
@@ -365,7 +365,7 @@ export const MIXINS = {
     }
   `,
 
-  // Card base styles
+
   card: `
     background: var(--vscode-editor-background);
     border: var(--border-width) solid var(--vscode-widget-border);
@@ -374,7 +374,7 @@ export const MIXINS = {
     overflow: hidden;
   `,
 
-  // Scrollbar styles
+
   scrollbar: `
     &::-webkit-scrollbar {
       width: var(--scrollbar-width);
@@ -402,14 +402,14 @@ export const MIXINS = {
     }
   `,
 
-  // Truncate text
+
   truncate: `
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   `,
 
-  // Visually hidden (for screen readers)
+
   visuallyHidden: `
     position: absolute !important;
     width: 1px !important;

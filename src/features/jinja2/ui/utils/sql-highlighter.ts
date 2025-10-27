@@ -70,19 +70,19 @@ export class SqlHighlighter {
     }
 
     try {
-      // First, detect variable positions in the original SQL
+
       const variablePositions = this.detectVariablePositions(sql, variables);
 
-      // Replace variables with placeholders for highlighting
+
       const { processedSQL, variableMap } = this.replaceVariablesWithPlaceholders(sql, variablePositions);
 
-      // Apply highlight.js syntax highlighting
+
       const highlighted = hljs.highlight(processedSQL, {
         language: 'sql',
         ignoreIllegals: true
       });
 
-      // Re-insert variables as clickable elements
+
       const finalHTML = this.reinsertVariables(highlighted.value, variableMap);
 
       return {
@@ -103,7 +103,7 @@ export class SqlHighlighter {
     const positions: VariablePosition[] = [];
 
     Object.entries(variables).forEach(([name, value]) => {
-      // Look for variable values in the SQL (after template rendering)
+
       const valueStr = this.formatValueForSQL(value);
       if (valueStr) {
         const regex = new RegExp(this.escapeRegex(valueStr), 'gi');
@@ -120,7 +120,7 @@ export class SqlHighlighter {
       }
     });
 
-    // Sort positions by start index (reverse order to avoid index shifting when replacing)
+
     return positions.sort((a, b) => b.start - a.start);
   }
 
@@ -191,7 +191,7 @@ export class SqlHighlighter {
 
     let highlighted = this.escapeHtml(sql);
 
-    // Apply variable highlighting first
+
     Object.entries(variables).forEach(([name, value]) => {
       const valueStr = this.formatValueForSQL(value);
       if (valueStr) {
@@ -202,18 +202,18 @@ export class SqlHighlighter {
       }
     });
 
-    // Apply keyword highlighting
+
     keywords.sort((a, b) => b.length - a.length);
     keywords.forEach(keyword => {
       const regex = new RegExp(`\\b${keyword}\\b`, 'gi');
       highlighted = highlighted.replace(regex, `<span class="sql-keyword">${keyword}</span>`);
     });
 
-    // Apply string highlighting
+
     highlighted = highlighted.replace(/'([^']*)'/g, '<span class="sql-string">\'$1\'</span>');
     highlighted = highlighted.replace(/"([^"]*)"/g, '<span class="sql-string">"$1"</span>');
 
-    // Apply number highlighting
+
     highlighted = highlighted.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="sql-number">$1</span>');
 
     return {
@@ -303,7 +303,7 @@ export class SqlHighlighter {
     }
 
     try {
-      // Directly highlight SQL using highlight.js without variable processing
+
       const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
       if (hljsInstance) {
         const highlighted = hljsInstance.highlight(sql, { language: 'sql', ignoreIllegals: true });
@@ -316,7 +316,7 @@ export class SqlHighlighter {
       console.warn('Highlight.js not available, using simple highlighting:', error);
     }
 
-    // Fallback: simple syntax highlighting without external library
+
     const highlighted = this.simpleKeywordHighlighting(sql);
     return {
       html: `<pre><code class="${this.getCSSClasses()}">${highlighted}</code></pre>`
@@ -329,10 +329,10 @@ export class SqlHighlighter {
   private simpleKeywordHighlighting(sql: string): string {
     if (!sql) return '';
 
-    // Escape HTML first
+
     let highlighted = this.escapeHtml(sql);
 
-    // Basic SQL keyword highlighting
+
     const keywords = [
       'select', 'from', 'where', 'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null',
       'true', 'false', 'exists', 'distinct', 'order by', 'group by', 'having', 'join',
@@ -346,15 +346,15 @@ export class SqlHighlighter {
         `<span class="hljs-keyword">${keyword.toUpperCase()}</span>`);
     });
 
-    // Highlight strings
+
     highlighted = highlighted.replace(/'([^']*)'/g,
       '<span class="hljs-string">\'$1\'</span>');
 
-    // Highlight numbers
+
     highlighted = highlighted.replace(/\b(\d+)\b/g,
       '<span class="hljs-number">$1</span>');
 
-    // Highlight comments
+
     highlighted = highlighted.replace(/(--[^\n\r]*)/g,
       '<span class="hljs-comment">$1</span>');
 
@@ -365,12 +365,11 @@ export class SqlHighlighter {
    * Registers custom SQL language definition if needed
    */
   static registerCustomLanguage(): void {
-    // Register any custom SQL language enhancements here
-    // For now, we rely on the built-in SQL language support
+    return;
   }
 }
 
-// Initialize highlight.js languages
+
 SqlHighlighter.registerCustomLanguage();
 
 export default SqlHighlighter;

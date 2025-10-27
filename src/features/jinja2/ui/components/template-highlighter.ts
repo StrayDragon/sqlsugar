@@ -360,7 +360,7 @@ export class TemplateHighlighter extends LitElement {
   private createHighlightedHTMLWithVariables(template: string, variables: EnhancedVariable[]): string {
     let html = template;
 
-    // First, highlight all {{ variable }} patterns
+
     const variablePattern = /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}/g;
     let offset = 0;
 
@@ -386,7 +386,7 @@ export class TemplateHighlighter extends LitElement {
       }
     }
 
-    // Then, highlight variables in control structures like {% if variable %}
+
     variables.forEach(variable => {
       const controlStructurePattern = new RegExp(`\\{%(?:if|elif|for|set)[^%]*\\b${this.escapeRegex(variable.name)}\\b[^%]*%\\}`, 'g');
       let controlMatch;
@@ -409,7 +409,7 @@ export class TemplateHighlighter extends LitElement {
       }
     });
 
-    // Escape HTML and convert line breaks
+
     return html
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -428,7 +428,7 @@ export class TemplateHighlighter extends LitElement {
   }
 
   private addInteractiveElements(html: string): string {
-    // Add data attributes and event handlers to variable elements
+
     return html.replace(
       /<span class="variable-highlight" data-variable="([^"]+)" data-index="([^"]+)">([^<]+)<\/span>/g,
       (match, varName, index, varText) => {

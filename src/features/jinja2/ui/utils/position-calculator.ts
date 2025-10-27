@@ -38,7 +38,7 @@ export function calculatePopoverPosition(
   const rect = targetElement.getBoundingClientRect();
   const containerRect = containerElement.getBoundingClientRect();
 
-  // Calculate available space
+
   const availableSpace = {
     top: rect.top - containerRect.top,
     bottom: containerRect.bottom - rect.bottom,
@@ -46,14 +46,14 @@ export function calculatePopoverPosition(
     right: containerRect.right - rect.right
   };
 
-  // Determine best placement
+
   const placement = determineBestPlacement(
     availableSpace,
     dimensions,
     config.popoverPlacement
   );
 
-  // Calculate exact coordinates
+
   const coordinates = calculateCoordinates(
     placement,
     rect,
@@ -77,17 +77,17 @@ function determineBestPlacement(
   dimensions: typeof POPOVER_DIMENSIONS,
   preferredPlacement: EditorV2Config['popoverPlacement']
 ): PopoverPosition['placement'] {
-  // If auto placement, find the best fit
+
   if (preferredPlacement === 'auto') {
     return findBestAutoPlacement(availableSpace, dimensions);
   }
 
-  // Check if preferred placement fits
+
   if (placementFits(preferredPlacement, availableSpace, dimensions)) {
     return preferredPlacement;
   }
 
-  // Fall back to alternative placements
+
   const alternatives = getAlternativePlacements(preferredPlacement);
   for (const placement of alternatives) {
     if (placementFits(placement, availableSpace, dimensions)) {
@@ -95,7 +95,7 @@ function determineBestPlacement(
     }
   }
 
-  // Last resort: center in container
+
   return 'bottom';
 }
 
@@ -113,7 +113,7 @@ function findBestAutoPlacement(
     right: availableSpace.right >= dimensions.width ? availableSpace.right : 0
   };
 
-  // Find placement with maximum available space
+
   let bestPlacement: PopoverPosition['placement'] = 'bottom';
   let maxSpace = 0;
 
@@ -202,7 +202,7 @@ function calculateCoordinates(
       break;
   }
 
-  // Ensure within container bounds
+
   x = Math.max(MIN_EDGE_SPACING, Math.min(x, containerRect.width - dimensions.width - MIN_EDGE_SPACING));
   y = Math.max(MIN_EDGE_SPACING, Math.min(y, containerRect.height - dimensions.height - MIN_EDGE_SPACING));
 
@@ -219,9 +219,9 @@ export function adjustPositionForScroll(
   config: EditorV2Config,
   customDimensions?: { width: number; height: number; arrowSize: number }
 ): PopoverPosition {
-  // Recalculate position based on current element positions
+
   return calculatePopoverPosition(
-    {} as EnhancedVariable, // We don't need variable data for repositioning
+    {} as EnhancedVariable,
     targetElement,
     containerElement,
     config,
@@ -241,15 +241,15 @@ export function shouldReposition(
   const rect = targetElement.getBoundingClientRect();
   const containerRect = containerElement.getBoundingClientRect();
 
-  // Calculate current expected position
+
   const expectedCenterX = rect.left + rect.width / 2 - containerRect.left;
   const expectedCenterY = rect.top + rect.height / 2 - containerRect.top;
 
-  // Calculate current popover center
+
   const currentCenterX = currentPos.x + POPOVER_DIMENSIONS.width / 2;
   const currentCenterY = currentPos.y + POPOVER_DIMENSIONS.height / 2;
 
-  // Check distance from expected position
+
   const distance = Math.sqrt(
     Math.pow(expectedCenterX - currentCenterX, 2) +
     Math.pow(expectedCenterY - currentCenterY, 2)
@@ -324,7 +324,7 @@ export function animatePositionChange(
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Easing function (ease-out)
+
       const easeProgress = 1 - Math.pow(1 - progress, 3);
 
       const currentX = fromPos.x + deltaX * easeProgress;
@@ -355,18 +355,18 @@ export function handleViewportConstraints(
   const scrollLeft = containerElement.scrollLeft;
   const scrollTop = containerElement.scrollTop;
 
-  // Adjust for scroll position
+
   let adjustedX = position.x + scrollLeft;
   let adjustedY = position.y + scrollTop;
 
-  // Ensure within horizontal bounds
+
   if (adjustedX < 0) {
     adjustedX = MIN_EDGE_SPACING;
   } else if (adjustedX + dimensions.width > containerRect.width) {
     adjustedX = containerRect.width - dimensions.width - MIN_EDGE_SPACING;
   }
 
-  // Ensure within vertical bounds
+
   if (adjustedY < 0) {
     adjustedY = MIN_EDGE_SPACING;
   } else if (adjustedY + dimensions.height > containerRect.height) {

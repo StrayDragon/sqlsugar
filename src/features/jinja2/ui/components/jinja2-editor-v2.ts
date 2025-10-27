@@ -46,7 +46,7 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor showTypeSelector: boolean = false;
   @state() accessor syncScroll: boolean = false;
 
-  // 变量变化追踪日志
+
   private variableChangeLogs: Array<{
     timestamp: string;
     variableName: string;
@@ -55,7 +55,7 @@ export class Jinja2EditorV2 extends LitElement {
     context: Record<string, Jinja2VariableValue>;
     template: string;
     renderedResult?: string;
-    rightPanelHTML?: string; // 右边页面的HTML内容
+    rightPanelHTML?: string;
     step: 'variable_change' | 'template_render' | 'html_change';
     phase: 'before_render' | 'after_render' | 'html_update';
     details?: string;
@@ -1105,30 +1105,30 @@ export class Jinja2EditorV2 extends LitElement {
   private applyControlStructureHighlighting(html: string): string {
     let highlighted = html;
 
-    // Handle both original Jinja2 syntax and HTML encoded versions
-    // TemplateHighlighter might convert {% and %} to HTML entities or spans
 
-    // Pattern 1: Original Jinja2 syntax {% if variable %}
+
+
+
     highlighted = highlighted.replace(/\{%\s*if\s+([^%]+)\s*%\}/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // Pattern 2: HTML encoded syntax &lt;% if variable %&gt;
+
     highlighted = highlighted.replace(/&lt;%\s*if\s+([^%]+)\s*%&gt;/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // Pattern 3: Span-wrapped syntax <span class="hljs-operator">&lt;%</span> if variable <span class="hljs-operator">%&gt;</span>
+
     highlighted = highlighted.replace(/<span class="hljs-operator">&lt;%<\/span>\s*if\s+([^%]+)\s*<span class="hljs-operator">%&gt;<\/span>/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // Pattern 4: Span-wrapped with % <span class="hljs-operator">%</span> if variable <span class="hljs-operator">%</span>
+
     highlighted = highlighted.replace(/<span class="hljs-operator">%<\/span>\s*if\s+([^%]+)\s*<span class="hljs-operator">%<\/span>/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // Similar patterns for {% elif condition %}
+
     highlighted = highlighted.replace(/\{%\s*elif\s+([^%]+)\s*%\}/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
@@ -1145,11 +1145,11 @@ export class Jinja2EditorV2 extends LitElement {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // {% for item in items %}
+
     highlighted = highlighted.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}/g, (match, itemVar, arrayVar) => {
       let highlightedMatch = match;
 
-      // Highlight the array variable
+
       if (this.variableValues.hasOwnProperty(arrayVar)) {
         const regex = new RegExp(`\\b${this.escapeRegex(arrayVar)}\\b`, 'g');
         highlightedMatch = highlightedMatch.replace(regex,
@@ -1171,7 +1171,7 @@ export class Jinja2EditorV2 extends LitElement {
       return highlightedMatch;
     });
 
-    // {% set variable = value %}
+
     highlighted = highlighted.replace(/\{%\s*set\s+(\w+)\s*=\s*[^%]*?\s*%\}/g, (match, varName) => {
       let highlightedMatch = match;
 
@@ -1196,23 +1196,23 @@ export class Jinja2EditorV2 extends LitElement {
       return highlightedMatch;
     });
 
-    // Additional pass: Highlight any known variables that might have been missed
-    // Only highlight variables that are completely plain text (not in any tags or spans)
+
+
     this.variables.forEach(variable => {
       if (this.variableValues.hasOwnProperty(variable.name)) {
-        // More strict regex: only match variable names that are completely standalone text
-        // This prevents variables inside other highlighted elements from being re-highlighted
+
+
         const plainTextRegex = new RegExp(
           `(?<!data-variable="|class="[^"]*\\s)\\b(${this.escapeRegex(variable.name)})\\b(?![^<]*<\/span>|[^"]*")`,
           'g'
         );
         highlighted = highlighted.replace(plainTextRegex, (match, varName) => {
-          // Double-check that this is plain text and not already highlighted
+
           if (highlighted.includes(`data-variable="${varName}"`) ||
               highlighted.includes(`>${varName}<`) ||
               match.includes('<span') ||
               match.includes('data-variable=')) {
-            return match; // Already highlighted or part of HTML
+            return match;
           }
 
           return `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`;
@@ -1229,13 +1229,13 @@ export class Jinja2EditorV2 extends LitElement {
   private fallbackTemplateHighlight(): string {
     let highlighted = this.escapeHtml(this.template);
 
-    // Highlight all variable references in the template - Match {{ variable }} patterns (including complex expressions)
+
     highlighted = highlighted.replace(/\{\{\s*([^}]+)\s*\}\}/g, (match, varExpression) => {
-      // Extract the primary variable name from expressions like:
-      // - variable
-      // - variable.property
-      // - variable | filter
-      // - object.property
+
+
+
+
+
       const varName = varExpression.trim().split('.')[0].split('|')[0].trim();
 
       if (this.variableValues.hasOwnProperty(varName)) {
@@ -1245,7 +1245,7 @@ export class Jinja2EditorV2 extends LitElement {
           isSelected ? 'selected' : ''
         ].filter(Boolean).join(' ');
 
-        // Add value display next to variable
+
         const value = this.variableValues[varName];
         const valueDisplay = this.renderValueDisplay(value);
 
@@ -1254,22 +1254,22 @@ export class Jinja2EditorV2 extends LitElement {
       return match;
     });
 
-    // Highlight variables in all control structures
-    // {% if variable %}
+
+
     highlighted = highlighted.replace(/\{%\s*if\s+([^%]+)\s*%\}/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // {% elif condition %}
+
     highlighted = highlighted.replace(/\{%\s*elif\s+([^%]+)\s*%\}/g, (match, condition) => {
       return this.highlightVariablesInCondition(match, condition);
     });
 
-    // {% for item in items %}
+
     highlighted = highlighted.replace(/\{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%\}/g, (match, itemVar, arrayVar) => {
       let highlightedMatch = match;
 
-      // Highlight the array variable
+
       if (this.variableValues.hasOwnProperty(arrayVar)) {
         const regex = new RegExp(`\\b${this.escapeRegex(arrayVar)}\\b`, 'g');
         highlightedMatch = highlightedMatch.replace(regex,
@@ -1279,7 +1279,7 @@ export class Jinja2EditorV2 extends LitElement {
       return highlightedMatch;
     });
 
-    // {% set variable = value %}
+
     highlighted = highlighted.replace(/\{%\s*set\s+(\w+)\s*=\s*[^%]*?\s*%\}/g, (match, varName) => {
       let highlightedMatch = match;
 
@@ -1292,15 +1292,15 @@ export class Jinja2EditorV2 extends LitElement {
       return highlightedMatch;
     });
 
-    // Additional pass: Highlight any known variables that might have been missed
+
     this.variables.forEach(variable => {
       if (this.variableValues.hasOwnProperty(variable.name)) {
-        // Look for variable names in {% ... %} blocks that might have been missed
+
         const controlVarRegex = new RegExp(`(\\{\\%[^%]*?)\\b(${this.escapeRegex(variable.name)})\\b([^%]*?\\%\\})`, 'g');
         highlighted = highlighted.replace(controlVarRegex, (match, prefix, varName, suffix) => {
-          // Check if this variable is already highlighted
+
           if (match.includes(`data-variable="${varName}"`)) {
-            return match; // Already highlighted
+            return match;
           }
 
           return `${prefix}<span class="variable-highlight" data-variable="${varName}">${varName}</span>${suffix}`;
@@ -1314,16 +1314,16 @@ export class Jinja2EditorV2 extends LitElement {
   private highlightVariablesInCondition(match: string, condition: string): string {
     let highlightedMatch = match;
 
-    // Extract variable names from complex conditions
-    // Find all potential variable names
+
+
     const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
     const matches = condition.match(variableRegex) || [];
 
-    // Filter out keywords and operators
+
     const excludedWords = new Set([
       'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null', 'true', 'false', 'exists',
-      'eq', 'ne', 'lt', 'gt', 'le', 'ge', // comparison operators
-      'defined', 'undefined', 'length', 'count', 'size', 'first', 'last' // other operators/functions
+      'eq', 'ne', 'lt', 'gt', 'le', 'ge',
+      'defined', 'undefined', 'length', 'count', 'size', 'first', 'last'
     ]);
 
     const varNames = matches
@@ -1331,15 +1331,15 @@ export class Jinja2EditorV2 extends LitElement {
       .filter(match => !excludedWords.has(match.toLowerCase()))
       .filter(varName => this.variableValues.hasOwnProperty(varName));
 
-    // Highlight each variable in the condition
+
     varNames.forEach(varName => {
       const regex = new RegExp(`\\b${this.escapeRegex(varName)}\\b`, 'g');
       highlightedMatch = highlightedMatch.replace(regex,
         `<span class="variable-highlight" data-variable="${varName}">${varName}</span>`);
     });
 
-    // Additional check: Also look for variables that might not be in variableValues yet
-    // but are in the variables array (from processor)
+
+
     this.variables.forEach(variable => {
       if (!varNames.includes(variable.name) && condition.includes(variable.name)) {
         const regex = new RegExp(`\\b${this.escapeRegex(variable.name)}\\b`, 'g');
@@ -1393,13 +1393,13 @@ export class Jinja2EditorV2 extends LitElement {
     }
 
     try {
-      // 🚀 FIX: Simplified SQL highlighting without placeholder replacement
-      // This prevents the __VAR_XXX and 42VAR_XXX issues in HTML preview
+
+
       const result = this.sqlHighlighter.highlightSQLSimple(sql);
       return result.html;
     } catch (error) {
       console.warn('SQL highlighting failed, using fallback:', error);
-      // Fallback to escaped SQL
+
       return this.escapeHtml(sql);
     }
   }
@@ -1407,18 +1407,18 @@ export class Jinja2EditorV2 extends LitElement {
   private handleTemplateClick(event: Event) {
     const target = event.target as HTMLElement;
 
-    // Check for variable highlight using multiple methods
+
     let variableElement: HTMLElement | null = null;
 
-    // Method 1: Direct check
+
     variableElement = target.closest('.variable-highlight') as HTMLElement;
 
-    // Method 2: Check if target itself is a variable highlight
+
     if (!variableElement && target.classList.contains('variable-highlight')) {
       variableElement = target;
     }
 
-    // Method 3: Check parent elements
+
     if (!variableElement) {
       let parent = target.parentElement;
       while (parent && parent !== document.body) {
@@ -1430,7 +1430,7 @@ export class Jinja2EditorV2 extends LitElement {
       }
     }
 
-    // Method 4: Check for data-variable attribute
+
     if (!variableElement) {
       let element: HTMLElement | null = target;
       while (element && element !== document.body) {
@@ -1451,7 +1451,7 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private showVariablePopup(variableName: string, event: Event) {
-    // Calculate popup position
+
     const rect = (event.target as HTMLElement).getBoundingClientRect();
     const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
     const scrollY = window.pageYOffset || document.documentElement.scrollTop;
@@ -1461,14 +1461,14 @@ export class Jinja2EditorV2 extends LitElement {
       y: rect.bottom + scrollY + 5
     };
 
-    // Set the active variable and its current value
+
     this.activeVariable = variableName;
     const variableType = this.getVariableType(variableName);
     this.activeVariableType = variableType;
     this.popupValue = this.formatValueForEdit(this.variableValues[variableName], variableType);
     this.showTypeSelector = false;
 
-    // Prevent event bubbling
+
     event.stopPropagation();
   }
 
@@ -1516,14 +1516,14 @@ export class Jinja2EditorV2 extends LitElement {
   private handlePopupValueChange(event: Event) {
     const target = event.target as HTMLInputElement | HTMLSelectElement;
     this.popupValue = target.value;
-    // Auto-save on value change
+
     this.autoSaveVariable();
   }
 
   private handlePopupCheckboxChange(event: Event) {
     const target = event.target as HTMLInputElement;
     this.popupValue = target.checked.toString();
-    // Auto-save on checkbox change
+
     this.autoSaveVariable();
   }
 
@@ -1534,30 +1534,30 @@ export class Jinja2EditorV2 extends LitElement {
     const oldValue = this.variableValues[variableName];
     const newValue = this.parseValueFromEdit(this.popupValue, this.activeVariableType);
 
-    // 记录变量变化 - before render (包含当前HTML)
+
     this.recordVariableChange(variableName, oldValue, newValue, 'variable_change', 'before_render');
 
-    // Update the variable values
+
     this.variableValues = {
       ...this.variableValues,
       [variableName]: newValue
     };
 
-    // Update the main values object for compatibility
+
     this.values = this.variableValues;
 
-    // Update variable type if it changed
+
     this.updateVariableType(variableName, this.activeVariableType);
 
-    // 记录HTML变化 - 在渲染之前捕获DOM更新
+
     this.recordVariableChange(variableName, oldValue, newValue, 'html_change', 'html_update',
       `HTML update triggered by ${variableName} change`);
 
-    // Re-render the template with new values
+
     void this.renderTemplate();
     void this.highlightTemplate();
 
-    // 记录变量变化 - after render (包含更新后的HTML)
+
     this.recordVariableChange(variableName, oldValue, newValue, 'variable_change', 'after_render',
       `Variable ${variableName} changed from ${JSON.stringify(oldValue)} to ${JSON.stringify(newValue)}`);
   }
@@ -1576,11 +1576,11 @@ export class Jinja2EditorV2 extends LitElement {
     const target = event.target as HTMLSelectElement;
     this.activeVariableType = target.value;
 
-    // When type changes, reformat the value for the new type
+
     const currentValue = this.variableValues[this.activeVariable!];
     this.popupValue = this.formatValueForEdit(currentValue, this.activeVariableType);
 
-    // Auto-save when type changes
+
     this.autoSaveVariable();
   }
 
@@ -1588,7 +1588,7 @@ export class Jinja2EditorV2 extends LitElement {
     const variableIndex = this.variables.findIndex(v => v.name === variableName);
     if (variableIndex >= 0) {
       const updatedVariables = [...this.variables];
-      // Type-safe conversion with validation
+
       const validType = this.validateVariableType(newType);
       if (validType) {
         updatedVariables[variableIndex] = {
@@ -1616,7 +1616,7 @@ export class Jinja2EditorV2 extends LitElement {
   private parseValueFromEdit(value: string, variableType?: string): Jinja2VariableValue {
     const type = variableType || this.getVariableType(this.activeVariable!);
 
-    // Handle empty values
+
     if (!value || value.trim() === '') {
       if (type === 'null') return null;
       if (type === 'boolean') return false;
@@ -1659,7 +1659,7 @@ export class Jinja2EditorV2 extends LitElement {
   private handleDocumentClick(event: Event) {
     const target = event.target as HTMLElement;
 
-    // Check if click is inside popup or on a variable
+
     const isClickInsidePopup = target.closest('.variable-popup') !== null;
     const isClickOnVariable = target.classList.contains('variable-highlight');
 
@@ -1778,7 +1778,7 @@ export class Jinja2EditorV2 extends LitElement {
           />
         `;
       default:
-        // Default to text input for string and other types
+
         return html`
           <input
             class="variable-value-input"
@@ -1837,7 +1837,7 @@ export class Jinja2EditorV2 extends LitElement {
     const variableIndex = this.variables.findIndex(v => v.name === variableName);
     if (variableIndex >= 0) {
       const updatedVariables = [...this.variables];
-      // Type-safe type conversion
+
       const validType = this.validateVariableType(newType);
       if (validType) {
         updatedVariables[variableIndex] = {
@@ -1858,22 +1858,22 @@ export class Jinja2EditorV2 extends LitElement {
     const startTime = performance.now();
 
     try {
-      // 记录渲染前状态
+
       this.recordVariableChange('TEMPLATE_RENDER_START', null, this.variableValues, 'template_render', 'before_render',
         `Starting template render with ${Object.keys(this.variableValues).length} variables`);
 
-      // Simulate rendering delay
+
       await new Promise(resolve => setTimeout(resolve, 100));
 
       this.processingTime = performance.now() - startTime;
 
-      // 🚀 NEW: Use pure nunjucks rendering to fix placeholder issues
+
       const result = this.renderWithNunjucks(this.template);
 
-      // Store result for display
+
       this.renderedResult = result;
 
-      // 记录渲染后状态
+
       this.recordVariableChange('TEMPLATE_RENDER_END', null, {
         ...this.variableValues,
         _rendered_result: result
@@ -1884,7 +1884,7 @@ export class Jinja2EditorV2 extends LitElement {
       console.error('Template rendering failed:', error);
       this.renderedResult = '';
 
-      // 记录渲染错误
+
       this.recordVariableChange('TEMPLATE_RENDER_ERROR', null, { error: String(error) }, 'template_render', 'after_render',
         `Template render failed: ${error}`);
     } finally {
@@ -1899,16 +1899,16 @@ export class Jinja2EditorV2 extends LitElement {
    */
   private renderWithNunjucks(template: string): string {
     try {
-      // 开始nunjucks渲染
 
-      // 在渲染前验证变量值，检测可疑的placeholder模式
+
+
       this.validateAndCleanVariables();
 
-      // 🎯 关键：直接使用nunjucks的renderString API
-      // 这是最稳定、经过充分测试的方法
+
+
       const result = this.nunjucksEnv.renderString(template, this.variableValues);
 
-      // 检查是否仍然存在placeholder问题（用于验证修复效果）
+
       const suspiciousPatterns = [
         { pattern: /VAR_\d+/, description: 'VAR_N pattern' },
         { pattern: /\d+VAR\d+/, description: 'NVAR_N pattern' },
@@ -1936,7 +1936,7 @@ export class Jinja2EditorV2 extends LitElement {
       this.recordVariableChange('NUNJUCKS_ERROR', null, { error: errorMessage }, 'template_render', 'after_render',
         `Nunjucks render failed: ${errorMessage}`);
 
-      // 作为后备，尝试使用模拟渲染方法
+
       console.warn('Nunjucks rendering failed, falling back to simulation method:', error);
       return this.simulateTemplateRendering(template);
     }
@@ -1949,13 +1949,13 @@ export class Jinja2EditorV2 extends LitElement {
     Object.keys(this.variableValues).forEach(variableName => {
       const value = this.variableValues[variableName];
 
-      // 检测可疑的placeholder模式
+
       if (typeof value === 'string') {
         const suspiciousPatterns = [
-          /VAR_\d+/,           // VAR_7, VAR_1, etc.
-          /\d+VAR\d+/,         // 42VAR002, etc.
-          /42VAR/,             // 42VAR patterns
-          /^demo_.*\d+$/       // demo_use_where_clause1, etc.
+          /VAR_\d+/,
+          /\d+VAR\d+/,
+          /42VAR/,
+          /^demo_.*\d+$/
         ];
 
         const detectedPattern = suspiciousPatterns.find(pattern => pattern.test(value));
@@ -1963,7 +1963,7 @@ export class Jinja2EditorV2 extends LitElement {
         if (detectedPattern) {
           this.sendLogToOutputChannel('VARIABLE_VALIDATION', `Suspicious placeholder detected in ${variableName}: ${value} (pattern: ${detectedPattern.source})`);
 
-          // 生成干净的默认值
+
           const cleanValue = this.generateCleanDefaultValue(variableName);
           this.variableValues[variableName] = cleanValue;
 
@@ -1985,7 +1985,7 @@ export class Jinja2EditorV2 extends LitElement {
     switch (type) {
       case 'number':
       case 'integer':
-        return 42; // 安全的默认数字
+        return 42;
       case 'boolean':
         return true;
       case 'date':
@@ -2001,7 +2001,7 @@ export class Jinja2EditorV2 extends LitElement {
       case 'uuid':
         return '00000000-0000-0000-0000-000000000000';
       default:
-        // 对于string类型，生成不包含数字后缀的安全值
+
         return `clean_${variableName}`;
     }
   }
@@ -2027,13 +2027,13 @@ export class Jinja2EditorV2 extends LitElement {
   private simulateTemplateRendering(template: string): string {
     let result = template;
 
-    // Process if/elif/else blocks
+
     result = this.processConditionalBlocks(result);
 
-    // Track which variables have been replaced
+
     const replacedVariables = new Set<string>();
 
-    // Replace simple variable substitutions
+
     Object.entries(this.variableValues).forEach(([key, value]) => {
       const regex = new RegExp(`{{\\s*${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*}}`, 'g');
       const matches = result.match(regex);
@@ -2043,14 +2043,14 @@ export class Jinja2EditorV2 extends LitElement {
         result = result.replace(regex, formattedValue);
         replacedVariables.add(key);
 
-        // 检查替换是否成功，只记录失败情况
+
         if (beforeReplace === result) {
           this.sendLogToOutputChannel('REPLACE_FAILED', `Variable replace failed for ${key}`);
         }
       }
     });
 
-    // 查找未被替换的变量 - 这些可能是出现占位符的地方
+
     const unreplacedRegex = /{{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*}}/g;
     let match;
     const unreplacedVariables = [];
@@ -2059,14 +2059,14 @@ export class Jinja2EditorV2 extends LitElement {
       const varName = match[1];
       if (!replacedVariables.has(varName) && !this.variableValues.hasOwnProperty(varName)) {
         unreplacedVariables.push(varName);
-        // 未替换的变量不再记录，除非是错误情况
+
       }
     }
 
-    // Check for potential placeholder values (like VAR_7, VAR_4, VAR_1, 42VAR002)
+
     Object.entries(this.variableValues).forEach(([key, value]) => {
       if (typeof value === 'string') {
-        // Check for placeholder patterns
+
         if (/VAR_\d+/.test(value) || /\d+VAR\d+/.test(value) || /^VAR\d+/.test(value) || value.includes('42VAR')) {
           this.recordVariableChange('PLACEHOLDER_VALUE', value, value, 'template_render', 'after_render',
             `Variable ${key} has suspicious value: ${value}`);
@@ -2074,7 +2074,7 @@ export class Jinja2EditorV2 extends LitElement {
       }
     });
 
-    // Clean up any remaining Jinja2 syntax that wasn't processed
+
     result = result.replace(/{%[^%]*%}/g, '');
     result = result.replace(/{{[^}]*}}/g, '');
 
@@ -2084,11 +2084,11 @@ export class Jinja2EditorV2 extends LitElement {
   private processConditionalBlocks(template: string): string {
     let result = template;
 
-    // Process if-elif-else blocks
+
     const ifRegex = /{%\s*if\s+([^%]+)\s*%}([\s\S]*?)(?:{%\s*elif\s+([^%]+)\s*%}([\s\S]*?))*?{%\s*else\s*%}([\s\S]*?){%\s*endif\s*%}/g;
 
     result = result.replace(ifRegex, (match, ifCondition, ifContent, ...elifMatches) => {
-      // Extract elif conditions and contents
+
       const elifBlocks = [];
       for (let i = 0; i < elifMatches.length; i += 2) {
         if (elifMatches[i]) {
@@ -2099,28 +2099,28 @@ export class Jinja2EditorV2 extends LitElement {
         }
       }
 
-      // Find else content (last argument before function end)
+
       const elseContent = elifMatches.length % 2 === 0 ?
         elifMatches[elifMatches.length - 1] :
         elifMatches[elifMatches.length - 2];
 
-      // Evaluate if condition
+
       if (this.evaluateCondition(ifCondition.trim())) {
         return ifContent;
       }
 
-      // Evaluate elif conditions
+
       for (const elifBlock of elifBlocks) {
         if (elifBlock.condition && this.evaluateCondition(elifBlock.condition.trim())) {
           return elifBlock.content;
         }
       }
 
-      // Return else content if provided
+
       return elseContent || '';
     });
 
-    // Process simple if blocks (without elif/else)
+
     const simpleIfRegex = /{%\s*if\s+([^%]+)\s*%}([\s\S]*?){%\s*endif\s*%}/g;
     result = result.replace(simpleIfRegex, (match, condition, content) => {
       return this.evaluateCondition(condition.trim()) ? content : '';
@@ -2130,11 +2130,11 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private evaluateCondition(condition: string): boolean {
-    // Handle simple variable conditions
+
     const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
     const variables = condition.match(variableRegex) || [];
 
-    // Filter out keywords and operators first
+
     const excludedWords = new Set([
       'and', 'or', 'not', 'in', 'like', 'between', 'is', 'null', 'true', 'false', 'exists',
       'eq', 'ne', 'lt', 'gt', 'le', 'ge', 'defined', 'undefined'
@@ -2145,7 +2145,7 @@ export class Jinja2EditorV2 extends LitElement {
         if (this.variableValues.hasOwnProperty(varName)) {
           const value = this.variableValues[varName];
 
-          // Replace variable with its actual value for evaluation
+
           let valueStr: string;
           if (typeof value === 'boolean') {
             valueStr = value ? 'true' : 'false';
@@ -2159,30 +2159,30 @@ export class Jinja2EditorV2 extends LitElement {
 
           condition = condition.replace(new RegExp(`\\b${varName}\\b`, 'g'), valueStr);
         } else {
-          // Variable not found, replace with falsy value
+
           condition = condition.replace(new RegExp(`\\b${varName}\\b`, 'g'), 'false');
         }
       }
     }
 
-    // Handle logical operators
+
     condition = condition.replace(/\band\b/g, '&&');
     condition = condition.replace(/\bor\b/g, '||');
     condition = condition.replace(/\bnot\b/g, '!');
 
-    // Handle comparison operators
+
     condition = condition.replace(/===/g, '===');
     condition = condition.replace(/==/g, '===');
     condition = condition.replace(/!=/g, '!==');
     condition = condition.replace(/</g, '<');
     condition = condition.replace(/>/g, '>');
 
-    // Handle null checks
+
     condition = condition.replace(/\bis\s+null\b/g, '=== null');
     condition = condition.replace(/\bis\s+not\s+null\b/g, '!== null');
 
     try {
-      // Use Function constructor for safer evaluation
+
       const func = new Function(`return ${condition}`);
       return func();
     } catch (error) {
@@ -2194,7 +2194,7 @@ export class Jinja2EditorV2 extends LitElement {
   private processForLoops(template: string): string {
     let result = template;
 
-    // Process for loops
+
     const forRegex = /{%\s*for\s+(\w+)\s+in\s+(\w+)\s*%}([\s\S]*?){%\s*endfor\s*%}/g;
 
     result = result.replace(forRegex, (match, itemVar, arrayVar, content) => {
@@ -2203,10 +2203,10 @@ export class Jinja2EditorV2 extends LitElement {
       if (Array.isArray(arrayValue)) {
         return arrayValue.map(item => {
           let itemContent = content;
-          // Replace item variable in the loop content
+
           const itemRegex = new RegExp(`{{\\s*${itemVar}\\s*}}`, 'g');
           if (typeof item === 'object' && item !== null) {
-            // Handle object properties with type safety
+
             Object.keys(item).forEach(key => {
               const propRegex = new RegExp(`{{\\s*${itemVar}\\.${key}\\s*}}`, 'g');
               const value = (item as Record<string, unknown>)[key];
@@ -2244,7 +2244,7 @@ export class Jinja2EditorV2 extends LitElement {
       result = String(value);
     }
 
-    // 检查是否出现了可疑的数字插入
+
     if (typeof value === 'string' && /\d+$/.test(value) && /\d+\d+$/.test(result)) {
       this.sendLogToOutputChannel('SUSPICIOUS_FORMATTING', `Suspicious formatting: ${JSON.stringify(value)} -> ${result}`);
     }
@@ -2265,25 +2265,25 @@ export class Jinja2EditorV2 extends LitElement {
     this.syncScroll = !this.syncScroll;
 
     if (this.syncScroll) {
-      // 启用联动滚动时，初始化滚动监听
+
       this.setupTemplateToSQLScrollSync();
       this.showNotification('联动滚动已启用', 'success');
     } else {
-      // 禁用联动滚动时，清理监听器
+
       this.cleanupScrollSync();
       this.showNotification('联动滚动已禁用', 'info');
     }
   }
 
   private setupTemplateToSQLScrollSync() {
-    // 等待下一个渲染周期以确保DOM已更新
+
     setTimeout(() => {
       this.initializeScrollContainers();
     }, 100);
   }
 
   private cleanupScrollSync() {
-    // 移除事件监听器
+
     if (this.templateEditor) {
       this.templateEditor.removeEventListener('scroll', this.handleTemplateScroll);
       this.templateEditor = null;
@@ -2295,7 +2295,7 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private initializeScrollContainers() {
-    // 找到 Template Editor 和 SQL Preview 的滚动容器
+
     const templateContainer = this.shadowRoot?.querySelector('.editor-panel .panel-content') as HTMLElement;
     const sqlContainer = this.shadowRoot?.querySelector('.preview-panel .panel-content') as HTMLElement;
 
@@ -2303,11 +2303,11 @@ export class Jinja2EditorV2 extends LitElement {
       this.templateEditor = templateContainer;
       this.sqlPreview = sqlContainer;
 
-      // 清理旧的事件监听器
+
       this.templateEditor.removeEventListener('scroll', this.handleTemplateScroll);
       this.sqlPreview.removeEventListener('scroll', this.handleSQLPreviewScroll);
 
-      // 添加滚动事件监听器
+
       this.templateEditor.addEventListener('scroll', this.handleTemplateScroll.bind(this));
       this.sqlPreview.addEventListener('scroll', this.handleSQLPreviewScroll.bind(this));
     }
@@ -2316,9 +2316,9 @@ export class Jinja2EditorV2 extends LitElement {
   private handleTemplateScroll(event: Event) {
     if (!this.syncScroll || this.isScrollingSync) return;
 
-    // 添加时间间隔限制，避免过于频繁的触发
+
     const now = Date.now();
-    if (now - this.lastScrollTime < 16) return; // 约60fps的限制
+    if (now - this.lastScrollTime < 16) return;
 
     this.lastScrollTime = now;
     const templateElement = event.target as HTMLElement;
@@ -2328,9 +2328,9 @@ export class Jinja2EditorV2 extends LitElement {
   private handleSQLPreviewScroll(event: Event) {
     if (!this.syncScroll || this.isScrollingSync) return;
 
-    // 添加时间间隔限制，避免过于频繁的触发
+
     const now = Date.now();
-    if (now - this.lastScrollTime < 16) return; // 约60fps的限制
+    if (now - this.lastScrollTime < 16) return;
 
     this.lastScrollTime = now;
     const sqlElement = event.target as HTMLElement;
@@ -2348,10 +2348,10 @@ export class Jinja2EditorV2 extends LitElement {
 
       if (sourceScrollHeight <= 0) return;
 
-      // 计算滚动比例
+
       const scrollRatio = sourceScrollTop / sourceScrollHeight;
 
-      // 获取目标元素
+
       const targetElement = direction === 'template-to-sql'
         ? this.sqlPreview
         : this.templateEditor;
@@ -2360,14 +2360,14 @@ export class Jinja2EditorV2 extends LitElement {
 
       if (targetScrollHeight <= 0) return;
 
-      // 计算目标滚动位置
+
       const targetScrollTop = scrollRatio * targetScrollHeight;
 
-      // 直接滚动到目标位置，不使用平滑动画
+
       targetElement.scrollTop = targetScrollTop;
 
     } finally {
-      // 立即重置同步标志，不使用延迟
+
       this.isScrollingSync = false;
     }
   }
@@ -2399,7 +2399,7 @@ Template: ${template}
 Rendered Result: ${renderedResult}
 Details: ${details}`;
 
-      // 只有当存在右边面板HTML时才添加
+
       if (rightPanelHTML) {
         logEntry += `
 Right Panel HTML (${rightPanelHTML.length} chars):
@@ -2419,7 +2419,7 @@ Includes: Right panel HTML tracking
 
     const fullLog = header + logs;
 
-    // 创建并下载日志文件
+
     const blob = new Blob([fullLog], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -2428,7 +2428,7 @@ Includes: Right panel HTML tracking
     a.click();
     URL.revokeObjectURL(url);
 
-    // 导出完成，不需要额外日志
+
   }
 
   private generateDebugLogs() {
@@ -2470,7 +2470,7 @@ Includes: Right panel HTML tracking
   }
 
   private handleSubmit() {
-    void this.renderTemplate(); // Ensure latest result
+    void this.renderTemplate();
     this.dispatchEvent(new CustomEvent('template-submit', {
       detail: {
         template: this.template,
@@ -2493,7 +2493,7 @@ Includes: Right panel HTML tracking
     phase: 'before_render' | 'after_render' | 'html_update',
     details?: string
   ) {
-    // 捕获右边页面的HTML内容
+
     const rightPanelHTML = this.captureRightPanelHTML();
 
     const logEntry = {
@@ -2501,7 +2501,7 @@ Includes: Right panel HTML tracking
       variableName,
       oldValue,
       newValue,
-      context: { ...this.variableValues }, // 记录当前完整的变量context
+      context: { ...this.variableValues },
       template: this.template,
       renderedResult: this.renderedResult || '',
       rightPanelHTML,
@@ -2512,14 +2512,14 @@ Includes: Right panel HTML tracking
 
     this.variableChangeLogs.push(logEntry);
 
-    // 限制日志数量，避免内存过度使用
+
     if (this.variableChangeLogs.length > 100) {
-      this.variableChangeLogs = this.variableChangeLogs.slice(-50); // 保留最新50条
+      this.variableChangeLogs = this.variableChangeLogs.slice(-50);
     }
 
-    // 变量变化日志现在由 shouldLog 方法控制
 
-    // 检查右边面板HTML是否包含可疑的占位符模式
+
+
     if (rightPanelHTML && (/VAR_\d+/.test(rightPanelHTML) || /\d+VAR\d+/.test(rightPanelHTML) || /42VAR/.test(rightPanelHTML))) {
       this.recordVariableChange('PLACEHOLDER_DETECTED', rightPanelHTML, rightPanelHTML, 'html_change', 'html_update',
         `Found placeholder pattern in right panel HTML`);
@@ -2531,16 +2531,16 @@ Includes: Right panel HTML tracking
    */
   private captureRightPanelHTML(): string {
     try {
-      // 获取右边预览面板的DOM元素
+
       const rightPanel = this.shadowRoot?.querySelector('.preview-panel .sql-preview');
       if (!rightPanel) {
         return '';
       }
 
-      // 捕获HTML内容
+
       const htmlContent = rightPanel.innerHTML;
 
-      // 限制长度，避免日志过大
+
       const maxLength = 2000;
       if (htmlContent.length > maxLength) {
         return htmlContent.substring(0, maxLength) + '...[TRUNCATED]';
@@ -2559,12 +2559,12 @@ Includes: Right panel HTML tracking
   private shouldLog(category: string): boolean {
     const logLevel = this.config?.logLevel || 'error';
 
-    // 如果日志等级是 none，不输出任何日志
+
     if (logLevel === 'none') {
       return false;
     }
 
-    // 错误级别的分类
+
     const errorCategories = [
       'ERROR',
       'TEMPLATE_RENDER_ERROR',
@@ -2572,7 +2572,7 @@ Includes: Right panel HTML tracking
       'PLACEHOLDER_IN_HTML'
     ];
 
-    // 警告级别的分类
+
     const warnCategories = [
       'WARN',
       'SUSPICIOUS',
@@ -2581,7 +2581,7 @@ Includes: Right panel HTML tracking
       'REPLACE_FAILED'
     ];
 
-    // 信息级别的分类（重要的操作）
+
     const infoCategories = [
       'INFO',
       'SUCCESS',
@@ -2589,7 +2589,7 @@ Includes: Right panel HTML tracking
       'VARIABLE_CLEANED'
     ];
 
-    // 根据日志等级和分类决定是否输出
+
     switch (logLevel) {
       case 'error':
         return errorCategories.some(cat => category.includes(cat));
@@ -2601,7 +2601,7 @@ Includes: Right panel HTML tracking
                warnCategories.some(cat => category.includes(cat)) ||
                infoCategories.some(cat => category.includes(cat));
       case 'debug':
-        return true; // debug 级别显示所有日志
+        return true;
       default:
         return false;
     }
@@ -2611,7 +2611,7 @@ Includes: Right panel HTML tracking
    * 发送日志到VS Code OUTPUT频道
    */
   private sendLogToOutputChannel(category: string, message: string) {
-    // 根据日志等级过滤
+
     if (!this.shouldLog(category)) {
       return;
     }

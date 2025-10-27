@@ -102,14 +102,14 @@ export class Jinja2WebviewEditorV2 {
       editor.resolvePromise = resolve;
       editor.rejectPromise = reject;
 
-      // 提取变量，确保能识别{% if %}中的变量
+
       try {
         const handler = Jinja2NunjucksHandler.getInstance();
         const extractedVariables = handler.extractVariables(template);
 
         Logger.info(`V2 Editor: Extracted ${extractedVariables.length} variables from template`);
 
-        // 记录提取到的变量，用于调试
+
         extractedVariables.forEach((variable, index) => {
           Logger.info(`V2 Editor: Variable ${index + 1}: ${variable.name} (${variable.type}) - extracted via ${variable.extractionMethod}`);
         });
@@ -117,7 +117,7 @@ export class Jinja2WebviewEditorV2 {
         editor.show(template, extractedVariables, title);
       } catch (_error) {
         Logger.warn('V2 Editor: Variable extraction failed, using provided variables:', _error);
-        // 如果提取失败，回退到传入的变量
+
         editor.show(template, _variables, title);
       }
       })();
@@ -151,14 +151,14 @@ export class Jinja2WebviewEditorV2 {
     this.currentTemplate = template;
     this.currentVariables = variables;
 
-    // 如果已经存在面板，直接显示
+
     if (this.panel) {
       this.panel.reveal();
       this.updateContent(template, variables);
       return;
     }
 
-    // 创建新的WebView面板
+
     this.panel = vscode.window.createWebviewPanel(
       Jinja2WebviewEditorV2.viewType,
       title,
@@ -180,7 +180,7 @@ export class Jinja2WebviewEditorV2 {
     this.panel.webview.html = this.getAppHtml(this.panel.webview, template, variables);
     this.setupWebviewListeners();
 
-    // 发送初始化消息
+
     this.panel.webview.postMessage({
       command: 'init',
       template,
@@ -188,7 +188,7 @@ export class Jinja2WebviewEditorV2 {
       config: this.getV2EditorConfig(),
     });
 
-    // 只在非 error 等级时记录初始化信息
+
     const mainConfig = vscode.workspace.getConfiguration('sqlsugar');
     const logLevel = mainConfig.get<string>('logLevel', 'error');
 
@@ -198,16 +198,16 @@ export class Jinja2WebviewEditorV2 {
         outputChannel.appendLine('[V2 Extension] Editor initialized');
         outputChannel.appendLine(`[V2 Extension] Variables: ${variables.length}`);
 
-        // 只在 info 或 debug 等级时显示详细信息
+
         if (logLevel === 'info' || logLevel === 'debug') {
           outputChannel.appendLine(`[V2 Extension] Template preview: ${template.substring(0, 50)}...`);
         }
 
-        // 不自动显示输出频道，避免打扰用户
+
       }
     }
 
-    // 添加到活动实例列表
+
     Jinja2WebviewEditorV2.activeInstances.push(this);
   }
 
@@ -274,39 +274,39 @@ export class Jinja2WebviewEditorV2 {
         break;
 
       case 'log':
-        // 处理来自WebView的日志消息，根据日志等级过滤
-        if (message.category && message.data) {
-          const category = String(message.category); // 转换为字符串类型
 
-          // 获取当前日志等级配置
+        if (message.category && message.data) {
+          const category = String(message.category);
+
+
           const mainConfig = vscode.workspace.getConfiguration('sqlsugar');
           const logLevel = mainConfig.get<string>('logLevel', 'error');
 
-          // 根据日志等级决定是否显示
+
           const shouldLog = this.shouldLogToOutput(category, logLevel);
 
           if (shouldLog) {
             const logMessage = `[${category}] ${JSON.stringify(message.data, null, 2)}`;
 
-            // 使用全局输出频道
+
             const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
             if (outputChannel) {
               outputChannel.appendLine(logMessage);
 
-              // 只在错误等级或关键问题时自动显示输出频道
+
               if (this.shouldShowOutputChannel(category, logLevel)) {
                 outputChannel.show();
               }
             }
           }
 
-          // 调试信息始终发送到开发者控制台（不影响用户体验）
+
           Logger.debug(`${category}:`, message.data);
         }
         break;
 
       default:
-        // Unknown command, ignore silently
+
         break;
     }
   }
@@ -360,7 +360,7 @@ export class Jinja2WebviewEditorV2 {
       animationsEnabled: config.get<boolean>('animationsEnabled', true),
       showSuggestions: config.get<boolean>('showSuggestions', true),
       autoFocusFirst: config.get<boolean>('autoFocusFirst', false),
-      logLevel: mainConfig.get<string>('logLevel', 'error') // 传递日志等级到 WebView
+      logLevel: mainConfig.get<string>('logLevel', 'error')
     };
   }
 
@@ -368,12 +368,12 @@ export class Jinja2WebviewEditorV2 {
    * 判断是否应该记录到输出频道
    */
   private shouldLogToOutput(category: string, logLevel: string): boolean {
-    // 如果日志等级是 none，不输出任何日志
+
     if (logLevel === 'none') {
       return false;
     }
 
-    // 错误级别的分类
+
     const errorCategories = [
       'V2_EDITOR_ERROR',
       'NUNJUCKS_ERROR',
@@ -382,7 +382,7 @@ export class Jinja2WebviewEditorV2 {
       'PLACEHOLDER_IN_HTML'
     ];
 
-    // 警告级别的分类
+
     const warnCategories = [
       'V2_EDITOR_WARN',
       'NUNJUCKS_SUSPICIOUS',
@@ -391,7 +391,7 @@ export class Jinja2WebviewEditorV2 {
       'VARIABLE_VALIDATION'
     ];
 
-    // 信息级别的分类（重要的操作）
+
     const infoCategories = [
       'V2_EDITOR_INFO',
       'NUNJUCKS_SUCCESS',
@@ -399,7 +399,7 @@ export class Jinja2WebviewEditorV2 {
       'VARIABLE_CLEANED'
     ];
 
-    // 根据日志等级和分类决定是否输出
+
     switch (logLevel) {
       case 'error':
         return errorCategories.some(cat => category.includes(cat));
@@ -411,7 +411,7 @@ export class Jinja2WebviewEditorV2 {
                warnCategories.some(cat => category.includes(cat)) ||
                infoCategories.some(cat => category.includes(cat));
       case 'debug':
-        return true; // debug 级别显示所有日志
+        return true;
       default:
         return false;
     }
@@ -421,7 +421,7 @@ export class Jinja2WebviewEditorV2 {
    * 判断是否应该自动显示输出频道
    */
   private shouldShowOutputChannel(category: string, logLevel: string): boolean {
-    // 只在错误等级或者包含关键问题的分类时自动显示
+
     const criticalCategories = [
       'V2_EDITOR_ERROR',
       'NUNJUCKS_ERROR',
@@ -430,17 +430,17 @@ export class Jinja2WebviewEditorV2 {
       'PLACEHOLDER_IN_HTML'
     ];
 
-    // 如果日志等级是 error，只显示错误
+
     if (logLevel === 'error') {
       return criticalCategories.some(cat => category.includes(cat));
     }
 
-    // warn 及以上级别，显示重要问题
+
     if (logLevel === 'warn' || logLevel === 'info') {
       return criticalCategories.some(cat => category.includes(cat));
     }
 
-    // debug 级别不自动显示，避免打扰用户
+
     if (logLevel === 'debug') {
       return false;
     }
@@ -495,7 +495,7 @@ export class Jinja2WebviewEditorV2 {
 <body>
   <sqlsugar-webview-v2-app></sqlsugar-webview-v2-app>
   <script nonce="${nonce}">
-    // Initialize VS Code API
+
     (function() {
       try {
         if (typeof acquireVsCodeApi === 'function') {

@@ -176,7 +176,7 @@ export function getContextualDefaultValue(variable: EnhancedVariable): Jinja2Var
   const name = variable.name.toLowerCase();
   const type = variable.type as VariableType;
 
-  // Generate contextual defaults based on variable name patterns
+
   switch (type) {
     case 'number':
     case 'integer':

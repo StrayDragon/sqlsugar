@@ -4,7 +4,7 @@ import { Logger } from './logger';
 import { registerInlineSQLFeature } from '../features/inline-sql';
 import { registerJinja2Feature } from '../features/jinja2';
 
-// 全局输出频道实例
+
 let outputChannel: vscode.OutputChannel | undefined;
 
 /**
@@ -14,7 +14,7 @@ export function activate(context: vscode.ExtensionContext) {
   Logger.info('SQLSugar extension activating');
 
   try {
-    // 创建输出频道
+
     outputChannel = vscode.window.createOutputChannel('SQLSugar');
     outputChannel.appendLine('[SQLSugar] Extension activated successfully');
     outputChannel.appendLine('[SQLSugar] Output channel initialized at plugin startup');
@@ -22,14 +22,14 @@ export function activate(context: vscode.ExtensionContext) {
     outputChannel.show();
     context.subscriptions.push(outputChannel);
 
-    // 获取DI容器
+
     const container = DIContainer.getInstance();
 
-    // 注册核心服务
+
     container.register('context', context);
     container.register('outputChannel', outputChannel);
 
-    // 注册功能模块
+
     registerInlineSQLFeature(container, context);
     registerJinja2Feature(container, context);
 
@@ -57,7 +57,7 @@ export async function deactivate() {
       outputChannel.appendLine(`[SQLSugar] Deactivation time: ${new Date().toISOString()}`);
     }
 
-    // 清理DI容器
+
     DIContainer.getInstance().clear();
 
     if (outputChannel) {

@@ -25,12 +25,12 @@ import {
   adjustPositionForScroll
 } from '../utils/position-calculator.js';
 
-// Import V2 UI components
+
 import './ui/input.js';
 import './ui/select.js';
 import './ui/button.js';
 
-// Default popover dimensions
+
 const POPOVER_DIMENSIONS = {
   width: 320,
   height: 280,
@@ -62,7 +62,7 @@ export class VariablePopover extends LitElement {
   @state() accessor showAdvancedOptions: boolean = false;
   @state() accessor isAnimating: boolean = false;
 
-  // Quick value suggestions based on variable type and name
+
   private quickSuggestions = {
     string: {
       'id': ['1', '123', 'user_id', 'sample_id'],

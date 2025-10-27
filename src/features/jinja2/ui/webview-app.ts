@@ -38,29 +38,29 @@ export class SqlsugarWebviewV2App extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
 
-    // Listen for messages from VS Code
+
     globalThis.addEventListener('message', (event: MessageEvent) => {
       const data = event.data || {};
 
       if (data.command === 'init') {
         this.templateText = data.template || '';
 
-        // Transform variables to match the expected interface
+
         this.variables = Array.isArray(data.variables)
           ? data.variables.map((v: Record<string, unknown>) => ({
               ...v,
-              isRequired: v.required || v.isRequired, // Map `required` to `isRequired`
-              required: undefined, // Remove the processor-specific field
+              isRequired: v.required || v.isRequired,
+              required: undefined,
             }))
           : [];
 
-        // Store V2 editor configuration if provided
+
         if (data.config) {
           this.config = data.config;
 
           }
 
-        // Force re-rendering
+
         this.requestUpdate();
       }
     });

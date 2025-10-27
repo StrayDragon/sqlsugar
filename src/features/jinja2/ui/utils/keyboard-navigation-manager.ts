@@ -10,7 +10,7 @@ import type {
   EditorV2Config
 } from '../types.js';
 
-// Type aliases for VSCode types (to avoid direct dependency)
+
 type QuickPickItem = {
   label: string;
   description?: string;
@@ -67,7 +67,7 @@ export class KeyboardNavigationManager {
    */
   private setupDefaultShortcuts() {
     const shortcuts: KeyboardShortcut[] = [
-      // Navigation
+
       {
         key: 'Tab',
         description: 'Navigate to next variable',
@@ -120,7 +120,7 @@ export class KeyboardNavigationManager {
         category: 'navigation'
       },
 
-      // Editing
+
       {
         key: 'Enter',
         description: 'Edit focused variable',
@@ -146,7 +146,7 @@ export class KeyboardNavigationManager {
         category: 'editing'
       },
 
-      // View
+
       {
         key: 'f',
         ctrlKey: true,
@@ -196,7 +196,7 @@ export class KeyboardNavigationManager {
         category: 'view'
       },
 
-      // File operations
+
       {
         key: 's',
         ctrlKey: true,
@@ -219,7 +219,7 @@ export class KeyboardNavigationManager {
         category: 'file'
       },
 
-      // Help
+
       {
         key: '?',
         ctrlKey: true,
@@ -265,7 +265,7 @@ export class KeyboardNavigationManager {
     const shortcut = this.shortcuts.get(key);
 
     if (shortcut) {
-      // Check if the shortcut is allowed in current context
+
       if (this.isShortcutAllowed(shortcut, context)) {
         event.preventDefault();
         event.stopPropagation();
@@ -300,13 +300,13 @@ export class KeyboardNavigationManager {
    * Check if shortcut is allowed in current context
    */
   private isShortcutAllowed(shortcut: KeyboardShortcut, context?: string): boolean {
-    // Some shortcuts should only work in specific contexts
+
     switch (context) {
       case 'popover':
-        // In popover, only allow editing-related shortcuts
+
         return ['editing', 'navigation'].includes(shortcut.category);
       case 'search':
-        // In search, allow all shortcuts except file operations
+
         return shortcut.category !== 'file';
       case 'editor':
       default:
@@ -328,7 +328,7 @@ export class KeyboardNavigationManager {
     }
 
     if (nextIndex >= this.variables.length) {
-      nextIndex = 0; // Wrap around
+      nextIndex = 0;
     }
 
     this.focusVariable(this.variables[nextIndex]);
@@ -348,7 +348,7 @@ export class KeyboardNavigationManager {
     }
 
     if (prevIndex < 0) {
-      prevIndex = this.variables.length - 1; // Wrap around
+      prevIndex = this.variables.length - 1;
     }
 
     this.focusVariable(this.variables[prevIndex]);
@@ -382,7 +382,7 @@ export class KeyboardNavigationManager {
       }
     }
 
-    return 0; // Wrap to first if no different line found
+    return 0;
   }
 
   /**
@@ -397,7 +397,7 @@ export class KeyboardNavigationManager {
       }
     }
 
-    return this.variables.length - 1; // Wrap to last if no different line found
+    return this.variables.length - 1;
   }
 
   /**
@@ -408,10 +408,10 @@ export class KeyboardNavigationManager {
     this.state.currentIndex = this.variables.findIndex(v => v.name === variable.name);
     this.state.isActive = true;
 
-    // Update navigation history
+
     if (this.state.navigationHistory[this.state.navigationHistory.length - 1] !== variable.name) {
       this.state.navigationHistory.push(variable.name);
-      // Keep history size manageable
+
       if (this.state.navigationHistory.length > 100) {
         this.state.navigationHistory.shift();
       }
@@ -456,7 +456,7 @@ export class KeyboardNavigationManager {
    */
   private focusSearch() {
     this.notifyListeners({
-      action: 'next', // Reuse as a generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -465,9 +465,9 @@ export class KeyboardNavigationManager {
    * Toggle line numbers
    */
   private toggleLineNumbers() {
-    // This would be handled by the parent component
+
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -476,9 +476,9 @@ export class KeyboardNavigationManager {
    * Toggle word wrap
    */
   private toggleWordWrap() {
-    // This would be handled by the parent component
+
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -487,9 +487,9 @@ export class KeyboardNavigationManager {
    * Switch view mode
    */
   private switchViewMode(_mode: 'split' | 'rendered' | 'diff') {
-    // This would be handled by the parent component
+
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -499,7 +499,7 @@ export class KeyboardNavigationManager {
    */
   private saveOrSubmit() {
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -509,7 +509,7 @@ export class KeyboardNavigationManager {
    */
   private copyResult() {
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -519,7 +519,7 @@ export class KeyboardNavigationManager {
    */
   private refreshPreview() {
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }
@@ -529,7 +529,7 @@ export class KeyboardNavigationManager {
    */
   private showHelp() {
     this.notifyListeners({
-      action: 'next', // Generic action
+      action: 'next',
       fromKeyboard: true
     });
   }

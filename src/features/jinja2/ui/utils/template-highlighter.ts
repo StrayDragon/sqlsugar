@@ -77,7 +77,7 @@ export class TemplateHighlighter {
     }
 
     try {
-      // Apply SQL syntax highlighting with custom variable highlighting
+
       const highlighted = this.highlightTemplateWithSQL(template, variables, values);
 
       return {
@@ -101,18 +101,18 @@ export class TemplateHighlighter {
     values: Record<string, Jinja2VariableValue> = {}
   ): string {
     try {
-      // Step 1: Apply highlight.js SQL syntax highlighting to the entire template
+
       const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
       const highlighted = hljsInstance.highlight(template, { language: 'sql', ignoreIllegals: true });
 
-      // Step 2: Replace variables in the highlighted HTML with our clickable elements
+
       let result = highlighted.value;
 
       variables.forEach(variable => {
-        // Create regex to find variable patterns in the original template
+
         const varPattern = new RegExp(`{{\\s*${this.escapeRegex(variable.name)}\\s*}}`, 'g');
 
-        // Replace each occurrence with our clickable variable element
+
         result = result.replace(varPattern, (match: string) => {
           const valueDisplay = this.formatValueForDisplay(values[variable.name]);
           const variableHTML = `<span class="template-variable variable-highlight" data-variable="${variable.name}" data-type="${variable.type}" title="Variable: ${variable.name} (${variable.type}) - Click to edit">${match}</span>`;
@@ -121,7 +121,7 @@ export class TemplateHighlighter {
         });
       });
 
-      // Step 3: Also highlight variables in control structures like {% if variable %}
+
       result = this.highlightVariablesInControlStructures(result, variables);
       return result;
     } catch (error) {
@@ -139,7 +139,7 @@ export class TemplateHighlighter {
   ): string {
     let result = highlightedHTML;
 
-    // Highlight variables in {% if variable %} structures
+
     result = result.replace(/{%\s*if\s+([^%]+)\s*%}/g, (match: string, condition: string) => {
       let highlightedCondition = condition;
 
@@ -152,7 +152,7 @@ export class TemplateHighlighter {
       return `{% if ${highlightedCondition} %}`;
     });
 
-    // Highlight variables in {% for item in items %} structures
+
     result = result.replace(/{%\s*for\s+\w+\s+in\s+\w+\s*%}/g, (match: string) => {
       let highlightedMatch = match;
 
@@ -186,7 +186,7 @@ export class TemplateHighlighter {
    * Returns escaped HTML to ensure the template is still displayable
    */
   private fallbackHighlight(template: string): TemplateHighlightResult {
-    // Just return escaped HTML - let jinja2-editor-v2.ts handle variable highlighting
+
     return {
       html: this.escapeHtml(template),
       variables: [],

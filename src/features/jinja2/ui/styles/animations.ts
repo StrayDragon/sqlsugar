@@ -24,7 +24,7 @@ export const ANIMATION_EASING = {
   easeIn: 'ease-in',
   easeOut: 'ease-out',
   easeInOut: 'ease-in-out',
-  // Custom easing
+
   bounce: 'cubic-bezier(0.68, -0.55, 0.265, 1.55)',
   smooth: 'cubic-bezier(0.4, 0, 0.2, 1)',
   swift: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)'
@@ -34,7 +34,7 @@ export const ANIMATION_EASING = {
  * Common animation keyframes
  */
 export const ANIMATION_KEYFRAMES = {
-  // Fade animations
+
   fadeIn: `
     @keyframes fadeIn {
       from {
@@ -68,7 +68,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Slide animations
+
   slideInUp: `
     @keyframes slideInUp {
       from {
@@ -118,7 +118,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Scale animations
+
   scaleIn: `
     @keyframes scaleIn {
       from {
@@ -144,7 +144,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Bounce animations
+
   bounceIn: `
     @keyframes bounceIn {
       0% {
@@ -181,7 +181,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Pulse animations
+
   pulse: `
     @keyframes pulse {
       0% {
@@ -212,7 +212,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Loading animations
+
   spin: `
     @keyframes spin {
       0% {
@@ -240,7 +240,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Highlight animations
+
   highlight: `
     @keyframes highlight {
       0% {
@@ -255,7 +255,7 @@ export const ANIMATION_KEYFRAMES = {
     }
   `,
 
-  // Shake animation (for errors)
+
   shake: `
     @keyframes shake {
       0%, 100% {
@@ -427,7 +427,7 @@ export class AnimationManager {
    * Check if animations are enabled globally
    */
   static areAnimationsEnabled(): boolean {
-    // Check for reduced motion preference
+
     if (typeof window !== 'undefined' && window.matchMedia) {
       const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
       return !prefersReducedMotion;
@@ -473,7 +473,7 @@ export class AnimationManager {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / duration, 1);
 
-      // Easing function (ease-out)
+
       const easeProgress = 1 - Math.pow(1 - progress, 3);
 
       const currentValue = start + (end - start) * easeProgress;
@@ -503,7 +503,7 @@ export class AnimationManager {
   ): void {
     const startTime = performance.now();
 
-    // Simple color interpolation (works for hex colors)
+
     const interpolateColor = (start: string, end: string, factor: number): string => {
       const startRGB = this.hexToRgb(start);
       const endRGB = this.hexToRgb(end);

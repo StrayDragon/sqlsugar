@@ -5,7 +5,7 @@
  * Users can click on highlighted variables to edit them in-place
  */
 
-// Import webview app for simple V2 editor initialization
+
 import './webview-app.js';
 
 export * from './webview-app.js';

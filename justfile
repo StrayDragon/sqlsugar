@@ -66,34 +66,8 @@ backup: package-vsix
     cp sqlsugar.vsix "backups/sqlsugar-$(date +%Y%m%d-%H%M%S).vsix"
     echo "✅ Backup created in backups/ directory"
 
-# =============================================================================
-# Cleanup Commands
-# =============================================================================
-
 # Clean up generated files
 clean:
     rm -rf dist/
     rm -rf out/
     rm -f *.vsix
-
-# Deep clean (including node_modules)
-deep-clean: clean
-    rm -rf node_modules/
-    rm -rf .vscode-test/
-    rm -rf .vscode/sqlsugar/temp/
-
-# =============================================================================
-# Help and Information
-# =============================================================================
-
-# Show available commands
-help:
-    @just --list
-
-# Show project information
-info:
-    @echo "SQLSugar VS Code Extension"
-    @echo "================================"
-    @echo "Description: Edit inline SQL literals with sqls LSP support"
-    @echo "Version: $(jq -r .version package.json)"
-    @echo "Use 'pnpm run' for development commands"

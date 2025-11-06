@@ -1,0 +1,598 @@
+openapi: 3.0.3
+info:
+  title: SQLSugar Variable Memory API
+  description: Internal API for variable value persistence and retrieval in SQLSugar Jinja2 V2 editor
+  version: 1.0.0
+
+paths:
+  /variables/memory:
+    get:
+      summary: Retrieve remembered variable values for a template
+      operationId: getVariableMemory
+      parameters:
+        - name: templateFingerprint
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: includeHistory
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Successfully retrieved variable memory
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  variables:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/VariableMemory'
+                  templateInfo:
+                    $ref: '#/components/schemas/TemplateFingerprint'
+        '404':
+          description: No memory found for template
+        '400':
+          description: Invalid template fingerprint
+
+    post:
+      summary: Save variable values to memory
+      operationId: saveVariableMemory
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - templateFingerprint
+                - variables
+              properties:
+                templateFingerprint:
+                  type: string
+                variables:
+                  type: object
+                  additionalProperties:
+                    $ref: '#/components/schemas/VariableMemoryInput'
+                source:
+                  type: string
+                  enum: [user, inferred, default, suggestion]
+                  default: user
+      responses:
+        '200':
+          description: Successfully saved variable memory
+        '400':
+          description: Invalid input data
+        '413':
+          description: Storage quota exceeded
+
+    delete:
+      summary: Clear variable memory
+      operationId: clearVariableMemory
+      parameters:
+        - name: templateFingerprint
+          in: query
+          schema:
+            type: string
+        - name: variableName
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully cleared memory
+        '404':
+          description: Memory not found
+
+  /variables/type-inference:
+    post:
+      summary: Perform enhanced type inference for variables
+      operationId: inferVariableTypes
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - template
+                - variables
+              properties:
+                template:
+                  type: string
+                variables:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/EnhancedVariable'
+                context:
+                  $ref: '#/components/schemas/VariableContext'
+                options:
+                  $ref: '#/components/schemas/InferenceOptions'
+      responses:
+        '200':
+          description: Successfully inferred types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  inferences:
+                    type: object
+                    additionalProperties:
+                      $ref: '#/components/schemas/TypeInferenceResult'
+                  confidence:
+                    type: number
+                    format: float
+                    minimum: 0
+                    maximum: 1
+
+  /variables/suggestions:
+    get:
+      summary: Get value suggestions for a variable
+      operationId: getValueSuggestions
+      parameters:
+        - name: variableName
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: type
+          in: query
+          schema:
+            $ref: '#/components/schemas/Jinja2VariableType'
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 20
+            default: 5
+        - name: context
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Successfully retrieved suggestions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ValueSuggestion'
+
+  /templates/fingerprint:
+    post:
+      summary: Generate template fingerprint
+      operationId: generateTemplateFingerprint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - template
+              properties:
+                template:
+                  type: string
+                options:
+                  $ref: '#/components/schemas/FingerprintOptions'
+      responses:
+        '200':
+          description: Successfully generated fingerprint
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateFingerprint'
+
+  /memory/cleanup:
+    post:
+      summary: Clean up old memory data
+      operationId: cleanupMemory
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                retentionDays:
+                  type: integer
+                  minimum: 1
+                  default: 30
+                dryRun:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Cleanup completed successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  deletedEntries:
+                    type: integer
+                  freedSpace:
+                    type: integer
+                  templatesAffected:
+                    type: integer
+
+components:
+  schemas:
+    VariableMemory:
+      type: object
+      required:
+        - variableName
+        - value
+        - type
+        - timestamp
+        - confidence
+        - source
+      properties:
+        variableName:
+          type: string
+        value:
+          description: Serialized variable value
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        timestamp:
+          type: integer
+          format: int64
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        source:
+          type: string
+          enum: [user, inferred, default, suggestion]
+        templateFingerprint:
+          type: string
+        usageCount:
+          type: integer
+          minimum: 0
+        lastUsed:
+          type: integer
+          format: int64
+
+    VariableMemoryInput:
+      type: object
+      required:
+        - value
+        - type
+      properties:
+        value:
+          description: Variable value to serialize
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 1
+
+    TemplateFingerprint:
+      type: object
+      required:
+        - structureHash
+        - variableNames
+        - variableCount
+        - created
+      properties:
+        structureHash:
+          type: string
+          description: SHA-256 hash of template structure
+        variableNames:
+          type: array
+          items:
+            type: string
+        variableCount:
+          type: integer
+          minimum: 0
+        contentHash:
+          type: string
+        templateLength:
+          type: integer
+          minimum: 0
+        created:
+          type: integer
+          format: int64
+        lastSeen:
+          type: integer
+          format: int64
+        filePath:
+          type: string
+
+    TypeInferenceResult:
+      type: object
+      required:
+        - type
+        - confidence
+        - reasons
+        - source
+      properties:
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        reasons:
+          type: array
+          items:
+            type: string
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeAlternative'
+        source:
+          type: string
+          enum: [naming, context, assignment, filter, manual]
+
+    TypeAlternative:
+      type: object
+      required:
+        - type
+        - confidence
+        - reason
+      properties:
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        reason:
+          type: string
+
+    EnhancedVariable:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        isRequired:
+          type: boolean
+          default: false
+        defaultValue:
+          description: Default value if any
+        context:
+          $ref: '#/components/schemas/VariableContext'
+        currentValue:
+          description: Current value if set
+        isRemembered:
+          type: boolean
+          default: false
+        memoryConfidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+
+    VariableContext:
+      type: object
+      properties:
+        surroundingText:
+          type: object
+          properties:
+            before:
+              type: string
+            after:
+              type: string
+        semanticContext:
+          type: string
+        relatedVariables:
+          type: array
+          items:
+            type: string
+        controlStructures:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlStructure'
+        assignments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Assignment'
+        filters:
+          type: array
+          items:
+            $ref: '#/components/schemas/FilterUsage'
+        position:
+          type: object
+          properties:
+            line:
+              type: integer
+              minimum: 1
+            column:
+              type: integer
+              minimum: 1
+
+    ControlStructure:
+      type: object
+      required:
+        - type
+        - position
+      properties:
+        type:
+          type: string
+          enum: [if, for, set, macro, block]
+        condition:
+          type: string
+        iterator:
+          type: string
+        collection:
+          type: string
+        assignment:
+          $ref: '#/components/schemas/Assignment'
+        position:
+          type: object
+          properties:
+            line:
+              type: integer
+              minimum: 1
+            column:
+              type: integer
+              minimum: 1
+
+    Assignment:
+      type: object
+      required:
+        - variableName
+        - expression
+        - confidence
+        - position
+      properties:
+        variableName:
+          type: string
+        expression:
+          type: string
+        inferredType:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        position:
+          type: object
+          properties:
+            line:
+              type: integer
+              minimum: 1
+            column:
+              type: integer
+              minimum: 1
+
+    FilterUsage:
+      type: object
+      required:
+        - variableName
+        - filterName
+        - confidence
+      properties:
+        variableName:
+          type: string
+        filterName:
+          type: string
+        parameters:
+          type: array
+          items:
+            type: string
+        inferredType:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+
+    Jinja2VariableType:
+      type: string
+      enum:
+        - string
+        - number
+        - integer
+        - boolean
+        - date
+        - time
+        - datetime
+        - json
+        - uuid
+        - email
+        - url
+        - null
+        - array
+        - object
+        - unknown
+
+    InferenceOptions:
+      type: object
+      properties:
+        depth:
+          type: string
+          enum: [basic, deep, comprehensive]
+          default: deep
+        includeAlternatives:
+          type: boolean
+          default: true
+        maxAlternatives:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        minConfidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.1
+
+    FingerprintOptions:
+      type: object
+      properties:
+        includeContentHash:
+          type: boolean
+          default: true
+        normalizeWhitespace:
+          type: boolean
+          default: false
+        includeVariables:
+          type: boolean
+          default: true
+        includeStructure:
+          type: boolean
+          default: true
+
+    ValueSuggestion:
+      type: object
+      required:
+        - value
+        - type
+        - confidence
+      properties:
+        value:
+          description: Suggested value
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        source:
+          type: string
+          enum: [history, pattern, inference, default]
+        reason:
+          type: string
+        frequency:
+          type: integer
+          minimum: 1
+          description: How often this value has been used
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+        - message
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+        timestamp:
+          type: integer
+          format: int64

@@ -9,6 +9,8 @@ import TemplateHighlighter from '../utils/template-highlighter.js';
 import SqlHighlighter from '../utils/sql-highlighter.js';
 import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
 import type { CompleteEditorV2Config } from '../types/config.js';
+import type { EnhancedVariableState } from '../types/enhanced-variable.js';
+import type { TypeInferenceResult } from '../types/enhanced-variable.js';
 import nunjucks from 'nunjucks';
 
 @customElement('jinja2-editor-v2')
@@ -45,6 +47,30 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor activeVariableType: string = '';
   @state() accessor showTypeSelector: boolean = false;
   @state() accessor syncScroll: boolean = false;
+
+  // Memory persistence state
+  @state() accessor rememberedValues: Record<string, { value: Jinja2VariableValue; type: Jinja2VariableType; confidence: number }> = {};
+  @state() accessor showMemoryIndicators: boolean = true;
+  @state() accessor memoryEnabled: boolean = true;
+
+  // Type inference state
+  @property({ attribute: false }) accessor typeInferenceResults: Record<string, TypeInferenceResult> = {};
+  @property({ type: Boolean }) accessor showTypeInferenceIndicators: boolean = true;
+  @property({ type: Boolean }) accessor showTypeInferencePanel: boolean = false;
+  @state() accessor overallTypeInferenceConfidence: number = 0;
+  @state() accessor typeInferenceStats: {
+    totalVariables: number;
+    highConfidenceCount: number;
+    mediumConfidenceCount: number;
+    lowConfidenceCount: number;
+    averageConfidence: number;
+  } = {
+    totalVariables: 0,
+    highConfidenceCount: 0,
+    mediumConfidenceCount: 0,
+    lowConfidenceCount: 0,
+    averageConfidence: 0
+  };
 
 
   private variableChangeLogs: Array<{
@@ -852,6 +878,270 @@ export class Jinja2EditorV2 extends LitElement {
         justify-content: center;
       }
     }
+
+    /* Type Inference Indicators */
+    .type-inference-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      margin-left: 4px;
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast, 0.15s ease);
+      opacity: 0.8;
+    }
+
+    .type-inference-indicator:hover {
+      opacity: 1;
+      transform: translateY(-1px);
+    }
+
+    .type-inference-indicator.high-confidence {
+      background: var(--vscode-charts-green);
+      color: var(--vscode-editor-background);
+    }
+
+    .type-inference-indicator.medium-confidence {
+      background: var(--vscode-charts-orange);
+      color: var(--vscode-editor-background);
+    }
+
+    .type-inference-indicator.low-confidence {
+      background: var(--vscode-charts-red);
+      color: var(--vscode-editor-background);
+    }
+
+    .type-inference-indicator.very-low-confidence {
+      background: var(--vscode-descriptionForeground);
+      color: var(--vscode-editor-background);
+    }
+
+    .type-inference-indicator::before {
+      content: "🧠";
+      font-size: 8px;
+    }
+
+    /* Type Inference Panel */
+    .type-inference-panel {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      width: 320px;
+      max-height: 60vh;
+      background: var(--vscode-editor-background);
+      border: 1px solid var(--vscode-widget-border);
+      border-radius: var(--border-radius-lg, 8px);
+      box-shadow: var(--shadow-lg);
+      z-index: 1000;
+      overflow: hidden;
+      transform: translateY(-10px);
+      opacity: 0;
+      transition: all var(--transition-normal, 0.2s ease);
+    }
+
+    .type-inference-panel.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .type-inference-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: var(--spacing-md);
+      background: var(--vscode-widget-background);
+      border-bottom: 1px solid var(--vscode-widget-border);
+      font-size: var(--font-size-sm, 13px);
+      font-weight: var(--font-weight-semibold, 600);
+    }
+
+    .type-inference-panel-title {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs);
+    }
+
+    .type-inference-panel-close {
+      background: none;
+      border: none;
+      color: var(--vscode-foreground);
+      cursor: pointer;
+      font-size: 16px;
+      padding: 2px;
+      border-radius: var(--border-radius-sm);
+      transition: background-color var(--transition-fast, 0.15s ease);
+    }
+
+    .type-inference-panel-close:hover {
+      background: var(--vscode-button-secondaryBackground);
+    }
+
+    .type-inference-panel-content {
+      padding: var(--spacing-md);
+      overflow-y: auto;
+      max-height: calc(60vh - 60px);
+    }
+
+    .type-inference-stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--spacing-sm);
+      margin-bottom: var(--spacing-md);
+      padding: var(--spacing-sm);
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: var(--border-radius-sm);
+    }
+
+    .type-inference-stat {
+      text-align: center;
+      padding: var(--spacing-xs);
+    }
+
+    .type-inference-stat-value {
+      font-size: var(--font-size-lg, 18px);
+      font-weight: var(--font-weight-bold, 700);
+      display: block;
+    }
+
+    .type-inference-stat-label {
+      font-size: var(--font-size-xs, 11px);
+      color: var(--vscode-descriptionForeground);
+      margin-top: 2px;
+    }
+
+    .type-inference-stat.high .type-inference-stat-value {
+      color: var(--vscode-charts-green);
+    }
+
+    .type-inference-stat.medium .type-inference-stat-value {
+      color: var(--vscode-charts-orange);
+    }
+
+    .type-inference-stat.low .type-inference-stat-value {
+      color: var(--vscode-charts-red);
+    }
+
+    .type-inference-list {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm);
+    }
+
+    .type-inference-item {
+      padding: var(--spacing-sm);
+      background: var(--vscode-widget-background);
+      border: 1px solid var(--vscode-widget-border);
+      border-radius: var(--border-radius-sm);
+      transition: all var(--transition-fast, 0.15s ease);
+    }
+
+    .type-inference-item:hover {
+      border-color: var(--vscode-focusBorder);
+      background: var(--vscode-button-secondaryBackground);
+    }
+
+    .type-inference-item-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .type-inference-variable-name {
+      font-weight: var(--font-weight-semibold, 600);
+      font-size: var(--font-size-sm, 13px);
+    }
+
+    .type-inference-variable-type {
+      padding: 2px 6px;
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border-radius: var(--border-radius-sm);
+      font-size: var(--font-size-xs, 10px);
+      font-weight: var(--font-weight-medium, 500);
+    }
+
+    .type-inference-confidence-bar {
+      height: 3px;
+      background: var(--vscode-widget-background);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: var(--spacing-xs);
+    }
+
+    .type-inference-confidence-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width var(--transition-normal, 0.2s ease);
+    }
+
+    .type-inference-confidence-fill.high {
+      background: var(--vscode-charts-green);
+    }
+
+    .type-inference-confidence-fill.medium {
+      background: var(--vscode-charts-orange);
+    }
+
+    .type-inference-confidence-fill.low {
+      background: var(--vscode-charts-red);
+    }
+
+    .type-inference-confidence-fill.very-low {
+      background: var(--vscode-descriptionForeground);
+    }
+
+    .type-inference-reasons {
+      font-size: var(--font-size-xs, 10px);
+      color: var(--vscode-descriptionForeground);
+      line-height: 1.3;
+    }
+
+    .type-inference-reason {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-xs, 2px);
+      margin-bottom: 2px;
+    }
+
+    .type-inference-reason-bullet {
+      color: var(--vscode-textLink-foreground);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    /* Type Inference Toggle Button */
+    .type-inference-toggle {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--vscode-button-background);
+      border: 1px solid var(--vscode-button-border);
+      color: var(--vscode-button-foreground);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 16px;
+      transition: all var(--transition-fast, 0.15s ease);
+      z-index: 999;
+    }
+
+    .type-inference-toggle:hover {
+      background: var(--vscode-button-hoverBackground);
+      transform: scale(1.1);
+    }
+
+    .type-inference-toggle.active {
+      background: var(--vscode-button-secondaryBackground);
+      border-color: var(--vscode-focusBorder);
+    }
   `;
 
   override willUpdate(changedProperties: Map<string | number | symbol, unknown>) {
@@ -1059,21 +1349,30 @@ export class Jinja2EditorV2 extends LitElement {
 
     try {
       // Convert Jinja2Variable[] to EnhancedVariable[] for the highlighter
-      const enhancedVariables: EnhancedVariable[] = this.variables.map(v => ({
-        name: v.name,
-        type: v.type,
-        isRequired: v.isRequired || false,
-        defaultValue: v.defaultValue,
-        description: v.description,
-        position: {
-          startIndex: 0,
-          endIndex: 0,
-          line: 0,
-          column: 0,
+      const enhancedVariables: EnhancedVariable[] = this.variables.map(v => {
+        const rememberedValue = this.rememberedValues[v.name];
+        return {
           name: v.name,
-          fullMatch: `{{ ${v.name} }}`
-        }
-      }));
+          type: v.type,
+          isRequired: v.isRequired || false,
+          defaultValue: v.defaultValue,
+          currentValue: v.currentValue || this.variableValues[v.name],
+          description: v.description,
+          // Memory-related properties
+          isRemembered: !!rememberedValue,
+          memoryConfidence: rememberedValue?.confidence || 0,
+          lastRemembered: undefined, // Could be enhanced with timestamp
+          rememberSource: rememberedValue ? 'user' : undefined,
+          position: {
+            startIndex: 0,
+            endIndex: 0,
+            line: 0,
+            column: 0,
+            name: v.name,
+            fullMatch: `{{ ${v.name} }}`
+          }
+        };
+      });
 
       // Use the TemplateHighlighter for professional syntax highlighting
       const result = this.templateHighlighter.highlightTemplate(
@@ -1087,6 +1386,11 @@ export class Jinja2EditorV2 extends LitElement {
       // Apply control structure highlighting to ensure all variables are highlighted
       // This handles variables in {% if %}, {% for %}, {% set %} that TemplateHighlighter might miss
       highlighted = this.applyControlStructureHighlighting(highlighted);
+
+      // Apply memory indicators to remembered variables
+      if (this.showMemoryIndicators && this.memoryEnabled) {
+        highlighted = this.applyMemoryIndicators(highlighted);
+      }
 
       this.highlightedTemplate = highlighted;
     } catch (error) {
@@ -1307,6 +1611,59 @@ export class Jinja2EditorV2 extends LitElement {
         });
       }
     });
+
+    return highlighted;
+  }
+
+  /**
+   * Apply memory indicators to remembered variables in the highlighted template
+   */
+  private applyMemoryIndicators(html: string): string {
+    let highlighted = html;
+
+    // Apply memory indicators to variable highlights
+    highlighted = highlighted.replace(
+      /<span class="variable-highlight([^>]*)data-variable="([^"]+)"([^>]*)>([^<]+)<\/span>/g,
+      (match, classes, varName, extraAttrs, variableContent) => {
+        const rememberedValue = this.rememberedValues[varName];
+
+        if (!rememberedValue || !this.showMemoryIndicators || !this.memoryEnabled) {
+          return match; // No indicator needed
+        }
+
+        // Determine memory indicator styling based on confidence
+        const confidenceLevel = rememberedValue.confidence;
+        let indicatorClass = 'memory-indicator';
+        let confidenceBar = '';
+
+        if (confidenceLevel >= 0.8) {
+          indicatorClass += ' high-confidence';
+        } else if (confidenceLevel >= 0.5) {
+          indicatorClass += ' medium-confidence';
+        } else {
+          indicatorClass += ' low-confidence';
+        }
+
+        // Create confidence bar
+        confidenceBar = `<div class="memory-confidence-bar">
+          <div class="confidence-fill" style="width: ${confidenceLevel * 100}%"></div>
+        </div>`;
+
+        // Create memory indicator
+        const memoryIndicator = `<span class="${indicatorClass}"
+          title="Remembered value (${(confidenceLevel * 100).toFixed(0)}% confidence)">
+          📝 ${(confidenceLevel * 100).toFixed(0)}%
+        </span>`;
+
+        // Combine with existing classes and add memory attributes
+        const enhancedClasses = `${classes} memory-remembered`;
+        const memoryAttrs = `${extraAttrs} data-remembered="true"
+          data-memory-confidence="${confidenceLevel}"
+          data-memory-value="${this.escapeHtml(String(rememberedValue.value))}"`;
+
+        return `<span class="${enhancedClasses}" data-variable="${varName}"${memoryAttrs}>${variableContent}${memoryIndicator}${confidenceBar}</span>`;
+      }
+    );
 
     return highlighted;
   }

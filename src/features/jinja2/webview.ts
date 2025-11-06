@@ -7,6 +7,7 @@ import { getOutputChannel } from '../../core/extension';
 import { DIContainer } from '../../core/di-container';
 import { Jinja2Variable } from './processor';
 import { Jinja2NunjucksHandler } from './command-handler';
+import { variableMemoryService } from './ui/utils/variable-memory-service';
 
 /**
  * WebView 消息类型
@@ -19,6 +20,10 @@ interface WebViewMessage {
   config?: unknown;
   values?: Record<string, unknown>;
   isTemplate?: boolean;
+  fingerprint?: string;
+  variableName?: string;
+  rememberedValue?: any;
+  autoSave?: boolean;
   [key: string]: unknown;
 }
 
@@ -258,6 +263,23 @@ export class Jinja2WebviewEditorV2 {
         }
         break;
 
+      // Memory-related message handlers
+      case 'loadRememberedValues':
+        await this.handleLoadRememberedValues(msg.fingerprint, msg.variableName);
+        break;
+
+      case 'saveToMemory':
+        await this.handleSaveToMemory(msg.fingerprint, msg.variableName, msg.rememberedValue, msg.autoSave);
+        break;
+
+      case 'removeFromMemory':
+        await this.handleRemoveFromMemory(msg.fingerprint, msg.variableName, msg.rememberedValue);
+        break;
+
+      case 'getMemorySuggestions':
+        await this.handleGetMemorySuggestions(msg.fingerprint, msg.variableName);
+        break;
+
 
       case 'copyToClipboard':
         if (message.text) {
@@ -463,6 +485,154 @@ export class Jinja2WebviewEditorV2 {
       variables: _variables,
       config: this.getV2EditorConfig(),
     });
+  }
+
+  /**
+   * Handle loading remembered values for a variable
+   */
+  private async handleLoadRememberedValues(fingerprint?: string, variableName?: string): Promise<void> {
+    if (!fingerprint || !variableName || !this.panel) return;
+
+    try {
+      const rememberedValues = await variableMemoryService.getRememberedValues(fingerprint, variableName);
+
+      this.panel.webview.postMessage({
+        command: 'rememberedValuesLoaded',
+        fingerprint,
+        variableName,
+        rememberedValues
+      });
+
+      Logger.debug(`Loaded ${rememberedValues.length} remembered values for ${variableName}`);
+    } catch (error) {
+      Logger.error('Failed to load remembered values:', error);
+
+      this.panel.webview.postMessage({
+        command: 'rememberedValuesError',
+        fingerprint,
+        variableName,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
+  /**
+   * Handle saving a value to memory
+   */
+  private async handleSaveToMemory(
+    fingerprint?: string,
+    variableName?: string,
+    rememberedValue?: any,
+    autoSave?: boolean
+  ): Promise<void> {
+    if (!fingerprint || !variableName || !rememberedValue || !this.panel) return;
+
+    try {
+      await variableMemoryService.saveVariableValue(
+        fingerprint,
+        variableName,
+        rememberedValue.value,
+        rememberedValue.type || 'string',
+        {
+          source: autoSave ? 'auto-save' : 'manual',
+          confidence: rememberedValue.confidence || 0.8,
+          templateContext: rememberedValue.templateContext,
+          userInput: true
+        }
+      );
+
+      this.panel.webview.postMessage({
+        command: 'memoryValueSaved',
+        fingerprint,
+        variableName,
+        rememberedValue,
+        autoSave
+      });
+
+      Logger.debug(`Saved value to memory for ${variableName}: ${rememberedValue.value}`);
+    } catch (error) {
+      Logger.error('Failed to save to memory:', error);
+
+      this.panel.webview.postMessage({
+        command: 'memoryValueError',
+        fingerprint,
+        variableName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'save'
+      });
+    }
+  }
+
+  /**
+   * Handle removing a value from memory
+   */
+  private async handleRemoveFromMemory(
+    fingerprint?: string,
+    variableName?: string,
+    rememberedValue?: any
+  ): Promise<void> {
+    if (!fingerprint || !variableName || !rememberedValue || !this.panel) return;
+
+    try {
+      const success = await variableMemoryService.removeVariableValue(
+        fingerprint,
+        variableName,
+        rememberedValue.value
+      );
+
+      this.panel.webview.postMessage({
+        command: 'memoryValueRemoved',
+        fingerprint,
+        variableName,
+        rememberedValue,
+        success
+      });
+
+      if (success) {
+        Logger.debug(`Removed value from memory for ${variableName}: ${rememberedValue.value}`);
+      } else {
+        Logger.warn(`Value not found in memory for removal: ${variableName}: ${rememberedValue.value}`);
+      }
+    } catch (error) {
+      Logger.error('Failed to remove from memory:', error);
+
+      this.panel.webview.postMessage({
+        command: 'memoryValueError',
+        fingerprint,
+        variableName,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        operation: 'remove'
+      });
+    }
+  }
+
+  /**
+   * Handle getting memory suggestions for a variable
+   */
+  private async handleGetMemorySuggestions(fingerprint?: string, variableName?: string): Promise<void> {
+    if (!fingerprint || !variableName || !this.panel) return;
+
+    try {
+      const suggestions = await variableMemoryService.getValueSuggestions(fingerprint, variableName, 5);
+
+      this.panel.webview.postMessage({
+        command: 'memorySuggestionsLoaded',
+        fingerprint,
+        variableName,
+        suggestions
+      });
+
+      Logger.debug(`Loaded ${suggestions.length} memory suggestions for ${variableName}`);
+    } catch (error) {
+      Logger.error('Failed to get memory suggestions:', error);
+
+      this.panel.webview.postMessage({
+        command: 'memorySuggestionsError',
+        fingerprint,
+        variableName,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
   }
 
   /**

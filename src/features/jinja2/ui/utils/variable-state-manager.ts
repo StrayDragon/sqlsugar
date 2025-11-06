@@ -4,12 +4,17 @@
  * Manages the state of all variables with history tracking and validation
  */
 
+import type { ExtensionContext } from 'vscode';
 import type {
   EnhancedVariable,
   Jinja2VariableValue,
   Jinja2VariableType
 } from '../types.js';
 import { validateValue } from './variable-utils.js';
+import type { VariableMemoryService } from './variable-memory-service.js';
+import type { TemplateFingerprinter } from './template-fingerprinter.js';
+import type { EnhancedVariableState } from './enhanced-variable-state-manager.js';
+import { memoryLogger } from '../../../core/logging/memory-logger.js';
 
 /**
  * Variable state with history tracking
@@ -57,10 +62,34 @@ export class VariableStateManager {
   private maxHistorySize = 50;
   private listeners: Set<(event: StateChangeEvent) => void> = new Set();
 
+  // Memory integration properties
+  private memoryService?: VariableMemoryService;
+  private fingerprinter?: TemplateFingerprinter;
+  private context?: ExtensionContext;
+  private currentTemplateFingerprint?: string;
+  private memoryEnabled: boolean = true;
+  private autoSave: boolean = true;
+
+  /**
+   * Constructor with optional memory service integration
+   */
+  constructor(
+    context?: ExtensionContext,
+    memoryService?: VariableMemoryService,
+    fingerprinter?: TemplateFingerprinter,
+    options?: { memoryEnabled?: boolean; autoSave?: boolean }
+  ) {
+    this.context = context;
+    this.memoryService = memoryService;
+    this.fingerprinter = fingerprinter;
+    this.memoryEnabled = options?.memoryEnabled ?? true;
+    this.autoSave = options?.autoSave ?? true;
+  }
+
   /**
    * Initialize the state manager with variables
    */
-  initialize(variables: EnhancedVariable[]) {
+  async initialize(variables: EnhancedVariable[], template?: string): Promise<void> {
     this.variables.clear();
     this.states.clear();
 
@@ -68,6 +97,79 @@ export class VariableStateManager {
       this.variables.set(variable.name, variable);
       this.initializeVariableState(variable);
     });
+
+    // Load remembered values if memory is enabled and template is provided
+    if (this.memoryEnabled && this.memoryService && template) {
+      await this.loadRememberedValues(template);
+    }
+  }
+
+  /**
+   * Set template fingerprint for memory operations
+   */
+  setTemplateFingerprint(fingerprint: string): void {
+    this.currentTemplateFingerprint = fingerprint;
+    memoryLogger.debug('Template fingerprint set in state manager', {
+      operation: 'setTemplateFingerprint',
+      templateFingerprint: fingerprint
+    });
+  }
+
+  /**
+   * Load remembered values from memory
+   */
+  private async loadRememberedValues(template: string): Promise<void> {
+    if (!this.memoryService || !this.fingerprinter) return;
+
+    try {
+      // Generate template fingerprint
+      const fingerprint = this.fingerprinter.generateTemplateFingerprint(template);
+      this.currentTemplateFingerprint = fingerprint.structureHash;
+
+      // Load remembered values
+      const rememberedValues = await this.memoryService.loadVariableValues(template);
+
+      // Apply remembered values to variables
+      for (const [name, value] of Object.entries(rememberedValues)) {
+        const state = this.states.get(name);
+        const variable = this.variables.get(name);
+
+        if (state && variable && state.current === undefined) {
+          // Only apply if current value is not already set
+          const isValid = this.validateValue(value, variable.type);
+
+          state.current = value;
+          state.isValid = isValid;
+          state.validationError = isValid ? undefined : this.getValidationError(value, variable.type);
+          state.lastModified = new Date();
+
+          // Add to history
+          state.history.push({
+            value,
+            type: variable.type,
+            timestamp: new Date(),
+            changeReason: 'import' as const
+          });
+
+          memoryLogger.debug('Remembered value applied to variable state', {
+            operation: 'loadRememberedValues',
+            variableName: name,
+            templateFingerprint: fingerprint.structureHash,
+            isValid
+          });
+        }
+      }
+
+      memoryLogger.info('Remembered values loaded into state manager', {
+        operation: 'loadRememberedValues',
+        valuesLoaded: Object.keys(rememberedValues).length
+      });
+
+    } catch (error) {
+      memoryLogger.error('Failed to load remembered values in state manager', error as Error, {
+        operation: 'loadRememberedValues'
+      });
+    }
   }
 
   /**
@@ -221,6 +323,16 @@ export class VariableStateManager {
 
     this.states.set(variableName, newState);
 
+    // Save to memory if enabled and appropriate
+    if (this.memoryEnabled && this.autoSave && source === 'user' && isValid && this.memoryService && this.currentTemplateFingerprint) {
+      this.saveToMemory(variableName, value, type as Jinja2VariableType).catch(error => {
+        memoryLogger.error('Failed to save variable to memory from state manager', error, {
+          operation: 'updateValue',
+          variableName,
+          templateFingerprint: this.currentTemplateFingerprint
+        });
+      });
+    }
 
     this.notifyListeners({
       variableName,
@@ -589,11 +701,166 @@ export class VariableStateManager {
   }
 
   /**
+   * Save variable to memory
+   */
+  private async saveToMemory(
+    variableName: string,
+    value: Jinja2VariableValue,
+    type: Jinja2VariableType
+  ): Promise<void> {
+    if (!this.memoryService || !this.currentTemplateFingerprint) {
+      return;
+    }
+
+    try {
+      // Create a minimal template for memory storage
+      const template = ''; // Memory service can work with minimal template
+      const variables = { [variableName]: value };
+      const types = { [variableName]: type };
+
+      await this.memoryService.saveVariableValues(template, variables, types, 'user');
+
+      memoryLogger.debug('Variable saved to memory from state manager', {
+        operation: 'saveToMemory',
+        variableName,
+        type,
+        templateFingerprint: this.currentTemplateFingerprint
+      });
+
+    } catch (error) {
+      memoryLogger.error('Failed to save variable to memory', error as Error, {
+        operation: 'saveToMemory',
+        variableName,
+        type
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Get all remembered values for current template
+   */
+  async getRememberedValues(): Promise<Record<string, Jinja2VariableValue>> {
+    if (!this.memoryService || !this.currentTemplateFingerprint) {
+      return {};
+    }
+
+    try {
+      const template = '';
+      const rememberedValues = await this.memoryService.loadVariableValues(template);
+
+      memoryLogger.debug('Remembered values retrieved from state manager', {
+        operation: 'getRememberedValues',
+        valuesCount: Object.keys(rememberedValues).length,
+        templateFingerprint: this.currentTemplateFingerprint
+      });
+
+      return rememberedValues;
+
+    } catch (error) {
+      memoryLogger.error('Failed to get remembered values', error as Error, {
+        operation: 'getRememberedValues'
+      });
+      return {};
+    }
+  }
+
+  /**
+   * Clear remembered values for current template
+   */
+  async clearRememberedValues(variableName?: string): Promise<boolean> {
+    if (!this.memoryService || !this.currentTemplateFingerprint) {
+      return false;
+    }
+
+    try {
+      const result = await this.memoryService.clearMemory(
+        this.currentTemplateFingerprint,
+        variableName
+      );
+
+      memoryLogger.info('Remembered values cleared from state manager', {
+        operation: 'clearRememberedValues',
+        variableName,
+        entriesAffected: result.entriesAffected,
+        success: result.success
+      });
+
+      return result.success;
+
+    } catch (error) {
+      memoryLogger.error('Failed to clear remembered values', error as Error, {
+        operation: 'clearRememberedValues',
+        variableName
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Enable or disable memory persistence
+   */
+  setMemoryEnabled(enabled: boolean): void {
+    this.memoryEnabled = enabled;
+
+    memoryLogger.info('Memory persistence setting updated', {
+      operation: 'setMemoryEnabled',
+      enabled
+    });
+  }
+
+  /**
+   * Enable or disable auto-save to memory
+   */
+  setAutoSave(autoSave: boolean): void {
+    this.autoSave = autoSave;
+
+    memoryLogger.info('Auto-save setting updated', {
+      operation: 'setAutoSave',
+      autoSave
+    });
+  }
+
+  /**
+   * Get memory statistics
+   */
+  async getMemoryStatistics(): Promise<{
+    isMemoryEnabled: boolean;
+    hasCurrentTemplate: boolean;
+    templateFingerprint?: string;
+    rememberedVariableCount: number;
+  }> {
+    try {
+      const rememberedValues = await this.getRememberedValues();
+
+      return {
+        isMemoryEnabled: this.memoryEnabled,
+        hasCurrentTemplate: !!this.currentTemplateFingerprint,
+        templateFingerprint: this.currentTemplateFingerprint,
+        rememberedVariableCount: Object.keys(rememberedValues).length
+      };
+
+    } catch (error) {
+      memoryLogger.error('Failed to get memory statistics', error as Error, {
+        operation: 'getMemoryStatistics'
+      });
+
+      return {
+        isMemoryEnabled: this.memoryEnabled,
+        hasCurrentTemplate: !!this.currentTemplateFingerprint,
+        templateFingerprint: this.currentTemplateFingerprint,
+        rememberedVariableCount: 0
+      };
+    }
+  }
+
+  /**
    * Clear all state
    */
   clear(): void {
     this.states.clear();
     this.variables.clear();
     this.listeners.clear();
+    this.currentTemplateFingerprint = undefined;
   }
 }

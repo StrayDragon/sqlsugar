@@ -12,7 +12,7 @@ import type {
   TemplateStats,
   Jinja2Variable
 } from '../types.js';
-import { createJinja2Variable } from './variable-utils.js';
+import { createJinja2Variable, analyzeControlStructures, performTypeInference } from './variable-utils.js';
 
 /**
  * Regular expressions for Jinja2 syntax parsing
@@ -51,6 +51,49 @@ export function parseTemplate(template: string): TemplateHighlight {
     variables,
     highlightedHTML,
     stats
+  };
+}
+
+/**
+ * Enhanced template parsing with contextual type inference
+ * This function provides superior type accuracy by analyzing control structures
+ */
+export function parseTemplateWithEnhancedInference(template: string): TemplateHighlight & {
+  typeInference: {
+    confidence: number;
+    accuracy: {
+      boolean: number;
+      array: number;
+      string: number;
+      numeric: number;
+    };
+    };
+  controlStructures: any[];
+} {
+  // First, perform basic variable extraction
+  const basicVariables = extractVariables(template);
+
+  // Apply enhanced type inference
+  const inferenceResult = performTypeInference(template, basicVariables);
+
+  // Calculate enhanced statistics
+  const stats = calculateEnhancedStats(template, inferenceResult.enhancedVariables);
+
+  // Create HTML highlighting with enhanced type information
+  const highlightedHTML = createEnhancedHighlightedHTML(template, inferenceResult.enhancedVariables);
+
+  // Analyze control structures for context
+  const controlStructures = analyzeControlStructures(template);
+
+  return {
+    variables: inferenceResult.enhancedVariables,
+    highlightedHTML,
+    stats,
+    typeInference: {
+      confidence: inferenceResult.confidence,
+      accuracy: inferenceResult.accuracy
+    },
+    controlStructures
   };
 }
 
@@ -537,4 +580,268 @@ export function sortVariablesForNavigation(variables: EnhancedVariable[]): Enhan
 
     return a.position.startIndex - b.position.startIndex;
   });
+}
+
+// ===== Enhanced Template Parsing Functions =====
+
+/**
+ * Calculate enhanced statistics including type inference accuracy
+ */
+function calculateEnhancedStats(template: string, enhancedVariables: EnhancedVariable[]): TemplateStats & {
+  typeInferenceAccuracy: {
+    boolean: number;
+    array: number;
+    string: number;
+    numeric: number;
+  };
+  confidenceScore: number;
+} {
+  const basicStats = calculateStats(template, enhancedVariables);
+
+  // Calculate type inference accuracy
+  const typeInferenceAccuracy = {
+    boolean: 0,
+    array: 0,
+    string: 0,
+    numeric: 0
+  };
+
+  let totalConfidence = 0;
+  let variablesWithConfidence = 0;
+
+  enhancedVariables.forEach(variable => {
+    if (variable.confidence !== undefined) {
+      totalConfidence += variable.confidence;
+      variablesWithConfidence++;
+
+      // Categorize by type for accuracy metrics
+      switch (variable.type) {
+        case 'boolean':
+          typeInferenceAccuracy.boolean++;
+          break;
+        case 'json':
+          typeInferenceAccuracy.array++;
+          break;
+        case 'string':
+        case 'email':
+        case 'url':
+        case 'uuid':
+          typeInferenceAccuracy.string++;
+          break;
+        case 'number':
+        case 'integer':
+          typeInferenceAccuracy.numeric++;
+          break;
+      }
+    }
+  });
+
+  const confidenceScore = variablesWithConfidence > 0 ? totalConfidence / variablesWithConfidence : 0;
+
+  return {
+    ...basicStats,
+    typeInferenceAccuracy,
+    confidenceScore
+  };
+}
+
+/**
+ * Create HTML with enhanced highlighting that includes confidence indicators
+ */
+function createEnhancedHighlightedHTML(template: string, enhancedVariables: EnhancedVariable[]): string {
+  let html = template;
+  let offset = 0;
+
+  // Sort variables by position to ensure correct highlighting order
+  const sortedVars = [...enhancedVariables].sort((a, b) => a.position.startIndex - b.position.startIndex);
+
+  sortedVars.forEach(variable => {
+    const pos = variable.position;
+    const adjustedStart = pos.startIndex + offset;
+    const adjustedEnd = pos.endIndex + offset;
+
+    const before = html.substring(0, adjustedStart);
+    const varText = html.substring(adjustedStart, adjustedEnd);
+    const after = html.substring(adjustedEnd);
+
+    // Create enhanced highlight with confidence information
+    const confidence = variable.confidence || 0;
+    const confidenceClass = getConfidenceClass(confidence);
+    const typeClass = `type-${variable.type}`;
+
+    const highlightedVar = `<span class="variable-enhanced-highlight ${confidenceClass} ${typeClass}" data-variable="${variable.name}" data-type="${variable.type}" data-confidence="${confidence}" data-index="${enhancedVariables.indexOf(variable)}">${varText}</span>`;
+
+    html = before + highlightedVar + after;
+    offset += highlightedVar.length - varText.length;
+  });
+
+  return html
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\n/g, '<br>')
+    .replace(/ /g, '&nbsp;');
+}
+
+/**
+ * Get confidence class for CSS styling
+ */
+function getConfidenceClass(confidence: number): string {
+  if (confidence >= 0.8) return 'confidence-high';
+  if (confidence >= 0.6) return 'confidence-medium';
+  if (confidence >= 0.4) return 'confidence-low';
+  return 'confidence-very-low';
+}
+
+/**
+ * Extract control structure information for enhanced context
+ */
+export function extractControlStructureContext(template: string, variableName: string): {
+  inConditional: boolean;
+  inLoop: boolean;
+  inAssignment: boolean;
+  relatedStructures: Array<{
+    type: 'conditional' | 'loop' | 'assignment';
+    line: number;
+    content: string;
+  }>;
+} {
+  const controlStructures = analyzeControlStructures(template);
+  const variableStructures = controlStructures.filter(structure =>
+    structure.variablesInScope.includes(variableName)
+  );
+
+  return {
+    inConditional: variableStructures.some(s => s.type === 'conditional'),
+    inLoop: variableStructures.some(s => s.type === 'loop'),
+    inAssignment: variableStructures.some(s => s.type === 'assignment'),
+    relatedStructures: variableStructures.map(s => ({
+      type: s.type,
+      line: s.line,
+      content: s.condition
+    }))
+  };
+}
+
+/**
+ * Validate type inference accuracy for testing and debugging
+ */
+export function validateTypeInference(
+  template: string,
+  expectedTypes: Record<string, string>
+): {
+  accuracy: number;
+  correctInferences: number;
+  totalInferences: number;
+  errors: Array<{
+    variable: string;
+    expectedType: string;
+    actualType: string;
+    confidence: number;
+  }>;
+} {
+  const parsingResult = parseTemplateWithEnhancedInference(template);
+  let correctInferences = 0;
+  const errors: Array<{
+    variable: string;
+    expectedType: string;
+    actualType: string;
+    confidence: number;
+  }> = [];
+
+  Object.entries(expectedTypes).forEach(([variableName, expectedType]) => {
+    const variable = parsingResult.variables.find(v => v.name === variableName);
+    if (variable) {
+      if (variable.type === expectedType) {
+        correctInferences++;
+      } else {
+        errors.push({
+          variable: variableName,
+          expectedType,
+          actualType: variable.type,
+          confidence: variable.confidence || 0
+        });
+      }
+    }
+  });
+
+  const totalInferences = Object.keys(expectedTypes).length;
+  const accuracy = totalInferences > 0 ? correctInferences / totalInferences : 0;
+
+  return {
+    accuracy,
+    correctInferences,
+    totalInferences,
+    errors
+  };
+}
+
+/**
+ * Get type inference suggestions for improvement
+ */
+export function getTypeInferenceSuggestions(template: string): Array<{
+  variable: string;
+  currentType: string;
+  currentConfidence: number;
+  suggestions: Array<{
+    type: string;
+    reason: string;
+    confidence: number;
+  }>;
+}> {
+  const parsingResult = parseTemplateWithEnhancedInference(template);
+  const suggestions: Array<{
+    variable: string;
+    currentType: string;
+    currentConfidence: number;
+    suggestions: Array<{
+      type: string;
+      reason: string;
+      confidence: number;
+    }>;
+  }> = [];
+
+  // Find variables with low confidence that could be improved
+  parsingResult.variables
+    .filter(variable => (variable.confidence || 0) < 0.7)
+    .forEach(variable => {
+      const controlContext = extractControlStructureContext(template, variable.name);
+      const variableSuggestions: Array<{
+        type: string;
+        reason: string;
+        confidence: number;
+      }> = [];
+
+      // Analyze control structures for better type suggestions
+      if (controlContext.inConditional) {
+        variableSuggestions.push({
+          type: 'boolean',
+          reason: 'Variable appears in conditional context',
+          confidence: 0.8
+        });
+      }
+
+      if (controlContext.inLoop) {
+        if (variable.name.toLowerCase().includes('index')) {
+          variableSuggestions.push({
+            type: 'integer',
+            reason: 'Loop index variable detected',
+            confidence: 0.9
+          });
+        }
+      }
+
+      if (variableSuggestions.length > 0) {
+        suggestions.push({
+          variable: variable.name,
+          currentType: variable.type,
+          currentConfidence: variable.confidence || 0,
+          suggestions: variableSuggestions
+        });
+      }
+    });
+
+  return suggestions;
 }

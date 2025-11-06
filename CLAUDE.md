@@ -2,87 +2,128 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Development Commands
+## Project Overview
 
-- `pnpm run compile` - Run type checking, linting, and build declarations
-- `pnpm run package` - Build production version with optimizations
-- `pnpm run check-types` - Run TypeScript type checking without emitting files
-- `pnpm run lint` - Run ESLint on src directory
-- `pnpm run lint:fix` - Run ESLint with auto-fix
-- `pnpm run test` - Run tests with Vitest
-- `pnpm run test:watch` - Run tests in watch mode
-- `pnpm run test:coverage` - Run tests with coverage report
-- `pnpm run clean` - Remove dist/, out/, and *.vsix files
-- `node esbuild.js` - Build with development settings
-- `node esbuild.js --production` - Build with production optimizations
-- `node esbuild.js --watch` - Build and watch for changes
-- `pnpm run vsix` - Package extension as .vsix file
+SQLSugar is a VS Code extension that provides advanced inline SQL editing capabilities across multiple programming languages. It focuses on two main features:
 
-## Project Architecture
+1. **Inline SQL Editing** - Synchronous editing of SQL strings in temporary files with ORM-style placeholder support
+2. **Jinja2 Template Processing** - Visual editor for Jinja2 SQL templates with real-time rendering and variable management
+
+## Architecture
 
 ### Core Structure
-This is a VS Code extension for inline SQL editing with two main features:
+- `src/core/` - Core infrastructure (DI container, logging, extension lifecycle)
+- `src/features/inline-sql/` - Inline SQL editing functionality
+- `src/features/jinja2/` - Jinja2 template processing with advanced WebView UI
+- `src/shared/` - Shared types and utilities
 
-1. **Inline SQL Editor** - Extract SQL strings from code into temporary .sql files for focused editing
-2. **Jinja2 Template Editor** - Visual editor for Jinja2 SQL templates with real-time preview
+### Key Components
 
-### Entry Points
-- `src/extension.ts` - Main extension entry (re-exports from core)
-- `src/core/extension.ts` - Core extension activation and deactivation logic
-- `src/features/inline-sql/index.ts` - Inline SQL feature registration
-- `src/features/jinja2/index.ts` - Jinja2 feature registration
+**Extension Core (`src/core/extension.ts`)**:
+- Uses dependency injection pattern via `DIContainer`
+- Registers two main features: inline SQL and Jinja2 processing
+- Manages output channel for debugging and logging
 
-### Key Architectural Patterns
+**Inline SQL Feature**:
+- `command-handler.ts` - Main command execution
+- `temp-file-manager.ts` - Temporary file lifecycle management
+- `language-handler.ts` - Multi-language SQL string detection
+- `indent-sync.ts` - Synchronizes indentation between original and temporary files
 
-**Dependency Injection**
-- Uses `DIContainer` singleton for service management
-- Core services registered at extension activation
-- Features access services through the container
+**Jinja2 Feature**:
+- `processor.ts` - Core Jinja2 template processing using Nunjucks
+- `webview.ts` - WebView management
+- `ui/` - Complete Lit-based UI components for visual template editing:
+  - `jinja2-editor-v2.ts` - Advanced template editor with variable highlighting
+  - `sql-preview-v2.ts` - Live SQL preview with syntax highlighting
+  - `variable-popover.ts` - Interactive variable editing interface
 
-**Feature Modularization**
-- Each feature is self-contained with its own command handlers
-- Features register commands and provide cleanup functions
-- Clear separation between inline-sql and jinja2 functionality
+## Development Commands
 
-**Build System**
-- Dual build targets: Main extension (CommonJS) + WebView (ESM)
-- ESBuild configuration with separate builds for different platforms
-- WebView components use Lit framework for modern web components
+### Package Management
+```bash
+pnpm install --frozen-lockfile    # Install dependencies
+```
 
-### Core Components
-
-**Inline SQL Feature** (`src/features/inline-sql/`)
-- `command-handler.ts` - Handles `sqlsugar.editInlineSQL` command
-- `temp-file-manager.ts` - Creates/manages temporary .sql files
-- `language-handler.ts` - Detects programming languages and quote types
-- `indent-sync.ts` - Maintains precise indentation between source and temp files
-
-**Jinja2 Feature** (`src/features/jinja2/`)
-- `command-handler.ts` - Handles `sqlsugar.copyJinja2Template` command
-- `processor.ts` - Nunjucks-based Jinja2 template rendering
-- `webview.ts` - WebView panel management
-- `ui/` - Complete visual editor built with Lit components
-
-**UI Architecture** (`src/features/jinja2/ui/`)
-- Modern web components using Lit framework
-- Component-based architecture with reusable UI elements
-- Real-time SQL preview with syntax highlighting
-- Keyboard navigation and accessibility support
-- Theme-aware design system
-
-### Configuration
-Extension settings are prefixed with `sqlsugar.`:
-- `tempFileCleanup`, `cleanupOnClose` - Temporary file management
-- `sqlSyntaxHighlightTheme`, `sqlSyntaxHighlightFontSize` - SQL highlighting
-- `v2Editor.*` - Jinja2 editor behavior and appearance
-- `jinja2TypeInference.customRules` - Custom type inference rules
+### Build & Development
+```bash
+pnpm run compile                  # Build extension (type check + lint + build)
+pnpm run check-types             # Type checking only
+pnpm run build:declarations      # Generate TypeScript declarations
+pnpm run lint                    # ESLint on src/
+pnpm run lint:fix                # Auto-fix lint issues
+```
 
 ### Testing
-- Uses Vitest for unit testing
-- Test files in `src/test/`
-- Coverage reporting available
-- Watch mode for development
+```bash
+pnpm run test                    # Run all tests
+pnpm run test:watch              # Watch mode for development
+pnpm run test:ui                 # Vitest UI interface
+pnpm run test:coverage           # Generate coverage report
+```
 
-### Language Support
-- **Inline SQL**: Python, JavaScript/TypeScript, and generic quote handling
-- **Jinja2**: Full template engine with filters, control structures, and SQLAlchemy integration
+### Packaging
+```bash
+pnpm run package                 # Production build with minification
+pnpm run vsix                    # Package as .vsix file
+just package-vsix                # Alternative via justfile
+```
+
+### Code Quality
+```bash
+just after-ai-write-remove-comments    # Clean unnecessary line comments
+```
+
+## Technology Stack
+
+- **Runtime**: Node.js with VS Code Extension API
+- **Language**: TypeScript (ES2022 target, CommonJS modules)
+- **Build**: esbuild for fast bundling
+- **UI**: Lit (web components) for WebView interface
+- **Template Engine**: Nunjucks (Jinja2-compatible)
+- **Testing**: Vitest with jsdom environment
+- **Package Manager**: pnpm (required via `preinstall` hook)
+
+## Configuration
+
+The extension supports extensive configuration via VS Code settings (`sqlsugar.*` prefix):
+- Temporary file cleanup behavior
+- SQL syntax highlighting themes and font sizes
+- Jinja2 variable type inference rules
+- V2 editor behavior (animations, keyboard navigation, popover placement)
+- Logging levels and clipboard fallback options
+
+## Key Development Notes
+
+### TypeScript Configuration
+- Uses CommonJS modules for VS Code compatibility
+- Strict type checking enabled with selective relaxations
+- Declaration files generated to `dist/types/`
+
+### Build Process
+- esbuild handles both development and production builds
+- Resources and artifacts directories are copied to dist/
+- Production builds include minification and optimization
+
+### Testing Strategy
+- Vitest with jsdom for WebView component testing
+- VS Code API mocked in test environment
+- Coverage reporting available
+
+### WebView Development
+- Lit-based components with TypeScript
+- Custom design system and animation framework
+- SQL syntax highlighting using highlight.js
+- Complex state management for template variables
+
+### Dependency Injection
+- Custom `DIContainer` manages service lifecycle
+- Services registered during extension activation
+- Clean separation of concerns between features
+
+## Debugging
+
+The extension provides comprehensive logging through:
+- VS Code output channel ("SQLSugar")
+- Configurable log levels (`error`, `warn`, `info`, `debug`, `none`)
+- WebView console output for UI debugging

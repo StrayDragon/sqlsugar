@@ -200,6 +200,78 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically focus the first variable when opening the V2 editor"
+        },
+        "sqlsugar.jinja2VariableMemory.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable variable value memory across editing sessions"
+        },
+        "sqlsugar.jinja2VariableMemory.showIndicators": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show visual indicators for remembered variable values"
+        },
+        "sqlsugar.jinja2VariableMemory.storageLocation": {
+          "type": "string",
+          "enum": ["global", "workspace", "hybrid"],
+          "default": "hybrid",
+          "description": "Where to store variable values: globally, per-workspace, or hybrid approach"
+        },
+        "sqlsugar.jinja2VariableMemory.maxHistoryEntries": {
+          "type": "number",
+          "default": 50,
+          "minimum": 10,
+          "maximum": 500,
+          "description": "Maximum number of historical values to keep per variable"
+        },
+        "sqlsugar.jinja2VariableMemory.autoSave": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically save variable values when they change"
+        },
+        "sqlsugar.jinja2VariableMemory.fuzzyMatching": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable fuzzy template matching for variable value restoration"
+        },
+        "sqlsugar.jinja2VariableMemory.storageQuota": {
+          "type": "number",
+          "default": 80,
+          "minimum": 10,
+          "maximum": 95,
+          "description": "Maximum storage quota percentage (VS Code limit is 5MB)"
+        },
+        "sqlsugar.jinja2TypeInference.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable enhanced type inference from template context analysis"
+        },
+        "sqlsugar.jinja2TypeInference.showConfidence": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show confidence scores for inferred variable types"
+        },
+        "sqlsugar.jinja2TypeInference.minConfidence": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Minimum confidence threshold for automatic type inference"
+        },
+        "sqlsugar.jinja2TypeInference.contextualAnalysis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable contextual analysis from control structures for type inference"
+        },
+        "sqlsugar.jinja2TypeInference.alternativeTypes": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show alternative type suggestions with confidence scores"
+        },
+        "sqlsugar.jinja2TypeInference.allowOverride": {
+          "type": "boolean",
+          "default": true,
+          "description": "Allow users to manually override inferred types"
         }
       }
     }

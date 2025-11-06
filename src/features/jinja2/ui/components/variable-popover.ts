@@ -16,6 +16,8 @@ import type {
   Jinja2VariableValue,
   Jinja2VariableType
 } from '../types.js';
+import type { VariableMemory, RememberedValue } from '../types/memory.js';
+import type { TypeInferenceResult } from '../types/enhanced-variable.js';
 import { getDefaultValueForType, validateValue } from '../utils/variable-utils.js';
 import {
   calculatePopoverPosition,
@@ -54,6 +56,11 @@ export class VariablePopover extends LitElement {
   @property({ attribute: false }) accessor currentValue: Jinja2VariableValue = undefined;
   @property({ attribute: false }) accessor targetElement: HTMLElement | null = null;
   @property({ attribute: false }) accessor containerElement: HTMLElement | null = null;
+  @property({ attribute: false }) accessor rememberedValues: RememberedValue[] = [];
+  @property({ type: Boolean }) accessor memoryEnabled: boolean = true;
+  @property({ attribute: false }) accessor templateFingerprint: string = '';
+  @property({ attribute: false }) accessor typeInference: TypeInferenceResult | null = null;
+  @property({ type: Boolean }) accessor showTypeInference: boolean = true;
 
   @state() accessor isVisible: boolean = false;
   @state() accessor position: PopoverPosition | null = null;
@@ -61,6 +68,8 @@ export class VariablePopover extends LitElement {
   @state() accessor localType: Jinja2VariableType = 'string';
   @state() accessor showAdvancedOptions: boolean = false;
   @state() accessor isAnimating: boolean = false;
+  @state() accessor showMemorySection: boolean = true;
+  @state() accessor showTypeSection: boolean = true;
 
 
   private quickSuggestions = {
@@ -418,6 +427,350 @@ export class VariablePopover extends LitElement {
       background: var(--vscode-button-secondaryHoverBackground);
     }
 
+    /* Memory Section */
+    .memory-section {
+      border-top: 1px solid var(--vscode-widget-border);
+      padding: var(--spacing-md, 12px) 0;
+      margin-top: var(--spacing-md, 12px);
+    }
+
+    .memory-header {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs, 4px);
+      margin-bottom: var(--spacing-sm, 8px);
+      font-size: var(--font-size-xs, 11px);
+      font-weight: var(--font-weight-medium, 500);
+      color: var(--vscode-foreground);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .memory-header:hover {
+      color: var(--vscode-textLink-foreground);
+    }
+
+    .memory-toggle {
+      transition: transform var(--transition-fast, 0.15s ease);
+    }
+
+    .memory-toggle.collapsed {
+      transform: rotate(-90deg);
+    }
+
+    .memory-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm, 8px);
+    }
+
+    .memory-content.collapsed {
+      display: none;
+    }
+
+    .remembered-values {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-xs, 4px);
+    }
+
+    .remembered-value {
+      background: var(--vscode-textBlockQuote-background);
+      border: 1px solid var(--vscode-widget-border);
+      padding: 4px 8px;
+      border-radius: var(--border-radius-sm, 4px);
+      font-size: var(--font-size-xs, 11px);
+      cursor: pointer;
+      transition: all var(--transition-fast, 0.15s ease);
+      position: relative;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 120px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .remembered-value:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
+      transform: translateY(-1px);
+    }
+
+    .remembered-value.selected {
+      background: var(--vscode-button-background);
+      color: var(--vscode-button-foreground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .remembered-value .confidence-indicator {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .remembered-value .confidence-indicator.high {
+      background: var(--vscode-charts-green);
+    }
+
+    .remembered-value .confidence-indicator.medium {
+      background: var(--vscode-charts-orange);
+    }
+
+    .remembered-value .confidence-indicator.low {
+      background: var(--vscode-charts-red);
+    }
+
+    .remembered-value .value-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      flex: 1;
+    }
+
+    .remembered-value .usage-count {
+      font-size: 9px;
+      color: var(--vscode-descriptionForeground);
+      background: var(--vscode-widget-background);
+      padding: 1px 4px;
+      border-radius: 8px;
+      margin-left: auto;
+    }
+
+    .remembered-value .remove-memory {
+      opacity: 0;
+      background: var(--vscode-errorForeground);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 14px;
+      height: 14px;
+      font-size: 10px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: opacity var(--transition-fast, 0.15s ease);
+    }
+
+    .remembered-value:hover .remove-memory {
+      opacity: 1;
+    }
+
+    .remembered-value .remove-memory:hover {
+      background: var(--vscode-button-background);
+    }
+
+    .memory-stats {
+      font-size: var(--font-size-xs, 11px);
+      color: var(--vscode-descriptionForeground);
+      padding: var(--spacing-sm, 8px);
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: var(--border-radius-sm, 4px);
+      border-left: 3px solid var(--vscode-textLink-foreground);
+    }
+
+    .memory-empty {
+      font-size: var(--font-size-xs, 11px);
+      color: var(--vscode-descriptionForeground);
+      padding: var(--spacing-sm, 8px);
+      font-style: italic;
+      text-align: center;
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: var(--border-radius-sm, 4px);
+      border: 1px dashed var(--vscode-widget-border);
+    }
+
+    /* Type Inference Section */
+    .type-inference-section {
+      border-top: 1px solid var(--vscode-widget-border);
+      padding: var(--spacing-md, 12px) 0;
+      margin-top: var(--spacing-md, 12px);
+    }
+
+    .type-inference-header {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-xs, 4px);
+      margin-bottom: var(--spacing-sm, 8px);
+      font-size: var(--font-size-xs, 11px);
+      font-weight: var(--font-weight-medium, 500);
+      color: var(--vscode-foreground);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .type-inference-header:hover {
+      color: var(--vscode-textLink-foreground);
+    }
+
+    .type-inference-content {
+      display: flex;
+      flex-direction: column;
+      gap: var(--spacing-sm, 8px);
+    }
+
+    .type-inference-content.collapsed {
+      display: none;
+    }
+
+    .confidence-bar {
+      height: 4px;
+      background: var(--vscode-widget-background);
+      border-radius: 2px;
+      overflow: hidden;
+      margin-bottom: var(--spacing-xs, 4px);
+    }
+
+    .confidence-fill {
+      height: 100%;
+      border-radius: 2px;
+      transition: width var(--transition-normal, 0.2s ease);
+    }
+
+    .confidence-fill.high {
+      background: var(--vscode-charts-green);
+      width: var(--confidence-percent, 90%);
+    }
+
+    .confidence-fill.medium {
+      background: var(--vscode-charts-orange);
+      width: var(--confidence-percent, 60%);
+    }
+
+    .confidence-fill.low {
+      background: var(--vscode-charts-red);
+      width: var(--confidence-percent, 30%);
+    }
+
+    .confidence-fill.very-low {
+      background: var(--vscode-descriptionForeground);
+      width: var(--confidence-percent, 10%);
+    }
+
+    .inference-details {
+      font-size: var(--font-size-xs, 11px);
+      color: var(--vscode-descriptionForeground);
+      padding: var(--spacing-sm, 8px);
+      background: var(--vscode-textBlockQuote-background);
+      border-radius: var(--border-radius-sm, 4px);
+      border-left: 3px solid;
+    }
+
+    .inference-details.high-confidence {
+      border-left-color: var(--vscode-charts-green);
+    }
+
+    .inference-details.medium-confidence {
+      border-left-color: var(--vscode-charts-orange);
+    }
+
+    .inference-details.low-confidence {
+      border-left-color: var(--vscode-charts-red);
+    }
+
+    .inference-details.very-low-confidence {
+      border-left-color: var(--vscode-descriptionForeground);
+    }
+
+    .confidence-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: var(--spacing-xs, 4px);
+      font-size: var(--font-size-xs, 11px);
+    }
+
+    .confidence-value {
+      font-weight: var(--font-weight-semibold, 600);
+    }
+
+    .confidence-value.high {
+      color: var(--vscode-charts-green);
+    }
+
+    .confidence-value.medium {
+      color: var(--vscode-charts-orange);
+    }
+
+    .confidence-value.low {
+      color: var(--vscode-charts-red);
+    }
+
+    .confidence-value.very-low {
+      color: var(--vscode-descriptionForeground);
+    }
+
+    .inference-reasons {
+      margin-top: var(--spacing-xs, 4px);
+    }
+
+    .inference-reason {
+      display: flex;
+      align-items: flex-start;
+      gap: var(--spacing-xs, 4px);
+      margin-bottom: var(--spacing-xs, 2px);
+      font-size: var(--font-size-xs, 10px);
+      line-height: 1.3;
+    }
+
+    .inference-reason-bullet {
+      color: var(--vscode-textLink-foreground);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+
+    .inference-alternatives {
+      margin-top: var(--spacing-sm, 8px);
+    }
+
+    .alternative-types {
+      display: flex;
+      flex-wrap: wrap;
+      gap: var(--spacing-xs, 4px);
+      margin-top: var(--spacing-xs, 4px);
+    }
+
+    .alternative-type {
+      background: var(--vscode-button-secondaryBackground);
+      border: 1px solid var(--vscode-widget-border);
+      padding: 2px 6px;
+      border-radius: var(--border-radius-sm, 4px);
+      font-size: var(--font-size-xs, 10px);
+      cursor: pointer;
+      transition: all var(--transition-fast, 0.15s ease);
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .alternative-type:hover {
+      background: var(--vscode-button-secondaryHoverBackground);
+      border-color: var(--vscode-focusBorder);
+    }
+
+    .alternative-confidence {
+      font-size: 9px;
+      color: var(--vscode-descriptionForeground);
+      background: var(--vscode-widget-background);
+      padding: 1px 3px;
+      border-radius: 6px;
+    }
+
+    /* Type suggestions for manual override */
+    .type-suggestions {
+      margin-top: var(--spacing-sm, 8px);
+    }
+
+    .type-suggestion-label {
+      font-size: var(--font-size-xs, 10px);
+      color: var(--vscode-descriptionForeground);
+      margin-bottom: var(--spacing-xs, 4px);
+      font-style: italic;
+    }
+
     /* Validation */
     .validation-message {
       font-size: var(--font-size-xs, 11px);
@@ -550,6 +903,108 @@ export class VariablePopover extends LitElement {
 
     this.localValue = this.currentValue ?? this.variable.defaultValue ?? getDefaultValueForType(this.variable.type);
     this.localType = this.variable.type;
+  }
+
+  private toggleMemorySection() {
+    this.showMemorySection = !this.showMemorySection;
+  }
+
+  private handleRememberedValueClick(rememberedValue: RememberedValue) {
+    this.localValue = rememberedValue.value;
+    this.localType = rememberedValue.type || this.variable!.type;
+
+    // Dispatch event to notify parent component
+    this.dispatchEvent(new CustomEvent('memory-value-selected', {
+      detail: {
+        variable: this.variable!,
+        rememberedValue,
+        autoSave: true
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private removeRememberedValue(event: MouseEvent, rememberedValue: RememberedValue) {
+    event.stopPropagation();
+
+    this.dispatchEvent(new CustomEvent('memory-value-removed', {
+      detail: {
+        variable: this.variable!,
+        rememberedValue
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private getConfidenceClass(confidence: number): string {
+    if (confidence >= 0.8) return 'high';
+    if (confidence >= 0.5) return 'medium';
+    return 'low';
+  }
+
+  private formatRememberedValue(value: Jinja2VariableValue): string {
+    if (value == null) return '';
+    if (typeof value === 'object') return JSON.stringify(value);
+    return String(value);
+  }
+
+  private isRememberedValueSelected(rememberedValue: RememberedValue): boolean {
+    if (typeof this.localValue === 'number' && typeof rememberedValue.value === 'number') {
+      return this.localValue === rememberedValue.value;
+    }
+    return String(this.localValue) === String(rememberedValue.value);
+  }
+
+  private getMostUsedValue(): string {
+    if (this.rememberedValues.length === 0) return '';
+
+    const mostUsed = this.rememberedValues.reduce((prev, current) =>
+      prev.usageCount > current.usageCount ? prev : current
+    );
+
+    return this.formatRememberedValue(mostUsed.value);
+  }
+
+  private getAverageConfidence(): number {
+    if (this.rememberedValues.length === 0) return 0;
+
+    const totalConfidence = this.rememberedValues.reduce((sum, value) => sum + value.confidence, 0);
+    return totalConfidence / this.rememberedValues.length;
+  }
+
+  private toggleTypeSection() {
+    this.showTypeSection = !this.showTypeSection;
+  }
+
+  private selectAlternativeType(alternative: { type: Jinja2VariableType; confidence: number; reason: string }) {
+    this.localType = alternative.type;
+
+    // Dispatch event to notify parent component
+    this.dispatchEvent(new CustomEvent('type-changed', {
+      detail: {
+        variable: this.variable!,
+        oldType: this.typeInference?.type,
+        newType: alternative.type,
+        confidence: alternative.confidence,
+        reason: alternative.reason,
+        wasInferred: alternative.confidence < 1.0
+      },
+      bubbles: true,
+      composed: true
+    }));
+  }
+
+  private getConfidenceClass(confidence: number): string {
+    if (confidence >= 0.8) return 'high';
+    if (confidence >= 0.6) return 'medium';
+    if (confidence >= 0.4) return 'low';
+    return 'very-low';
+  }
+
+  private getAllTypes(): Jinja2VariableType[] {
+    return ['string', 'number', 'integer', 'boolean', 'date', 'time', 'datetime', 'json', 'uuid', 'email', 'url', 'null'];
   }
 
   show(variable: EnhancedVariable, currentValue: Jinja2VariableValue) {
@@ -808,6 +1263,135 @@ export class VariablePopover extends LitElement {
                     ${this.formatSuggestion(suggestion)}
                   </button>
                 `)}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Memory Section -->
+          ${this.memoryEnabled && this.rememberedValues.length > 0 ? html`
+            <div class="memory-section">
+              <div class="memory-header" @click=${this.toggleMemorySection}>
+                <span class="memory-toggle ${classMap({ collapsed: !this.showMemorySection })}">▶</span>
+                <span>📝 Remembered Values (${this.rememberedValues.length})</span>
+              </div>
+              <div class="memory-content ${classMap({ collapsed: !this.showMemorySection })}">
+                <div class="remembered-values">
+                  ${this.rememberedValues.map((rememberedValue: RememberedValue) => html`
+                    <div
+                      class="remembered-value ${classMap({
+                        selected: this.isRememberedValueSelected(rememberedValue)
+                      })}"
+                      @click=${() => this.handleRememberedValueClick(rememberedValue)}
+                      title="${this.formatRememberedValue(rememberedValue.value)} (Type: ${rememberedValue.type}, Used: ${rememberedValue.usageCount}x, Confidence: ${(rememberedValue.confidence * 100).toFixed(1)}%)"
+                    >
+                      <div class="confidence-indicator ${this.getConfidenceClass(rememberedValue.confidence)}"></div>
+                      <span class="value-text">${this.formatRememberedValue(rememberedValue.value)}</span>
+                      <span class="usage-count">${rememberedValue.usageCount}</span>
+                      <button
+                        class="remove-memory"
+                        @click=${(e: MouseEvent) => this.removeRememberedValue(e, rememberedValue)}
+                        title="Remove this remembered value"
+                      >
+                        ×
+                      </button>
+                    </div>
+                  `)}
+                </div>
+
+                <!-- Memory Statistics -->
+                ${this.rememberedValues.length > 1 ? html`
+                  <div class="memory-stats">
+                    <strong>Memory Statistics:</strong>
+                    Most used: ${this.getMostUsedValue()} |
+                    Average confidence: ${this.getAverageConfidence().toFixed(2)}
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Memory Empty State -->
+          ${this.memoryEnabled && this.rememberedValues.length === 0 ? html`
+            <div class="memory-section">
+              <div class="memory-header" @click=${this.toggleMemorySection}>
+                <span class="memory-toggle ${classMap({ collapsed: !this.showMemorySection })}">▶</span>
+                <span>📝 Remembered Values</span>
+              </div>
+              <div class="memory-content ${classMap({ collapsed: !this.showMemorySection })}">
+                <div class="memory-empty">
+                  No remembered values for this variable yet. Values you use will be automatically remembered for future sessions.
+                </div>
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Type Inference Section -->
+          ${this.showTypeInference && this.typeInference ? html`
+            <div class="type-inference-section">
+              <div class="type-inference-header" @click=${this.toggleTypeSection}>
+                <span class="memory-toggle ${classMap({ collapsed: !this.showTypeSection })}">▶</span>
+                <span>🧠 Type Inference (${Math.round(this.typeInference.confidence * 100)}% confidence)</span>
+              </div>
+              <div class="type-inference-content ${classMap({ collapsed: !this.showTypeSection })}">
+                <div class="inference-details ${this.getConfidenceClass(this.typeInference.confidence)}">
+                  <div class="confidence-label">
+                    <span>Inferred Type: <strong>${this.typeInference.type}</strong></span>
+                    <span class="confidence-value ${this.getConfidenceClass(this.typeInference.confidence)}">
+                      ${Math.round(this.typeInference.confidence * 100)}%
+                    </span>
+                  </div>
+                  <div class="confidence-bar">
+                    <div
+                      class="confidence-fill ${this.getConfidenceClass(this.typeInference.confidence)}"
+                      style="--confidence-percent: ${this.typeInference.confidence * 100}%"
+                    ></div>
+                  </div>
+                  ${this.typeInference.reasons && this.typeInference.reasons.length > 0 ? html`
+                    <div class="inference-reasons">
+                      ${this.typeInference.reasons.map(reason => html`
+                        <div class="inference-reason">
+                          <span class="inference-reason-bullet">•</span>
+                          <span>${reason}</span>
+                        </div>
+                      `)}
+                    </div>
+                  ` : ''}
+                </div>
+
+                <!-- Alternative Type Suggestions -->
+                ${this.typeInference.alternatives && this.typeInference.alternatives.length > 0 ? html`
+                  <div class="inference-alternatives">
+                    <div class="type-suggestion-label">Alternative types:</div>
+                    <div class="alternative-types">
+                      ${this.typeInference.alternatives.map(alt => html`
+                        <button
+                          class="alternative-type"
+                          @click=${() => this.selectAlternativeType(alt)}
+                          title="${alt.reason} (Confidence: ${Math.round(alt.confidence * 100)}%)"
+                        >
+                          <span>${alt.type}</span>
+                          <span class="alternative-confidence">${Math.round(alt.confidence * 100)}%</span>
+                        </button>
+                      `)}
+                    </div>
+                  </div>
+                ` : ''}
+
+                <!-- Type Override Options -->
+                <div class="type-suggestions">
+                  <div class="type-suggestion-label">Manual override:</div>
+                  <div class="alternative-types">
+                    ${this.getAllTypes().filter(type => type !== this.typeInference.type).map(type => html`
+                      <button
+                        class="alternative-type"
+                        @click=${() => this.selectAlternativeType({ type, confidence: 1.0, reason: 'Manual override' })}
+                        title="Override inferred type manually"
+                      >
+                        <span>${type}</span>
+                      </button>
+                    `)}
+                  </div>
+                </div>
               </div>
             </div>
           ` : ''}

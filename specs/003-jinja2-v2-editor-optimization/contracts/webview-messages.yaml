@@ -1,0 +1,643 @@
+openapi: 3.0.3
+info:
+  title: SQLSugar WebView Message Protocol
+  description: Message protocol for communication between VS Code extension and Jinja2 V2 editor WebView
+  version: 1.0.0
+
+components:
+  schemas:
+    WebViewMessage:
+      type: object
+      required:
+        - command
+        - timestamp
+      properties:
+        command:
+          type: string
+          enum:
+            # Existing commands
+            - initialize
+            - updateVariables
+            - variableChanged
+            - templateChanged
+            - previewUpdated
+            - validateTemplate
+            - applyTemplate
+            - closeEditor
+
+            # New memory-related commands
+            - loadVariableMemory
+            - saveVariableMemory
+            - clearVariableMemory
+            - getMemorySuggestions
+
+            # New type inference commands
+            - inferVariableTypes
+            - updateTypeInference
+            - overrideTypeInference
+            - getInferenceReasons
+
+            # New UI commands
+            - showMemoryIndicators
+            - updateConfidenceDisplay
+            - toggleInferenceDetails
+        timestamp:
+          type: integer
+          format: int64
+        requestId:
+          type: string
+          description: Unique identifier for request-response correlation
+        data:
+          description: Command-specific data payload
+
+    InitializeMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [initialize]
+            data:
+              $ref: '#/components/schemas/InitializeData'
+
+    UpdateVariablesMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [updateVariables]
+            data:
+              $ref: '#/components/schemas/UpdateVariablesData'
+
+    VariableChangedMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [variableChanged]
+            data:
+              $ref: '#/components/schemas/VariableChangedData'
+
+    LoadVariableMemoryMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [loadVariableMemory]
+            data:
+              $ref: '#/components/schemas/LoadVariableMemoryData'
+
+    SaveVariableMemoryMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [saveVariableMemory]
+            data:
+              $ref: '#/components/schemas/SaveVariableMemoryData'
+
+    InferVariableTypesMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [inferVariableTypes]
+            data:
+              $ref: '#/components/schemas/InferVariableTypesData'
+
+    UpdateTypeInferenceMessage:
+      allOf:
+        - $ref: '#/components/schemas/WebViewMessage'
+        - type: object
+          properties:
+            command:
+              type: string
+              enum: [updateTypeInference]
+            data:
+              $ref: '#/components/schemas/UpdateTypeInferenceData'
+
+    InitializeData:
+      type: object
+      required:
+        - template
+        - variables
+        - config
+      properties:
+        template:
+          type: string
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnhancedVariable'
+        config:
+          $ref: '#/components/schemas/EditorConfig'
+        fingerprint:
+          type: string
+          description: Template fingerprint for memory lookup
+        memoryData:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/VariableMemoryEntry'
+
+    UpdateVariablesData:
+      type: object
+      required:
+        - variables
+      properties:
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnhancedVariable'
+        memoryData:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/VariableMemoryEntry'
+        inferenceData:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TypeInferenceResult'
+
+    VariableChangedData:
+      type: object
+      required:
+        - variableName
+        - value
+        - type
+      properties:
+        variableName:
+          type: string
+        value:
+          description: Serialized variable value
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        source:
+          type: string
+          enum: [user, default, inferred, suggestion]
+          default: user
+        saveToMemory:
+          type: boolean
+          default: true
+
+    LoadVariableMemoryData:
+      type: object
+      required:
+        - templateFingerprint
+      properties:
+        templateFingerprint:
+          type: string
+        includeHistory:
+          type: boolean
+          default: false
+
+    SaveVariableMemoryData:
+      type: object
+      required:
+        - templateFingerprint
+        - variables
+      properties:
+        templateFingerprint:
+          type: string
+        variables:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/VariableMemoryEntry'
+        source:
+          type: string
+          enum: [user, inferred, default, suggestion]
+          default: user
+
+    InferVariableTypesData:
+      type: object
+      required:
+        - template
+        - variables
+      properties:
+        template:
+          type: string
+        variables:
+          type: array
+          items:
+            $ref: '#/components/schemas/EnhancedVariable'
+        options:
+          $ref: '#/components/schemas/InferenceOptions'
+
+    UpdateTypeInferenceData:
+      type: object
+      required:
+        - inferences
+      properties:
+        inferences:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/TypeInferenceResult'
+        timestamp:
+          type: integer
+          format: int64
+
+    EnhancedVariable:
+      type: object
+      required:
+        - name
+        - type
+      properties:
+        name:
+          type: string
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        isRequired:
+          type: boolean
+          default: false
+        defaultValue:
+          description: Default value if any
+        currentValue:
+          description: Current value if set
+        context:
+          $ref: '#/components/schemas/VariableContext'
+
+        # Memory-related fields
+        isRemembered:
+          type: boolean
+          default: false
+        memoryConfidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        lastRemembered:
+          type: integer
+          format: int64
+        rememberSource:
+          type: string
+          enum: [user, inferred, default, suggestion]
+
+        # Type inference fields
+        typeInference:
+          $ref: '#/components/schemas/TypeInferenceResult'
+        inferenceOverride:
+          type: object
+          properties:
+            originalType:
+              $ref: '#/components/schemas/Jinja2VariableType'
+            overriddenType:
+              $ref: '#/components/schemas/Jinja2VariableType'
+            reason:
+              type: string
+            timestamp:
+              type: integer
+              format: int64
+
+    VariableMemoryEntry:
+      type: object
+      required:
+        - value
+        - type
+        - timestamp
+        - confidence
+      properties:
+        value:
+          description: Serialized variable value
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        timestamp:
+          type: integer
+          format: int64
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        source:
+          type: string
+          enum: [user, inferred, default, suggestion]
+        usageCount:
+          type: integer
+          minimum: 0
+        lastUsed:
+          type: integer
+          format: int64
+
+    TypeInferenceResult:
+      type: object
+      required:
+        - type
+        - confidence
+        - reasons
+        - source
+      properties:
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        reasons:
+          type: array
+          items:
+            type: string
+        alternatives:
+          type: array
+          items:
+            $ref: '#/components/schemas/TypeAlternative'
+        source:
+          type: string
+          enum: [naming, context, assignment, filter, manual]
+
+    TypeAlternative:
+      type: object
+      required:
+        - type
+        - confidence
+        - reason
+      properties:
+        type:
+          $ref: '#/components/schemas/Jinja2VariableType'
+        confidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+        reason:
+          type: string
+
+    VariableContext:
+      type: object
+      properties:
+        surroundingText:
+          type: object
+          properties:
+            before:
+              type: string
+            after:
+              type: string
+        semanticContext:
+          type: string
+        relatedVariables:
+          type: array
+          items:
+            type: string
+        controlStructures:
+          type: array
+          items:
+            $ref: '#/components/schemas/ControlStructure'
+        position:
+          type: object
+          properties:
+            line:
+              type: integer
+              minimum: 1
+            column:
+              type: integer
+              minimum: 1
+
+    ControlStructure:
+      type: object
+      required:
+        - type
+        - position
+      properties:
+        type:
+          type: string
+          enum: [if, for, set, macro, block]
+        condition:
+          type: string
+        iterator:
+          type: string
+        collection:
+          type: string
+        position:
+          type: object
+          properties:
+            line:
+              type: integer
+              minimum: 1
+            column:
+              type: integer
+              minimum: 1
+
+    Jinja2VariableType:
+      type: string
+      enum:
+        - string
+        - number
+        - integer
+        - boolean
+        - date
+        - time
+        - datetime
+        - json
+        - uuid
+        - email
+        - url
+        - null
+        - array
+        - object
+        - unknown
+
+    EditorConfig:
+      type: object
+      properties:
+        # Existing config
+        animations:
+          type: boolean
+          default: true
+        keyboardNavigation:
+          type: boolean
+          default: true
+        popoverPlacement:
+          type: string
+          enum: [top, bottom, auto]
+          default: auto
+
+        # New memory config
+        enableVariableMemory:
+          type: boolean
+          default: true
+        showMemoryIndicators:
+          type: boolean
+          default: true
+        memoryRetentionDays:
+          type: integer
+          minimum: 1
+          default: 30
+
+        # New inference config
+        enableTypeInference:
+          type: boolean
+          default: true
+        showConfidenceIndicators:
+          type: boolean
+          default: true
+        minConfidenceThreshold:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.1
+
+    InferenceOptions:
+      type: object
+      properties:
+        depth:
+          type: string
+          enum: [basic, deep, comprehensive]
+          default: deep
+        includeAlternatives:
+          type: boolean
+          default: true
+        maxAlternatives:
+          type: integer
+          minimum: 1
+          maximum: 10
+          default: 3
+        minConfidence:
+          type: number
+          format: float
+          minimum: 0
+          maximum: 1
+          default: 0.1
+
+    WebViewResponse:
+      type: object
+      required:
+        - success
+        - timestamp
+      properties:
+        success:
+          type: boolean
+        timestamp:
+          type: integer
+          format: int64
+        requestId:
+          type: string
+        data:
+          description: Response-specific data payload
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            details:
+              type: object
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/WebViewResponse'
+        - type: object
+          properties:
+            success:
+              type: boolean
+              const: false
+            error:
+              type: object
+              required:
+                - code
+                - message
+              properties:
+                code:
+                  type: string
+                  enum:
+                    - VALIDATION_ERROR
+                    - STORAGE_ERROR
+                    - MEMORY_QUOTA_EXCEEDED
+                    - TEMPLATE_PARSE_ERROR
+                    - INFERENCE_ERROR
+                    - UNKNOWN_ERROR
+                message:
+                  type: string
+                details:
+                  type: object
+
+# Message Flow Examples
+paths:
+  /examples:
+    get:
+      summary: WebView Message Flow Examples
+      description: Examples of common message exchanges between extension and WebView
+      responses:
+        '200':
+          description: Message flow examples
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: |
+                  # Example 1: Initialize with memory data
+                  Extension → WebView:
+                  {
+                    "command": "initialize",
+                    "data": {
+                      "template": "SELECT * FROM users WHERE id = {{ user_id }}",
+                      "variables": [
+                        {
+                          "name": "user_id",
+                          "type": "integer",
+                          "isRemembered": true,
+                          "memoryConfidence": 0.95,
+                          "currentValue": 42
+                        }
+                      ],
+                      "memoryData": {
+                        "user_id": {
+                          "value": 42,
+                          "type": "integer",
+                          "timestamp": 1699123456789,
+                          "confidence": 0.95,
+                          "source": "user"
+                        }
+                      }
+                    },
+                    "timestamp": 1699123456789
+                  }
+
+                  # Example 2: Variable change with memory save
+                  WebView → Extension:
+                  {
+                    "command": "variableChanged",
+                    "data": {
+                      "variableName": "user_id",
+                      "value": 123,
+                      "type": "integer",
+                      "source": "user",
+                      "saveToMemory": true
+                    },
+                    "timestamp": 1699123456789,
+                    "requestId": "req-123"
+                  }
+
+                  Extension → WebView:
+                  {
+                    "success": true,
+                    "requestId": "req-123",
+                    "timestamp": 1699123456790
+                  }
+
+                  # Example 3: Type inference update
+                  Extension → WebView:
+                  {
+                    "command": "updateTypeInference",
+                    "data": {
+                      "inferences": {
+                        "user_id": {
+                          "type": "integer",
+                          "confidence": 0.9,
+                          "reasons": ["Variable name suggests integer ID", "Used in numeric comparison"],
+                          "source": "context"
+                        }
+                      }
+                    },
+                    "timestamp": 1699123456789
+                  }

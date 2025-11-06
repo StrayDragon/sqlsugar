@@ -4,9 +4,20 @@ import { promisify } from 'util';
 import { Logger } from '../../core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './processor';
+
+// Extend Jinja2Variable interface to include memory context
+interface EnhancedJinja2Variable extends Jinja2Variable {
+  memoryContext?: {
+    rememberedValues: any[];
+    hasMemory: boolean;
+    mostRecentValue: any;
+    mostRecentType: string;
+  };
+}
 import { Jinja2WebviewEditorV2 } from './webview';
 import type { VariableProcessingContext } from './ui/types/data-processing';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy';
+import { variableMemoryService } from './ui/utils/variable-memory-service';
 
 /**
  * 占位符检测结果
@@ -234,15 +245,21 @@ export class Jinja2NunjucksHandler {
     _placeholderDetection: PlaceholderDetection
   ): Promise<boolean> {
     try {
+      // Generate template fingerprint for memory operations
+      const fingerprint = await this.processor.generateTemplateFingerprint(template);
       const preview = this.processor.getTemplatePreview(template);
       const title = `V2 Jinja2 Template: ${preview}`;
 
+      Logger.debug(`Generated template fingerprint: ${fingerprint.substring(0, 16)}... for V2 editor`);
 
-      await Jinja2WebviewEditorV2.showEditor(template, variables, title);
+      // Enhance variables with memory context
+      const enhancedVariables = await this.enhanceVariablesWithMemory(variables, fingerprint);
+
+      // Show the V2 editor with enhanced variables
+      await Jinja2WebviewEditorV2.showEditor(template, enhancedVariables, title);
 
       return true;
     } catch (error) {
-
       Logger.warn(`Webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
 
       vscode.window.showErrorMessage(
@@ -635,5 +652,146 @@ export class Jinja2NunjucksHandler {
     });
 
     return context;
+  }
+
+  /**
+   * Enhance variables with memory context
+   */
+  private async enhanceVariablesWithMemory(
+    variables: Jinja2Variable[],
+    fingerprint: string
+  ): Promise<EnhancedJinja2Variable[]> {
+    const enhancedVariables: EnhancedJinja2Variable[] = [...variables];
+
+    try {
+      // Load remembered values for each variable
+      for (let i = 0; i < enhancedVariables.length; i++) {
+        const variable = enhancedVariables[i];
+        const rememberedValues = await variableMemoryService.getRememberedValues(fingerprint, variable.name);
+
+        if (rememberedValues.length > 0) {
+          // Update variable's default value to the most recently used remembered value
+          const mostRecent = rememberedValues
+            .sort((a, b) => b.timestamp - a.timestamp)[0];
+
+          if (mostRecent && variable.defaultValue === undefined) {
+            enhancedVariables[i] = {
+              ...variable,
+              defaultValue: mostRecent.value,
+              memoryContext: {
+                rememberedValues,
+                hasMemory: true,
+                mostRecentValue: mostRecent.value,
+                mostRecentType: mostRecent.type
+              }
+            };
+
+            Logger.debug(`Enhanced variable ${variable.name} with remembered value: ${mostRecent.value}`);
+          }
+        }
+      }
+
+      Logger.debug(`Enhanced ${enhancedVariables.length} variables with memory context`);
+    } catch (error) {
+      Logger.warn('Failed to enhance variables with memory context:', error);
+      // Return original variables if memory enhancement fails
+      return variables as EnhancedJinja2Variable[];
+    }
+
+    return enhancedVariables;
+  }
+
+  /**
+   * Save variable values to memory after successful template processing
+   */
+  public async saveVariableValuesToMemory(
+    template: string,
+    values: Record<string, unknown>
+  ): Promise<void> {
+    try {
+      const fingerprint = await this.processor.generateTemplateFingerprint(template);
+      const variables = this.processor.extractVariables(template);
+
+      for (const variable of variables) {
+        const value = values[variable.name];
+        if (value !== undefined) {
+          await variableMemoryService.saveVariableValue(
+            fingerprint,
+            variable.name,
+            value,
+            variable.type,
+            {
+              source: 'template-processing',
+              confidence: 0.9,
+              templateContext: 'auto-save-after-processing',
+              userInput: true
+            }
+          );
+
+          Logger.debug(`Saved variable ${variable.name} value to memory: ${value}`);
+        }
+      }
+
+      Logger.info(`Saved ${Object.keys(values).length} variable values to memory`);
+    } catch (error) {
+      Logger.error('Failed to save variable values to memory:', error);
+    }
+  }
+
+  /**
+   * Get memory statistics for a template
+   */
+  public async getTemplateMemoryStats(template: string): Promise<{
+    totalVariables: number;
+    variablesWithMemory: number;
+    totalRememberedValues: number;
+  }> {
+    try {
+      const fingerprint = await this.processor.generateTemplateFingerprint(template);
+      const variables = this.processor.extractVariables(template);
+
+      let variablesWithMemory = 0;
+      let totalRememberedValues = 0;
+
+      for (const variable of variables) {
+        const rememberedValues = await variableMemoryService.getRememberedValues(fingerprint, variable.name);
+        if (rememberedValues.length > 0) {
+          variablesWithMemory++;
+          totalRememberedValues += rememberedValues.length;
+        }
+      }
+
+      return {
+        totalVariables: variables.length,
+        variablesWithMemory,
+        totalRememberedValues
+      };
+    } catch (error) {
+      Logger.error('Failed to get template memory stats:', error);
+      return {
+        totalVariables: 0,
+        variablesWithMemory: 0,
+        totalRememberedValues: 0
+      };
+    }
+  }
+
+  /**
+   * Clear memory for a specific template
+   */
+  public async clearTemplateMemory(template: string): Promise<boolean> {
+    try {
+      const fingerprint = await this.processor.generateTemplateFingerprint(template);
+      const success = await variableMemoryService.clearTemplateMemory(fingerprint);
+
+      if (success) {
+        Logger.info(`Cleared memory for template: ${fingerprint.substring(0, 16)}...`);
+      }
+
+      return success;
+    } catch (error) {
+      Logger.error('Failed to clear template memory:', error);
+      return false;
+    }
   }
 }

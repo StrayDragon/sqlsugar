@@ -29,7 +29,8 @@ const mockVSCode = {
 };
 
 // Global setup
-global.vscode = mockVSCode;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+(global as any).vscode = mockVSCode;
 
 // Mock console methods for cleaner test output
 global.console = {
@@ -44,33 +45,38 @@ global.console = {
 
 // Performance monitoring for tests
 if (typeof performance === 'undefined') {
-  global.performance = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (global as any).performance = {
     now: vi.fn(() => Date.now()),
-  } as any;
+  };
 }
 
 // DOM setup for jsdom environment
 if (typeof document === 'undefined') {
-  global.document = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (global as any).document = {
     createElement: vi.fn(),
     getElementById: vi.fn(),
     querySelector: vi.fn(),
     addEventListener: vi.fn(),
-  } as any;
+  };
 
-  global.window = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (global as any).window = {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     requestAnimationFrame: vi.fn(),
-  } as any;
+  };
 }
 
 // Web Components polyfill for testing
 if (typeof customElements === 'undefined') {
-  global.customElements = {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (global as any).customElements = {
     define: vi.fn(),
     get: vi.fn(),
     upgrade: vi.fn(),
-    whenDefined: vi.fn(() => Promise.resolve()),
-  } as any;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    whenDefined: vi.fn(() => Promise.resolve() as any),
+  };
 }

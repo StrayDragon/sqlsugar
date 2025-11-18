@@ -427,7 +427,7 @@ export class TemplateHighlighter extends LitElement {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 
-  private addInteractiveElements(html: string): string {
+  private _addInteractiveElements(html: string): string {
 
     return html.replace(
       /<span class="variable-highlight" data-variable="([^"]+)" data-index="([^"]+)">([^<]+)<\/span>/g,

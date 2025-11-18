@@ -5,8 +5,9 @@
  */
 
 import type { EnhancedVariable, Jinja2Variable, Jinja2VariableValue } from '../types.js';
+import type { VariableType as InferenceVariableType } from '../types/inference.js';
 
-export type VariableType = 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'email' | 'url' | 'null';
+export type VariableType = InferenceVariableType;
 
 /**
  * Gets a default value for a given variable type
@@ -15,16 +16,23 @@ export function getDefaultValueForType(type: VariableType): Jinja2VariableValue 
   const defaults: Record<VariableType, Jinja2VariableValue> = {
     string: 'demo_value',
     number: 42,
-    integer: 42,
-    boolean: true,
     date: new Date().toISOString().split('T')[0],
-    time: '00:00:00',
-    datetime: new Date().toISOString(),
-    json: {},
+    boolean: true,
+    array: [],
+    object: {},
     uuid: '00000000-0000-0000-0000-000000000000',
     email: 'test@example.com',
+    json: {},
+    sql_identifier: 'column_name',
     url: 'https://example.com',
-    null: null
+    phone: '+1234567890',
+    currency: '100.00',
+    time: '00:00:00',
+    datetime: new Date().toISOString(),
+    integer: 42,
+    null: null,
+    custom: 'custom_value',
+    unknown: 'unknown'
   };
 
   return defaults[type];
@@ -34,7 +42,7 @@ export function getDefaultValueForType(type: VariableType): Jinja2VariableValue 
  * Validates a value against its variable type
  */
 export function validateValue(value: Jinja2VariableValue, type: VariableType): string | null {
-  if (value == null && type !== 'null') {
+  if (value == null) {
     return 'Value cannot be null or undefined';
   }
 
@@ -44,17 +52,15 @@ export function validateValue(value: Jinja2VariableValue, type: VariableType): s
       break;
 
     case 'number':
-    case 'integer':
       if (typeof value !== 'number' || isNaN(value)) {
         return 'Value must be a valid number';
       }
-      if (type === 'integer' && !Number.isInteger(value)) {
-        return 'Value must be an integer';
-      }
       break;
 
-    case 'boolean':
-      if (typeof value !== 'boolean') return 'Value must be a boolean';
+    case 'integer':
+      if (typeof value !== 'number' || !Number.isInteger(value)) {
+        return 'Value must be an integer';
+      }
       break;
 
     case 'date':
@@ -63,9 +69,29 @@ export function validateValue(value: Jinja2VariableValue, type: VariableType): s
       }
       break;
 
+    case 'time':
+      if (typeof value !== 'string' || !/^\d{2}:\d{2}:\d{2}$/.test(value)) {
+        return 'Value must be a valid time in HH:MM:SS format';
+      }
+      break;
+
     case 'datetime':
       if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
         return 'Value must be a valid datetime in ISO format';
+      }
+      break;
+
+    case 'boolean':
+      if (typeof value !== 'boolean') return 'Value must be a boolean';
+      break;
+
+    case 'array':
+      if (!Array.isArray(value)) return 'Value must be an array';
+      break;
+
+    case 'object':
+      if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+        return 'Value must be an object';
       }
       break;
 
@@ -99,10 +125,36 @@ export function validateValue(value: Jinja2VariableValue, type: VariableType): s
       }
       break;
 
+    case 'sql_identifier':
+      if (typeof value !== 'string' || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(value)) {
+        return 'Value must be a valid SQL identifier';
+      }
+      break;
+
+    case 'phone':
+      if (typeof value !== 'string' || !/^\+?[0-9\s\-\(\)]{10,}$/.test(value)) {
+        return 'Value must be a valid phone number';
+      }
+      break;
+
+    case 'currency':
+      if (typeof value !== 'string' && typeof value !== 'number' || isNaN(Number(value))) {
+        return 'Value must be a valid currency amount';
+      }
+      break;
+
     case 'null':
-      if (value !== null && value !== 'null') {
+      if (value !== null) {
         return 'Value must be null';
       }
+      break;
+
+    case 'custom':
+      // Custom types don't have built-in validation
+      break;
+
+    case 'unknown':
+      // Unknown types don't have validation
       break;
   }
 
@@ -113,17 +165,15 @@ export function validateValue(value: Jinja2VariableValue, type: VariableType): s
  * Infers variable type from a value
  */
 export function inferTypeFromValue(value: Jinja2VariableValue): VariableType {
-  if (value === null || value === 'null') return 'null';
+  if (value === null) return 'object';
   if (typeof value === 'boolean') return 'boolean';
-  if (typeof value === 'number') {
-    return Number.isInteger(value) ? 'integer' : 'number';
-  }
+  if (typeof value === 'number') return 'number';
   if (typeof value === 'string') {
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
     if (/^https?:\/\/.+/.test(value)) return 'url';
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'date';
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) return 'datetime';
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return 'uuid';
+    if (/^\+?[0-9\s\-\(\)]{10,}$/.test(value)) return 'phone';
 
     try {
       JSON.parse(value);
@@ -132,7 +182,8 @@ export function inferTypeFromValue(value: Jinja2VariableValue): VariableType {
       return 'string';
     }
   }
-  if (typeof value === 'object') return 'json';
+  if (Array.isArray(value)) return 'array';
+  if (typeof value === 'object') return 'object';
 
   return 'string';
 }
@@ -145,7 +196,7 @@ export function formatValueForDisplay(value: Jinja2VariableValue, type: Variable
   if (typeof value === 'string') return value;
   if (typeof value === 'number') return value.toString();
   if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (type === 'json' && typeof value === 'object') {
+  if (Array.isArray(value) || type === 'object' || type === 'json') {
     return JSON.stringify(value, null, 2);
   }
   return String(value);
@@ -174,12 +225,10 @@ export function createJinja2Variable(
  */
 export function getContextualDefaultValue(variable: EnhancedVariable): Jinja2VariableValue {
   const name = variable.name.toLowerCase();
-  const type = variable.type as VariableType;
-
+  const type = variable.type;
 
   switch (type) {
     case 'number':
-    case 'integer':
       if (name.includes('id')) return 123;
       if (name.includes('count')) return 10;
       if (name.includes('limit')) return 50;
@@ -191,7 +240,6 @@ export function getContextualDefaultValue(variable: EnhancedVariable): Jinja2Var
       return true;
 
     case 'date':
-    case 'datetime':
       if (name.includes('created') || name.includes('start')) return '2024-01-01';
       if (name.includes('updated') || name.includes('end')) return '2024-12-31';
       return new Date().toISOString().split('T')[0];
@@ -210,6 +258,21 @@ export function getContextualDefaultValue(variable: EnhancedVariable): Jinja2Var
 
     case 'uuid':
       return '00000000-0000-0000-0000-000000000000';
+
+    case 'array':
+      return [];
+
+    case 'object':
+      return {};
+
+    case 'phone':
+      return '+1234567890';
+
+    case 'currency':
+      return '100.00';
+
+    case 'sql_identifier':
+      return 'column_name';
 
     default:
       return getDefaultValueForType(type);

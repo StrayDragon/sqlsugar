@@ -169,12 +169,12 @@ WHERE {{ status }} = 'active'
       // First call - should compute and cache
       const start1 = Date.now();
       const variables1 = processor.extractVariables(template);
-      const time1 = Date.now() - start1;
+      const _time1 = Date.now() - start1;
 
       // Second call - should use cache (will be faster)
       const start2 = Date.now();
       const variables2 = processor.extractVariables(template);
-      const time2 = Date.now() - start2;
+      const _time2 = Date.now() - start2;
 
       // Results should be identical
       expect(variables1).toEqual(variables2);

@@ -391,8 +391,6 @@ export class Jinja2NunjucksHandler {
    * 提示输入变量值
    */
   private async promptForVariable(variable: Jinja2Variable): Promise<unknown> {
-    const _prompt = `Enter ${variable.type} value for "${variable.name}"`;
-
     switch (variable.type) {
       case 'string':
         return await vscode.window.showInputBox({

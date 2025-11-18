@@ -177,18 +177,6 @@ export class Jinja2NunjucksProcessor {
   }
 
   /**
-   * 获取嵌套对象的值（支持 user.id 这样的路径）
-   */
-  private getNestedValue(obj: unknown, path: string): unknown {
-    return path.split('.').reduce((current, key) => {
-      if (current && typeof current === 'object' && key in current) {
-        return (current as Record<string, unknown>)[key];
-      }
-      return undefined;
-    }, obj);
-  }
-
-  /**
    * 构建嵌套上下文对象
    * 将扁平的变量名（如 'user.id'）转换为嵌套对象结构（如 { user: { id: value } }）
    */
@@ -1036,7 +1024,7 @@ export class Jinja2NunjucksProcessor {
         const varName = variablePart;
 
 
-        const excludedKeywords = Array.from(JINJA2_KEYWORDS);
+        const excludedKeywords = Array.from(JINJA2_KEYWORDS) as string[];
 
         if (!excludedKeywords.includes(varName.toLowerCase())) {
           variables.push(varName);
@@ -1051,7 +1039,7 @@ export class Jinja2NunjucksProcessor {
         const varName = match[1];
 
 
-        const excludedKeywords = Array.from(JINJA2_KEYWORDS);
+        const excludedKeywords = Array.from(JINJA2_KEYWORDS) as string[];
 
 
         if (varName.includes('(')) {

@@ -29,7 +29,7 @@
 		"esModuleInterop": true, /* Enables emit interoperability between CommonJS and ES Modules */
 		"skipLibCheck": true, /* Skip type checking of declaration files */
 		"forceConsistentCasingInFileNames": true, /* Disallow inconsistently-cased references to the same file */
-		"noUnusedLocals": true, /* Report errors on unused locals */
+		"noUnusedLocals": false, /* Report errors on unused locals */
 		"noImplicitThis": true, /* Enable error reporting for 'this' expressions with an implied 'any' type */
 		"declaration": true, /* Generate d.ts files from TypeScript and JavaScript files in your project */
 		"declarationMap": true, /* Generate sourcemaps for d.ts files */

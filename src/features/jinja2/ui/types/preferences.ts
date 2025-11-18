@@ -112,8 +112,8 @@ export interface CompleteEditorV2Config {
 export interface MigrationData {
   version: string;
   timestamp: Date;
-  oldConfiguration: any; // Previous configuration format
-  newConfiguration: CompleteEditorV2Config;
+  oldConfiguration: unknown; // Previous configuration format
+  newConfiguration: UserPreferences;
 
   // Migration results
   success: boolean;
@@ -136,7 +136,7 @@ export interface LegacyConfiguration {
     popoverPlacement?: string;
     highlightStyle?: string;
     autoPreview?: boolean;
-    [key: string]: any;
+    [key: string]: unknown;
   };
 }
 
@@ -156,7 +156,7 @@ export interface PreferenceValidation {
 export interface PreferenceError {
   field: string;
   message: string;
-  currentValue: any;
+  currentValue: unknown;
   expectedType: string;
   severity: 'error';
 }
@@ -167,7 +167,7 @@ export interface PreferenceError {
 export interface PreferenceWarning {
   field: string;
   message: string;
-  currentValue: any;
+  currentValue: unknown;
   recommendation: string;
   severity: 'warning';
 }
@@ -178,7 +178,7 @@ export interface PreferenceWarning {
 export interface PreferenceSuggestion {
   field: string;
   message: string;
-  suggestedValue: any;
+  suggestedValue: unknown;
   reason: string;
   benefit: string;
 }
@@ -188,8 +188,8 @@ export interface PreferenceSuggestion {
  */
 export interface PreferenceChangeEvent {
   key: string;
-  oldValue: any;
-  newValue: any;
+  oldValue: unknown;
+  newValue: unknown;
   source: 'user' | 'migration' | 'default';
   timestamp: Date;
 }

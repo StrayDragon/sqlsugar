@@ -8,12 +8,10 @@ import { TempFileManager } from './temp-file-manager';
  * 内联SQL编辑命令处理器
  */
 export class InlineSQLCommandHandler {
-  private container: DIContainer;
   private languageHandler: LanguageHandler;
   private tempFileManager: TempFileManager;
 
-  constructor(container: DIContainer) {
-    this.container = container;
+  constructor(_container: DIContainer) {
     this.languageHandler = new LanguageHandler();
     this.tempFileManager = new TempFileManager(this.languageHandler);
   }

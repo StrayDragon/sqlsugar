@@ -1561,12 +1561,6 @@ export class Jinja2EditorV2 extends LitElement {
     this.recordVariableChange(variableName, oldValue, newValue, 'variable_change', 'after_render',
       `Variable ${variableName} changed from ${JSON.stringify(oldValue)} to ${JSON.stringify(newValue)}`);
   }
-  private handleCancelPopup() {
-    this.activeVariable = null;
-    this.popupValue = '';
-    this.activeVariableType = '';
-    this.showTypeSelector = false;
-  }
 
   private handleTypeToggle() {
     this.showTypeSelector = !this.showTypeSelector;
@@ -1820,33 +1814,6 @@ export class Jinja2EditorV2 extends LitElement {
         `)}
       </select>
     `;
-  }
-
-  private handleVariableChange(variableName: string, value: Jinja2VariableValue) {
-    this.values = {
-      ...this.values,
-      [variableName]: value
-    };
-
-    if (this.config?.autoPreview) {
-      void this.renderTemplate();
-    }
-  }
-
-  private handleVariableTypeChange(variableName: string, newType: string) {
-    const variableIndex = this.variables.findIndex(v => v.name === variableName);
-    if (variableIndex >= 0) {
-      const updatedVariables = [...this.variables];
-
-      const validType = this.validateVariableType(newType);
-      if (validType) {
-        updatedVariables[variableIndex] = {
-          ...updatedVariables[variableIndex],
-          type: validType
-        };
-        this.variables = updatedVariables;
-      }
-    }
   }
 
   private async renderTemplate() {
@@ -2191,7 +2158,7 @@ export class Jinja2EditorV2 extends LitElement {
     }
   }
 
-  private processForLoops(template: string): string {
+  private _processForLoops(template: string): string {
     let result = template;
 
 
@@ -2431,7 +2398,7 @@ Includes: Right panel HTML tracking
 
   }
 
-  private generateDebugLogs() {
+  private _generateDebugLogs() {
     return {
       timestamp: new Date().toISOString(),
       editorInfo: {
@@ -2664,7 +2631,7 @@ Includes: Right panel HTML tracking
     }, 3000);
   }
 
-  private getVariableStats() {
+  private _getVariableStats() {
     const total = this.variables.length;
     const configured = Object.keys(this.values).filter(key =>
       this.values[key] !== undefined && this.values[key] !== null

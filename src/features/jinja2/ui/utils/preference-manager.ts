@@ -4,7 +4,7 @@
  */
 
 import * as vscode from 'vscode';
-import type { UserPreferences, CompleteEditorV2Config, LegacyConfiguration, MigrationData } from '../types/preferences.js';
+import type { UserPreferences, LegacyConfiguration, MigrationData } from '../types/preferences.js';
 
 export class PreferenceManager {
   private static readonly CONFIG_SECTION = 'sqlsugar';
@@ -22,8 +22,8 @@ export class PreferenceManager {
       return this._preferences;
     }
 
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+    const config = vscode.workspace.getConfiguration(PreferenceManager.CONFIG_SECTION);
+    const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
 
     // Load with migration for backward compatibility
     this._preferences = await this.migrateConfiguration(config, v2Config);
@@ -41,25 +41,25 @@ export class PreferenceManager {
 
     // Save inference preferences
     if (preferences.inference) {
-      const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
       await v2Config.update('inference', preferences.inference, vscode.ConfigurationTarget.Global);
     }
 
     // Save scroll sync preferences
     if (preferences.scrollSync) {
-      const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
       await v2Config.update('scrollSync', preferences.scrollSync, vscode.ConfigurationTarget.Global);
     }
 
     // Save UI preferences
     if (preferences.ui) {
-      const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
       await v2Config.update('ui', preferences.ui, vscode.ConfigurationTarget.Global);
     }
 
     // Save performance preferences
     if (preferences.performance) {
-      const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
       await v2Config.update('performance', preferences.performance, vscode.ConfigurationTarget.Global);
     }
 
@@ -90,8 +90,8 @@ export class PreferenceManager {
    * Reset all preferences to defaults
    */
   async resetPreferences(): Promise<void> {
-    const config = vscode.workspace.getConfiguration(this.CONFIG_SECTION);
-    const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+    const config = vscode.workspace.getConfiguration(PreferenceManager.CONFIG_SECTION);
+    const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
 
     // Reset basic settings
     await Promise.all([
@@ -129,24 +129,57 @@ export class PreferenceManager {
     v2Config: vscode.WorkspaceConfiguration
   ): Promise<UserPreferences> {
     const legacy = this.extractLegacyConfiguration(config, v2Config);
-    const migration = await this.performMigration(legacy);
+    await this.performMigration(legacy);
 
-    if (migration.userActionRequired.length > 0) {
-      // Show migration warnings to user
-      vscode.window.showWarningMessage(
-        `SQLSugar configuration migration completed with warnings: ${migration.userActionRequired.join(', ')}`,
-        'Show Details'
-      ).then(selection => {
-        if (selection === 'Show Details') {
-          vscode.window.showInformationMessage(
-            migration.warnings.join('\n'),
-            'OK'
-          );
-        }
-      });
-    }
+    // Load actual configuration from VSCode
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const v2ConfigData: any = v2Config.get('inference') || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const scrollSyncData: any = v2Config.get('scrollSync') || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const uiData: any = v2Config.get('ui') || {};
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const performanceData: any = v2Config.get('performance') || {};
 
-    return migration.newConfiguration;
+    return {
+      inference: {
+        enabled: v2ConfigData.enabled ?? true,
+        confidenceThreshold: v2ConfigData.confidenceThreshold ?? 0.7,
+        useContextualDefaults: v2ConfigData.contextualDefaults ?? true,
+        crossTemplateAnalysis: v2ConfigData.crossTemplateAnalysis ?? false,
+        customRules: v2ConfigData.customRules || [],
+        typeMapping: {}
+      },
+      scrollSync: {
+        enabled: scrollSyncData.enabled ?? true,
+        sensitivity: scrollSyncData.sensitivity ?? 0.8,
+        rememberPosition: scrollSyncData.rememberPosition ?? true,
+        autoEnable: scrollSyncData.autoEnable ?? true,
+        debounceMs: scrollSyncData.debounceMs ?? 50
+      },
+      ui: {
+        showTypeBadges: uiData.showTypeIndicators ?? true,
+        showConfidenceIndicators: uiData.showConfidenceLevel ?? true,
+        variableHighlightStyle: uiData.highlightStyle || 'background',
+        animateTransitions: uiData.animateTransitions ?? true,
+        keyboardShortcuts: {
+          'toggleScrollSync': 'ctrl+alt+s',
+          'nextVariable': 'tab',
+          'previousVariable': 'shift+tab',
+          'editVariable': 'enter'
+        },
+        compactMode: uiData.compactMode ?? false,
+        themeIntegration: uiData.themeIntegration ?? true
+      },
+      performance: {
+        enableCaching: performanceData.enableCaching ?? true,
+        maxCacheSize: performanceData.maxCacheSize ?? 100,
+        debounceMs: performanceData.debounceMs ?? 300,
+        maxTemplateSize: performanceData.maxTemplateSize ?? 50000,
+        progressiveLoading: performanceData.progressiveLoading ?? true,
+        memoryOptimization: performanceData.memoryOptimization ?? true
+      }
+    };
   }
 
   /**
@@ -188,7 +221,7 @@ export class PreferenceManager {
     try {
       // Migrate basic V2 settings
       if (legacy.v2Editor) {
-        const v2Config = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+        const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
 
         if (!v2Config.get('popoverPlacement')) {
           await v2Config.update('popoverPlacement', legacy.v2Editor.popoverPlacement, vscode.ConfigurationTarget.Global);
@@ -202,7 +235,7 @@ export class PreferenceManager {
       }
 
       // Set new defaults for enhanced features
-      const enhancedConfig = vscode.workspace.getConfiguration(this.V2_CONFIG_SECTION);
+      const enhancedConfig = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
 
       // Enable advanced inference by default
       if (!enhancedConfig.get('inference')) {
@@ -267,7 +300,7 @@ export class PreferenceManager {
         useContextualDefaults: true,
         crossTemplateAnalysis: false,
         customRules: [],
-        typeMapping: new Map()
+        typeMapping: {}
       },
       scrollSync: {
         enabled: true,
@@ -281,12 +314,12 @@ export class PreferenceManager {
         showConfidenceIndicators: true,
         variableHighlightStyle: 'background',
         animateTransitions: true,
-        keyboardShortcuts: new Map([
-          ['toggleScrollSync', 'ctrl+alt+s'],
-          ['nextVariable', 'tab'],
-          ['previousVariable', 'shift+tab'],
-          ['editVariable', 'enter']
-        ]),
+        keyboardShortcuts: {
+          'toggleScrollSync': 'ctrl+alt+s',
+          'nextVariable': 'tab',
+          'previousVariable': 'shift+tab',
+          'editVariable': 'enter'
+        },
         compactMode: false,
         themeIntegration: true
       },
@@ -306,8 +339,8 @@ export class PreferenceManager {
    */
   onConfigurationChanged(callback: (event: vscode.ConfigurationChangeEvent) => void): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration(event => {
-      if (event.affectsConfiguration(this.CONFIG_SECTION) ||
-          event.affectsConfiguration(this.V2_CONFIG_SECTION)) {
+      if (event.affectsConfiguration(PreferenceManager.CONFIG_SECTION) ||
+          event.affectsConfiguration(PreferenceManager.V2_CONFIG_SECTION)) {
         callback(event);
       }
     });

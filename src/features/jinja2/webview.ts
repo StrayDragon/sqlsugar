@@ -143,7 +143,7 @@ export class Jinja2WebviewEditorV2 {
   /**
    * 获取扩展上下文路径
    */
-  private getContextPath(): string {
+  private _getContextPath(): string {
     return this.extensionPath;
   }
 

@@ -14,11 +14,22 @@ export const mockVSCode = {
     createWebviewPanel: () => ({
       webview: {
         html: '',
-        onDidReceiveMessage: () => ({ dispose: () => {} }),
+        onDidReceiveMessage: () => ({
+          // eslint-disable-next-line @typescript-eslint/no-empty-function
+          dispose: () => {},
+        }),
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
         postMessage: () => {},
       },
-      onDidChangeViewState: () => ({ dispose: () => {} }),
-      onDidDispose: () => ({ dispose: () => {} }),
+      onDidChangeViewState: () => ({
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        dispose: () => {},
+      }),
+      onDidDispose: () => ({
+        // eslint-disable-next-line @typescript-eslint/no-empty-function
+        dispose: () => {},
+      }),
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
       reveal: () => {},
     }),
     showInformationMessage: () => Promise.resolve(undefined),
@@ -26,7 +37,10 @@ export const mockVSCode = {
   },
   commands: {
     executeCommand: () => Promise.resolve(undefined),
-    registerCommand: () => ({ dispose: () => {} }),
+    registerCommand: () => ({
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      dispose: () => {},
+    }),
   },
   env: {
     machineId: 'test-machine-id',

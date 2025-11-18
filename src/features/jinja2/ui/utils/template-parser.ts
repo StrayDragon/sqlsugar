@@ -96,8 +96,6 @@ function extractVariables(template: string): EnhancedVariable[] {
 
 
     if (variableMap.has(variableName)) {
-      const _existing = variableMap.get(variableName)!;
-
     } else {
       variableMap.set(variableName, enhancedVar);
       variables.push(enhancedVar);

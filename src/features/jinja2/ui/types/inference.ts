@@ -14,6 +14,8 @@ export type VariableType =
   // Enhanced types
   | 'array' | 'object' | 'uuid' | 'email' | 'json'
   | 'sql_identifier' | 'url' | 'phone' | 'currency'
+  // Additional Jinja2 types
+  | 'time' | 'datetime' | 'integer' | 'null'
   // Specialized types
   | 'custom' | 'unknown';
 
@@ -55,7 +57,7 @@ export interface InferenceRule {
  */
 export interface UsagePattern {
   type: UsageType;
-  context: any; // NunjucksNode
+  context: unknown; // NunjucksNode
   position: SourcePosition;
   filters: FilterContext[];
   operators?: string[];

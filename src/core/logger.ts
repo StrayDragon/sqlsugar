@@ -9,7 +9,7 @@ function isValidLogLevel(level: string): level is LogLevel {
 function getConfiguredLogLevel(): LogLevel {
   try {
     // Check if vscode is available (test environment)
-    if (!vscode || !vscode.workspace) {
+    if (!vscode?.workspace) {
       return 'error'; // Default for test environment
     }
 

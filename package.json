@@ -200,6 +200,11 @@
           "type": "boolean",
           "default": false,
           "description": "Automatically focus the first variable when opening the V2 editor"
+        },
+        "sqlsugar.v2Editor.scrollSyncEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable bidirectional scroll synchronization between template and SQL preview"
         }
       }
     }
@@ -224,9 +229,10 @@
   "dependencies": {
     "@lit/context": "^1.1.6",
     "@lit/task": "^1.0.3",
+    "highlight.js": "^11.9.0",
     "lit": "^3.3.1",
     "nunjucks": "^3.2.4",
-    "highlight.js": "^11.9.0"
+    "zod": "^4.1.12"
   },
   "repository": {
     "type": "git",

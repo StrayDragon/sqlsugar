@@ -44,7 +44,7 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor variableValues: Record<string, Jinja2VariableValue> = {};
   @state() accessor activeVariableType: string = '';
   @state() accessor showTypeSelector: boolean = false;
-  @state() accessor syncScroll: boolean = false;
+  @state() accessor syncScroll: boolean = true;
 
 
   private variableChangeLogs: Array<{

@@ -1,5 +1,17 @@
 import * as nunjucks from 'nunjucks';
 import { Logger } from '../../core/logger';
+import {
+  DEFAULT_VALUES,
+  BOOLEAN_PATTERNS,
+  NUMBER_PATTERNS,
+  DATE_PATTERNS,
+  STRING_PATTERNS,
+  STRING_DEFAULTS,
+  PROCESSING_CONFIG,
+  REGEX_PATTERNS,
+  JINJA2_KEYWORDS,
+} from './constants';
+import { LRUCache } from './ui/utils/lru-cache';
 
 export type Jinja2VariableValue =
   | string
@@ -81,6 +93,8 @@ export interface Jinja2Variable {
 export class Jinja2NunjucksProcessor {
   private static instance: Jinja2NunjucksProcessor;
   private env: nunjucks.Environment;
+  private variableCache: LRUCache<Jinja2Variable[]>;
+  private templateCache: LRUCache<{ valid: boolean; errors: string[] }>;
 
   private constructor() {
 
@@ -88,6 +102,10 @@ export class Jinja2NunjucksProcessor {
       autoescape: false,
       throwOnUndefined: false,
     });
+
+    // Initialize caches for performance optimization
+    this.variableCache = new LRUCache<Jinja2Variable[]>(PROCESSING_CONFIG.MAX_ITERATIONS_FOR_LRU);
+    this.templateCache = new LRUCache<{ valid: boolean; errors: string[] }>(50);
 
 
     nunjucks.installJinjaCompat();
@@ -268,7 +286,7 @@ export class Jinja2NunjucksProcessor {
       return isNaN(result) ? 'NaN' : String(result);
     });
 
-    this.env.addFilter('int', (value: unknown, base: number = 10) => {
+    this.env.addFilter('int', (value: unknown, base: number = PROCESSING_CONFIG.DEFAULT_INT_BASE) => {
       if (value === null || value === undefined) {
         return '0';
       }
@@ -322,7 +340,7 @@ export class Jinja2NunjucksProcessor {
 
     this.env.addFilter(
       'truncate',
-      (value: unknown, length: number = 255, end: string = '...', killwords: boolean = false) => {
+      (value: unknown, length: number = PROCESSING_CONFIG.DEFAULT_TRUNCATE_LENGTH, end: string = '...', killwords: boolean = false) => {
         if (value === null || value === undefined || value === '') {
           return '';
         }
@@ -360,7 +378,7 @@ export class Jinja2NunjucksProcessor {
       'wordwrap',
       (
         value: string | unknown,
-        width: number = 79,
+        width: number = PROCESSING_CONFIG.DEFAULT_WORD_WRAP_WIDTH,
         break_long_words: boolean = false,
         wrapstring: string = '\n'
       ) => {
@@ -409,7 +427,7 @@ export class Jinja2NunjucksProcessor {
       if (precision === 0) {
         return String(Math.round(num));
       }
-      const factor = Math.pow(10, precision);
+      const factor = Math.pow(PROCESSING_CONFIG.BASE_10, precision);
       return String(Math.round(num * factor) / factor);
     });
 
@@ -541,7 +559,7 @@ export class Jinja2NunjucksProcessor {
 
 
     this.env.addFilter('filesizeformat', (value: number, binary: boolean = false) => {
-      const base = binary ? 1024 : 1000;
+      const base = binary ? PROCESSING_CONFIG.BINARY_BASE : PROCESSING_CONFIG.DECIMAL_BASE;
       const units = binary
         ? ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
         : ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
@@ -574,21 +592,30 @@ export class Jinja2NunjucksProcessor {
    * 提供最准确的变量提取和模板验证
    */
   public extractVariables(_template: string): Jinja2Variable[] {
-    try {
+    // Check cache first
+    const cacheKey = this.generateCacheKey(_template);
+    const cached = this.variableCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
 
-      return this.extractVariablesFromAST(_template);
+    let result: Jinja2Variable[];
+    try {
+      result = this.extractVariablesFromAST(_template);
     } catch (_error) {
       Logger.warn('nunjucks AST 解析失败，尝试 nunjucks 编译验证:', _error);
 
       try {
-
-        return this.extractVariablesWithNunjucksValidation(_template);
+        result = this.extractVariablesWithNunjucksValidation(_template);
       } catch (fallbackError) {
         Logger.warn('nunjucks 验证失败，回退到正则表达式方法:', fallbackError);
-
-        return this.extractVariablesWithRegex(_template);
+        result = this.extractVariablesWithRegex(_template);
       }
     }
+
+    // Cache the result
+    this.variableCache.set(cacheKey, result);
+    return result;
   }
 
   /**
@@ -959,13 +986,13 @@ export class Jinja2NunjucksProcessor {
 
     switch (variable.type) {
       case 'number':
-        context[variable.name] = 42;
+        context[variable.name] = DEFAULT_VALUES.GENERIC;
         break;
       case 'date':
-        context[variable.name] = '2023-01-01';
+        context[variable.name] = DEFAULT_VALUES.TODAY_DATE;
         break;
       default:
-        context[variable.name] = `demo_${variable.name}`;
+        context[variable.name] = `${DEFAULT_VALUES.DEMO_PREFIX}${variable.name}`;
     }
 
     return context;
@@ -984,7 +1011,7 @@ export class Jinja2NunjucksProcessor {
 
     const filters = parts.slice(1).map(filterPart => {
 
-      const filterMatch = filterPart.match(/^([a-zA-Z_][a-zA-Z0-9_]*)(?:\([^)]*\))?/);
+      const filterMatch = filterPart.match(REGEX_PATTERNS.FILTER_NAME);
       return filterMatch ? filterMatch[1] : filterPart;
     });
 
@@ -1009,22 +1036,7 @@ export class Jinja2NunjucksProcessor {
         const varName = variablePart;
 
 
-        const excludedKeywords = [
-          'if',
-          'elif',
-          'else',
-          'endif',
-          'for',
-          'endfor',
-          'in',
-          'and',
-          'or',
-          'not',
-          'true',
-          'false',
-          'none',
-          'null',
-        ];
+        const excludedKeywords = Array.from(JINJA2_KEYWORDS);
 
         if (!excludedKeywords.includes(varName.toLowerCase())) {
           variables.push(varName);
@@ -1039,22 +1051,7 @@ export class Jinja2NunjucksProcessor {
         const varName = match[1];
 
 
-        const excludedKeywords = [
-          'if',
-          'elif',
-          'else',
-          'endif',
-          'for',
-          'endfor',
-          'in',
-          'and',
-          'or',
-          'not',
-          'true',
-          'false',
-          'none',
-          'null',
-        ];
+        const excludedKeywords = Array.from(JINJA2_KEYWORDS);
 
 
         if (varName.includes('(')) {
@@ -1073,21 +1070,24 @@ export class Jinja2NunjucksProcessor {
   }
 
   /**
-   * 推断变量类型
+   * 推断变量类型 - 增强版本，支持更多类型和上下文
    */
   private inferVariableType(varName: string): 'string' | 'number' | 'date' | 'boolean' {
     const name = varName.toLowerCase();
 
-
-
-
+    // Boolean patterns - 扩展更多布尔模式
     if (
       name.startsWith('is_') ||
       name.startsWith('has_') ||
       name.startsWith('can_') ||
       name.startsWith('should_') ||
-      name.startsWith('enable') ||
-      name.startsWith('disable') ||
+      name.startsWith('would_') ||
+      name.startsWith('could_') ||
+      name.startsWith('will_') ||
+      name.startsWith('must_') ||
+      name.startsWith('do_') ||
+      name.startsWith('does_') ||
+      name.startsWith('did_') ||
       name.includes('enabled') ||
       name.includes('disabled') ||
       name.includes('active') ||
@@ -1097,71 +1097,181 @@ export class Jinja2NunjucksProcessor {
       name.includes('exclude') ||
       name.includes('show') ||
       name.includes('hide') ||
-      name.includes('visible')
+      name.includes('visible') ||
+      name.includes('available') ||
+      name.includes('valid') ||
+      name.includes('required') ||
+      name.includes('optional') ||
+      name.includes('is_trial_user') ||
+      name.includes('is_active')
     ) {
       return 'boolean';
     }
 
-
+    // Number patterns - 更精确的数字检测
     if (
-      name.includes('id') ||
-      name.includes('num') ||
+      name.includes('_id') && !name.includes('uuid') ||  // ID字段，但排除UUID
+      name.endsWith('_id') ||                           // 以_id结尾
+      name.endsWith('_num') ||
+      name.endsWith('_count') ||
+      name.endsWith('_amount') ||
+      name.endsWith('_price') ||
+      name.endsWith('_cost') ||
+      name.endsWith('_total') ||
+      name.endsWith('_quantity') ||
+      name.endsWith('_size') ||
+      name.endsWith('_length') ||
+      name.endsWith('_width') ||
+      name.endsWith('_height') ||
+      name.endsWith('_weight') ||
       name.includes('count') ||
-      name.includes('amount')
+      name.includes('amount') ||
+      name.includes('price') ||
+      name.includes('cost') ||
+      name.includes('total') ||
+      name.includes('quantity') ||
+      name.includes('size') ||
+      name.includes('length') ||
+      name.includes('width') ||
+      name.includes('height') ||
+      name.includes('weight') ||
+      name.includes('age') ||
+      name.includes('score') ||
+      name.includes('rating') ||
+      name.includes('level') ||
+      name.includes('index') ||
+      name.includes('position') ||
+      name.includes('order') ||
+      name.includes('rank') ||
+      name.includes('num')
     ) {
       return 'number';
     }
 
-
+    // Date/Time patterns - 更全面的时间检测
     if (
       name.includes('date') ||
       name.includes('time') ||
       name.includes('created') ||
-      name.includes('updated')
+      name.includes('updated') ||
+      name.includes('modified') ||
+      name.includes('deleted') ||
+      name.includes('timestamp') ||
+      name.includes('birth') ||
+      name.includes('start_') ||
+      name.includes('end_') ||
+      name.includes('expires') ||
+      name.includes('due') ||
+      name.includes('scheduled') ||
+      name.includes('published') ||
+      name.includes('posted') ||
+      name.includes('registered') ||
+      name.includes('last_') ||
+      name.includes('first_') ||
+      name.includes('current_') ||
+      name.endsWith('_at') ||
+      name.endsWith('_on') ||
+      name.endsWith('_date') ||
+      name.endsWith('_time')
     ) {
       return 'date';
     }
 
-
+    // 默认为字符串
     return 'string';
   }
 
   /**
-   * 获取变量的默认值
+   * 获取变量的默认值 - 智能默认值生成
    */
   private getDefaultValue(varName: string): unknown {
     const type = this.inferVariableType(varName);
+    const name = varName.toLowerCase();
 
     switch (type) {
       case 'number':
-        return 42;
-      case 'date':
-        return new Date().toISOString().split('T')[0];
-      case 'boolean':
-
-        const name = varName.toLowerCase();
-
-
-        if (name.includes('deleted') || name.includes('remove') || name.includes('clear')) {
-
-          return false;
-        } else if (name.includes('include') && !name.includes('deleted')) {
-
-          return true;
-        } else if (name.includes('show') || name.includes('enable') || name.includes('active')) {
-          return true;
-        } else if (
-          name.includes('exclude') ||
-          name.includes('hide') ||
-          name.includes('disable') ||
-          name.includes('inactive')
-        ) {
-          return false;
+        // 根据变量名提供更合理的数字默认值
+        // 按优先级顺序检查，避免模糊匹配
+        if (name.endsWith(NUMBER_PATTERNS.ID_SUFFIX) || (name.includes(NUMBER_PATTERNS.ID_SUFFIX) && !name.includes('uuid'))) {
+          return DEFAULT_VALUES.ID;
+        } else if (NUMBER_PATTERNS.QUANTITY_SUFFIXES.some(suffix => name.endsWith(suffix))) {
+          return DEFAULT_VALUES.COUNT;
+        } else if (NUMBER_PATTERNS.QUANTITY_SUFFIXES.some(keyword => name.includes(keyword))) {
+          return DEFAULT_VALUES.COUNT;
+        } else if (NUMBER_PATTERNS.FINANCIAL_KEYWORDS.some(keyword => name.includes(keyword))) {
+          return DEFAULT_VALUES.PRICE_COST;
+        } else if (name.endsWith('_size') || NUMBER_PATTERNS.SIZE_KEYWORDS.some(keyword => name.includes(keyword))) {
+          return DEFAULT_VALUES.SIZE_DIMENSION;
+        } else if (NUMBER_PATTERNS.AGE_PATTERNS.some(pattern => name === pattern || name.endsWith(pattern))) {
+          return DEFAULT_VALUES.AGE;
+        } else if (NUMBER_PATTERNS.SCORING_KEYWORDS.some(keyword => name.includes(keyword))) {
+          return DEFAULT_VALUES.SCORE_RATING;
+        } else if (NUMBER_PATTERNS.LEVEL_KEYWORDS.some(keyword => name.includes(keyword))) {
+          return DEFAULT_VALUES.LEVEL_INDEX;
         } else {
-          return true;
+          return DEFAULT_VALUES.GENERIC; // 通用默认值
         }
+
+      case 'date':
+        // 根据变量名提供更合理的日期默认值
+        const today = DEFAULT_VALUES.TODAY_DATE;
+        if (DATE_PATTERNS.KEY_DATES.CREATION.some(keyword => name.includes(keyword))) {
+          return today;
+        } else if (DATE_PATTERNS.KEY_DATES.START.some(keyword => name.includes(keyword))) {
+          return today;
+        } else if (DATE_PATTERNS.KEY_DATES.END.some(keyword => name.includes(keyword))) {
+          // 加指定天数作为到期时间
+          const futureDate = new Date();
+          futureDate.setDate(futureDate.getDate() + DEFAULT_VALUES.FUTURE_DATE_OFFSET_DAYS);
+          return futureDate.toISOString().split('T')[0];
+        } else if (DATE_PATTERNS.KEY_DATES.BIRTH.some(keyword => name.includes(keyword))) {
+          return DEFAULT_VALUES.BIRTH_DATE;
+        } else {
+          return today;
+        }
+
+      case 'boolean':
+        // 根据变量名提供更合理的布尔默认值
+        if (BOOLEAN_PATTERNS.NEGATIVE.some(negative => name.includes(negative))) {
+          return false;
+        } else if (BOOLEAN_PATTERNS.POSITIVE.some(positive => name.includes(positive))) {
+          return true;
+        } else if (BOOLEAN_PATTERNS.AFFIRMATIVE_PREFIXES.some(prefix => name.startsWith(prefix))) {
+          return true;
+        } else if (name.startsWith('is_')) {
+          // 对于 is_ 开头的，根据内容判断
+          if (BOOLEAN_PATTERNS.NEGATIVE_PREFIXES.some(negative => name.includes(negative))) {
+            return false;
+          } else {
+            return true;
+          }
+        } else {
+          return true; // 默认为真
+        }
+
       default:
-        return `demo_${varName}`;
+        // 提供更有意义的字符串默认值
+        if (name.includes(STRING_PATTERNS.EMAIL)) {
+          return DEFAULT_VALUES.EMAIL;
+        } else if (name.includes(STRING_PATTERNS.NAME)) {
+          return STRING_DEFAULTS.EXAMPLE_NAME;
+        } else if (name.includes(STRING_PATTERNS.TITLE)) {
+          return STRING_DEFAULTS.EXAMPLE_TITLE;
+        } else if (name.includes(STRING_PATTERNS.DESCRIPTION)) {
+          return STRING_DEFAULTS.EXAMPLE_DESCRIPTION;
+        } else if (STRING_PATTERNS.URL_LINK.some(pattern => name.includes(pattern))) {
+          return STRING_DEFAULTS.EXAMPLE_URL;
+        } else if (name.includes(STRING_PATTERNS.PHONE)) {
+          return DEFAULT_VALUES.PHONE;
+        } else if (name.includes(STRING_PATTERNS.ADDRESS)) {
+          return STRING_DEFAULTS.EXAMPLE_ADDRESS;
+        } else if (STRING_PATTERNS.CATEGORY_TYPE.some(pattern => name.includes(pattern))) {
+          return STRING_DEFAULTS.DEFAULT_CATEGORY;
+        } else if (name.includes(STRING_PATTERNS.STATUS)) {
+          return STRING_DEFAULTS.DEFAULT_STATUS;
+        } else {
+          return `${DEFAULT_VALUES.DEMO_PREFIX}${varName}`;
+        }
     }
   }
 
@@ -1201,22 +1311,49 @@ export class Jinja2NunjucksProcessor {
   /**
    * 验证模板语法
    */
+  /**
+   * Generate cache key for template
+   */
+  private generateCacheKey(template: string): string {
+    // Simple hash function for cache key generation
+    let hash = 0;
+    for (let i = 0; i < template.length; i++) {
+      const char = template.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32-bit integer
+    }
+    return `template_${Math.abs(hash)}`;
+  }
+
   public validateTemplate(_template: string): { valid: boolean; errors: string[] } {
+    // Check cache first
+    const cacheKey = `validate_${this.generateCacheKey(_template)}`;
+    const cached = this.templateCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const errors: string[] = [];
 
     try {
 
       if (!_template.includes('{{') && !_template.includes('{%')) {
-        return { valid: true, errors: [] };
+        const result = { valid: true, errors: [] };
+        this.templateCache.set(cacheKey, result);
+        return result;
       }
 
 
       nunjucks.compile(_template, this.env);
 
-      return { valid: true, errors: [] };
+      const result = { valid: true, errors: [] };
+      this.templateCache.set(cacheKey, result);
+      return result;
     } catch (_error) {
       errors.push(`Syntax error: ${_error instanceof Error ? _error.message : String(_error)}`);
-      return { valid: false, errors };
+      const result = { valid: false, errors };
+      this.templateCache.set(cacheKey, result);
+      return result;
     }
   }
 
@@ -1245,16 +1382,16 @@ export class Jinja2NunjucksProcessor {
    */
   private generateUUID(): string {
     return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = (Math.random() * 16) | 0;
+      const r = (Math.random() * PROCESSING_CONFIG.BASE_16) | 0;
       const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(16);
+      return v.toString(PROCESSING_CONFIG.BASE_16);
     });
   }
 
   /**
    * 获取模板预览
    */
-  public getTemplatePreview(_template: string, maxLength: number = 100): string {
+  public getTemplatePreview(_template: string, maxLength: number = PROCESSING_CONFIG.DEFAULT_TEMPLATE_PREVIEW_LENGTH): string {
     let preview = _template.replace(/\{\{\s*([^}]+)\s*\}\}/g, '{{$1}}');
     preview = preview.replace(/\{%\s*([^%]+)\s*%}/g, '{%$1%}');
 
@@ -1365,5 +1502,37 @@ export class Jinja2NunjucksProcessor {
       '集合操作',
       '自定义过滤器和函数',
     ];
+  }
+
+  /**
+   * Get cache metrics for performance monitoring
+   */
+  public getCacheMetrics() {
+    return {
+      variableCache: this.variableCache.getMetrics(),
+      templateCache: this.templateCache.getMetrics(),
+    };
+  }
+
+  /**
+   * Clear all caches
+   */
+  public clearCaches(): void {
+    this.variableCache.clear();
+    this.templateCache.clear();
+  }
+
+  /**
+   * Clear variable cache only
+   */
+  public clearVariableCache(): void {
+    this.variableCache.clear();
+  }
+
+  /**
+   * Clear template cache only
+   */
+  public clearTemplateCache(): void {
+    this.templateCache.clear();
   }
 }

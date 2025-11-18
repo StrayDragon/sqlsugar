@@ -35,7 +35,7 @@ export class SqlPreviewV2 extends LitElement {
   @state() accessor highlightedRendered: string = '';
   @state() accessor highlightedOriginal: string = '';
 
-  @property({ type: Boolean }) accessor syncScroll: boolean = false;
+  @property({ type: Boolean }) accessor syncScroll: boolean = true;
 
   private renderTimeout: number | null = null;
   private sqlHighlighter: SqlHighlighter;

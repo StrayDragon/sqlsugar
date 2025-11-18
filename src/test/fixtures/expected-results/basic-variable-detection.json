@@ -1,0 +1,82 @@
+{
+  "template": "basic-variable-detection.sql",
+  "variables": [
+    {
+      "name": "user_id",
+      "type": "number",
+      "confidence": 0.9,
+      "inferenceSource": "pattern",
+      "suggestedDefaults": [123],
+      "contextualDefault": 123,
+      "positionRanges": [
+        {
+          "line": 2,
+          "column": 13,
+          "offset": 30
+        }
+      ]
+    },
+    {
+      "name": "is_active",
+      "type": "boolean",
+      "confidence": 0.95,
+      "inferenceSource": "pattern",
+      "suggestedDefaults": [true],
+      "contextualDefault": true,
+      "positionRanges": [
+        {
+          "line": 3,
+          "column": 14,
+          "offset": 58
+        }
+      ]
+    },
+    {
+      "name": "email_address",
+      "type": "email",
+      "confidence": 0.9,
+      "inferenceSource": "pattern",
+      "suggestedDefaults": ["test@example.com"],
+      "contextualDefault": "test@example.com",
+      "positionRanges": [
+        {
+          "line": 4,
+          "column": 15,
+          "offset": 83
+        }
+      ]
+    },
+    {
+      "name": "start_date",
+      "type": "date",
+      "confidence": 0.85,
+      "inferenceSource": "pattern",
+      "suggestedDefaults": ["2024-01-01"],
+      "contextualDefault": "2024-01-01",
+      "positionRanges": [
+        {
+          "line": 5,
+          "column": 23,
+          "offset": 117
+        }
+      ]
+    },
+    {
+      "name": "status_list",
+      "type": "array",
+      "confidence": 0.8,
+      "inferenceSource": "pattern",
+      "suggestedDefaults": [["active", "inactive"]],
+      "contextualDefault": ["active", "inactive"],
+      "positionRanges": [
+        {
+          "line": 6,
+          "column": 22,
+          "offset": 153
+        }
+      ]
+    }
+  ],
+  "totalVariables": 5,
+  "expectedInferenceAccuracy": 0.85
+}

@@ -37,7 +37,15 @@ export type Jinja2VariableType =
   | 'uuid'
   | 'email'
   | 'url'
-  | 'null';
+  | 'null'
+  // Enhanced types for advanced inference
+  | 'array'
+  | 'object'
+  | 'sql_identifier'
+  | 'phone'
+  | 'currency'
+  | 'custom'
+  | 'unknown';
 
 /**
  * Base Jinja2 variable interface
@@ -263,3 +271,19 @@ export interface TemplateRenderEventV2 extends TemplateRenderEvent {
     templateLength: number;
   };
 }
+
+// Enhanced inference types imported from inference.ts
+export type {
+  VariableType,
+  ComplexType,
+  InferenceSource,
+  InferenceRule,
+  UsagePattern,
+  FilterContext,
+  VariableContext as InferenceVariableContext,
+  SourcePosition,
+  VariableScope,
+  VariableRelationship,
+  PerformanceMetrics,
+  CacheMetrics
+} from './types/inference.js';

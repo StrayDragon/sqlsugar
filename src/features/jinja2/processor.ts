@@ -8,11 +8,14 @@ import {
   STRING_PATTERNS,
   STRING_DEFAULTS,
   PROCESSING_CONFIG,
-  REGEX_PATTERNS,
-  JINJA2_KEYWORDS,
 } from './constants';
 import { LRUCache } from './ui/utils/lru-cache';
 import { createAlignedNunjucksEnv, buildNestedContext as sharedBuildNestedContext } from '../../shared/nunjucks-setup';
+import {
+  JINJA2_REGEX,
+  JINJA2_KEYWORDS as SHARED_JINJA2_KEYWORDS,
+  extractVariableFromExpression as sharedExtractVariable,
+} from '../../shared/jinja2-patterns';
 
 export type Jinja2VariableValue =
   | string
@@ -98,13 +101,9 @@ export class Jinja2NunjucksProcessor {
   private templateCache: LRUCache<{ valid: boolean; errors: string[] }>;
 
   private constructor() {
-
     this.env = createAlignedNunjucksEnv();
-
     this.variableCache = new LRUCache<Jinja2Variable[]>(PROCESSING_CONFIG.MAX_ITERATIONS_FOR_LRU);
     this.templateCache = new LRUCache<{ valid: boolean; errors: string[] }>(50);
-
-    this.setupFilterFallback();
   }
 
   public static getInstance(): Jinja2NunjucksProcessor {
@@ -163,405 +162,6 @@ export class Jinja2NunjucksProcessor {
     }
   }
 
-  /**
-   * 构建嵌套上下文对象
-   * 将扁平的变量名（如 'user.id'）转换为嵌套对象结构（如 { user: { id: value } }）
-   */
-  private buildNestedContext(flatContext: Record<string, unknown>): Record<string, unknown> {
-    const nested: Record<string, unknown> = {};
-
-
-    const nestedKeys = Object.keys(flatContext).filter(key => key.includes('.'));
-    const simpleKeys = Object.keys(flatContext).filter(key => !key.includes('.'));
-
-
-    nestedKeys.forEach(key => {
-      const parts = key.split('.');
-      let current = nested;
-
-
-      for (let i = 0; i < parts.length - 1; i++) {
-        const part = parts[i];
-        if (!current[part]) {
-          current[part] = {};
-        }
-        current = current[part] as Record<string, unknown>;
-      }
-
-
-      const lastPart = parts[parts.length - 1];
-      current[lastPart] = flatContext[key];
-    });
-
-
-    simpleKeys.forEach(key => {
-
-      if (!(key in nested)) {
-        nested[key] = flatContext[key];
-      }
-    });
-
-    return nested;
-  }
-
-  /**
-   * 添加自定义过滤器
-   */
-  private addCustomFilters(): void {
-
-    this.env.addFilter('sql_quote', (value: unknown) => {
-      if (value === null || value === undefined) {
-        return 'null';
-      }
-      if (typeof value === 'string') {
-        return `'${value.replace(/'/g, "''")}'`;
-      }
-      return String(value);
-    });
-
-    this.env.addFilter('sql_identifier', (value: string) => {
-      return `"${value.replace(/"/g, '""')}"`;
-    });
-
-
-    this.env.addFilter('sql_date', (value: unknown, format: string = 'YYYY-MM-DD') => {
-      const date = new Date(value as string | number | Date);
-      return this.formatSQLDate(date, format);
-    });
-
-    this.env.addFilter('sql_datetime', (value: unknown) => {
-      const date = new Date(value as string | number | Date);
-      return date.toISOString().replace('T', ' ').replace('Z', '');
-    });
-
-
-    this.env.addFilter('sql_in', (values: unknown[]) => {
-      if (Array.isArray(values)) {
-        return values
-          .map(v => {
-            if (v === null || v === undefined) {
-              return 'null';
-            }
-            return `'${String(v).replace(/'/g, "''")}'`;
-          })
-          .join(', ');
-      }
-      if (values === null || values === undefined) {
-        return 'null';
-      }
-      return `'${String(values).replace(/'/g, "''")}'`;
-    });
-
-
-    this.env.addFilter('float', (value: unknown) => {
-      if (value === null || value === undefined) {
-        return 'NaN';
-      }
-      const result = parseFloat(String(value));
-      return isNaN(result) ? 'NaN' : String(result);
-    });
-
-    this.env.addFilter('int', (value: unknown, base: number = PROCESSING_CONFIG.DEFAULT_INT_BASE) => {
-      if (value === null || value === undefined) {
-        return '0';
-      }
-      const result = parseInt(String(value), base);
-      return isNaN(result) ? 'NaN' : String(result);
-    });
-
-    this.env.addFilter('string', (value: unknown) => {
-      return String(value);
-    });
-
-    this.env.addFilter('length', (value: unknown) => {
-      if (Array.isArray(value)) {
-        return value.length;
-      }
-      if (typeof value === 'string') {
-        return value.length;
-      }
-      if (typeof value === 'object' && value !== null) {
-        return Object.keys(value).length;
-      }
-      return 0;
-    });
-
-    this.env.addFilter('bool', (value: unknown) => {
-      if (typeof value === 'boolean') {
-        return value;
-      }
-      if (typeof value === 'string') {
-        const lower = value.toLowerCase();
-        return lower === 'true' || lower === '1' || lower === 'yes' || lower === 'on';
-      }
-      return Boolean(value);
-    });
-
-
-    this.env.addFilter('default', (value: unknown, defaultValue: unknown, boolean: boolean = false) => {
-      if (boolean) {
-        return value ? value : defaultValue;
-      }
-      return value !== undefined && value !== null ? value : defaultValue;
-    });
-
-
-    this.env.addFilter('striptags', (value: string) => {
-      if (value === null || value === undefined) {
-        return 'null';
-      }
-      return String(value).replace(/<[^>]*>/g, '');
-    });
-
-    this.env.addFilter(
-      'truncate',
-      (value: unknown, length: number = PROCESSING_CONFIG.DEFAULT_TRUNCATE_LENGTH, end: string = '...', killwords: boolean = false) => {
-        if (value === null || value === undefined || value === '') {
-          return '';
-        }
-        const str = String(value);
-        if (str.length <= length) {
-          return str;
-        }
-        if (length <= end.length) {
-          return end;
-        }
-
-        const truncatedLength = length - end.length;
-
-        if (!killwords) {
-
-          const lastSpaceIndex = str.lastIndexOf(' ', truncatedLength);
-          if (lastSpaceIndex === -1) {
-
-            const truncated = str.substring(0, truncatedLength);
-            return truncated + end;
-          } else {
-
-            const truncated = str.substring(0, lastSpaceIndex);
-            return truncated + end;
-          }
-        } else {
-
-          const truncated = str.substring(0, truncatedLength);
-          return truncated + end;
-        }
-      }
-    );
-
-    this.env.addFilter(
-      'wordwrap',
-      (
-        value: string | unknown,
-        width: number = PROCESSING_CONFIG.DEFAULT_WORD_WRAP_WIDTH,
-        break_long_words: boolean = false,
-        wrapstring: string = '\n'
-      ) => {
-        if (value === null || value === undefined || value === '') {
-          return '';
-        }
-        const str = String(value);
-        if (!break_long_words && str.length <= width) {
-          return str;
-        }
-        if (break_long_words) {
-          const result: string[] = [];
-          for (let i = 0; i < str.length; i += width) {
-            result.push(str.substring(i, i + width));
-          }
-          return result.join(wrapstring);
-        }
-        return str;
-      }
-    );
-
-    this.env.addFilter('urlencode', (value: string) => {
-      return encodeURIComponent(value);
-    });
-
-
-    this.env.addFilter('abs', (value: unknown) => {
-      if (value === null || value === undefined || value === '') {
-        return '0';
-      }
-      const num = Number(value);
-      if (isNaN(num)) {
-        return '0';
-      }
-      return String(Math.abs(num));
-    });
-
-    this.env.addFilter('round', (value: unknown, precision: number = 0, _method: string = 'common') => {
-      if (value === null || value === undefined || value === '') {
-        return '0';
-      }
-      const num = Number(value);
-      if (isNaN(num)) {
-        return '0';
-      }
-      if (precision === 0) {
-        return String(Math.round(num));
-      }
-      const factor = Math.pow(PROCESSING_CONFIG.BASE_10, precision);
-      return String(Math.round(num * factor) / factor);
-    });
-
-    this.env.addFilter('sum', (value: unknown[], attribute?: string) => {
-      if (!Array.isArray(value) || value.length === 0) {
-        return '0';
-      }
-      if (attribute) {
-        return String(value.reduce((sum: number, item) => sum + Number((item as Record<string, unknown>)[attribute] || 0), 0));
-      }
-      return String(value.reduce((sum: number, item) => sum + Number(item || 0), 0));
-    });
-
-    this.env.addFilter('min', (value: unknown[], attribute?: string) => {
-      if (!Array.isArray(value) || value.length === 0) {
-        return 'Infinity';
-      }
-      if (attribute) {
-        return String(Math.min(...value.map(item => Number((item as Record<string, unknown>)[attribute] || 0))));
-      }
-      return String(Math.min(...value.map(item => Number(item || 0))));
-    });
-
-    this.env.addFilter('max', (value: unknown[], attribute?: string) => {
-      if (!Array.isArray(value) || value.length === 0) {
-        return '-Infinity';
-      }
-      if (attribute) {
-        return String(Math.max(...value.map(item => Number((item as Record<string, unknown>)[attribute] || 0))));
-      }
-      return String(Math.max(...value.map(item => Number(item || 0))));
-    });
-
-
-    this.env.addFilter('unique', (value: unknown[]) => {
-      return [...new Set(value)];
-    });
-
-    this.env.addFilter('reverse', (value: unknown[]) => {
-      return [...value].reverse();
-    });
-
-    this.env.addFilter('first', (value: unknown[]) => {
-      return value && value.length > 0 ? value[0] : '';
-    });
-
-    this.env.addFilter('last', (value: unknown[]) => {
-      return value && value.length > 0 ? value[value.length - 1] : '';
-    });
-
-    this.env.addFilter('length', (value: unknown) => {
-      if (Array.isArray(value)) {
-        return value.length;
-      }
-      if (typeof value === 'string') {
-        return value.length;
-      }
-      if (typeof value === 'object' && value !== null) {
-        return Object.keys(value).length;
-      }
-      return 0;
-    });
-
-    this.env.addFilter('slice', (value: unknown[], start: number, end?: number) => {
-      return value.slice(start, end);
-    });
-
-    this.env.addFilter('join', (value: unknown[], separator: string = ', ') => {
-      return value
-        .map(item => (item === null || item === undefined ? 'null' : String(item)))
-        .join(separator);
-    });
-
-
-    this.env.addFilter(
-      'dictsort',
-      (
-        value: Record<string, unknown>,
-        case_sensitive: boolean = false,
-        by: 'key' | 'value' = 'key'
-      ) => {
-        const entries = Object.entries(value);
-        entries.sort((a, b) => {
-          let aValue: unknown, bValue: unknown;
-          if (by === 'key') {
-            aValue = a[0];
-            bValue = b[0];
-          } else {
-            aValue = a[1];
-            bValue = b[1];
-          }
-
-          if (!case_sensitive && typeof aValue === 'string' && typeof bValue === 'string') {
-            return aValue.toLowerCase().localeCompare(bValue.toLowerCase());
-          }
-
-          if (typeof aValue === 'string' && typeof bValue === 'string') {
-            return aValue.localeCompare(bValue);
-          }
-
-          if (typeof aValue === 'number' && typeof bValue === 'number') {
-            return aValue - bValue;
-          }
-
-
-          const aStr = String(aValue);
-          const bStr = String(bValue);
-          if (aStr < bStr) {
-            return -1;
-          }
-          if (aStr > bStr) {
-            return 1;
-          }
-          return 0;
-        });
-        return entries;
-      }
-    );
-
-
-    this.env.addFilter('tojson', (value: unknown, indent: number = 0) => {
-      return JSON.stringify(value, null, indent);
-    });
-
-
-    this.env.addFilter('equalto', (value: unknown, other: unknown) => {
-      return value === other;
-    });
-
-
-    this.env.addFilter('filesizeformat', (value: number, binary: boolean = false) => {
-      const base = binary ? PROCESSING_CONFIG.BINARY_BASE : PROCESSING_CONFIG.DECIMAL_BASE;
-      const units = binary
-        ? ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB', 'EiB', 'ZiB', 'YiB']
-        : ['B', 'KB', 'MB', 'GB', 'TB', 'PB', 'EB', 'ZB', 'YB'];
-
-      const bytes = Number(value);
-      if (bytes < base) {
-        return bytes + ' ' + units[0];
-      }
-
-      const exp = Math.min(Math.floor(Math.log(bytes) / Math.log(base)), units.length - 1);
-      const size = bytes / Math.pow(base, exp);
-      return size.toFixed(1) + ' ' + units[exp];
-    });
-  }
-
-  /**
-   * 添加自定义全局函数
-   */
-  private addCustomGlobals(): void {
-
-    this.env.addGlobal('now', () => new Date());
-    this.env.addGlobal('uuid', () => this.generateUUID());
-  }
-
-  /**
-   * 从模板中提取变量
-   */
   /**
    * 从模板中提取变量 (优先使用 nunjucks AST 解析)
    * 提供最准确的变量提取和模板验证
@@ -872,17 +472,16 @@ export class Jinja2NunjucksProcessor {
    */
   private extractVariablesWithRegex(_template: string): Jinja2Variable[] {
     const variables: Jinja2Variable[] = [];
-    const regex = /\{\{\s*([^}]+)\s*\}\}/g;
-    const conditionRegex = /\{%\s*(if|elif|for)\s+([^%]+)\s*%}/g;
+    const regex = new RegExp(JINJA2_REGEX.EXPRESSION.source, 'g');
+    const conditionRegex = new RegExp(JINJA2_REGEX.IF_CONDITION.source, 'g');
     const processedNames = new Set<string>();
-
 
     let match;
     while ((match = regex.exec(_template)) !== null) {
       const expr = match[1].trim();
-      const parsed = this.parseExpressionWithFilters(expr);
+      const parsed = sharedExtractVariable(expr);
 
-      if (!processedNames.has(parsed.variableName)) {
+      if (parsed.variableName && !SHARED_JINJA2_KEYWORDS.has(parsed.variableName.toLowerCase()) && !processedNames.has(parsed.variableName)) {
         variables.push({
           name: parsed.variableName,
           type: this.inferVariableType(parsed.variableName),
@@ -894,7 +493,6 @@ export class Jinja2NunjucksProcessor {
         processedNames.add(parsed.variableName);
       }
     }
-
 
     while ((match = conditionRegex.exec(_template)) !== null) {
       const condition = match[2].trim();
@@ -974,74 +572,30 @@ export class Jinja2NunjucksProcessor {
   }
 
   /**
-   * 解析表达式并提取变量名和过滤器
-   */
-  private parseExpressionWithFilters(expr: string): { variableName: string; filters: string[] } {
-
-    const parts = expr.split('|').map(part => part.trim());
-
-
-    const variableName = parts[0];
-
-
-    const filters = parts.slice(1).map(filterPart => {
-
-      const filterMatch = filterPart.match(REGEX_PATTERNS.FILTER_NAME);
-      return filterMatch ? filterMatch[1] : filterPart;
-    });
-
-    return { variableName, filters };
-  }
-
-  /**
    * 从表达式中提取变量名
    */
   private extractVariablesFromExpression(expr: string): string[] {
     const variables: string[] = [];
 
-
     if (expr.includes('|')) {
-
-      const parts = expr.split('|');
-      const variablePart = parts[0].trim();
-
-
-      if (variablePart && !variablePart.includes('(')) {
-
-        const varName = variablePart;
-
-
-        const excludedKeywords = Array.from(JINJA2_KEYWORDS) as string[];
-
-        if (!excludedKeywords.includes(varName.toLowerCase())) {
-          variables.push(varName);
-        }
+      const { variableName } = sharedExtractVariable(expr);
+      if (variableName && !variableName.includes('(') && !SHARED_JINJA2_KEYWORDS.has(variableName.toLowerCase())) {
+        variables.push(variableName);
       }
     } else {
-
-      const varRegex = /([a-zA-Z_][a-zA-Z0-9_.]*)/g;
+      const varRegex = new RegExp(JINJA2_REGEX.IDENTIFIER.source, 'g');
       let match;
 
       while ((match = varRegex.exec(expr)) !== null) {
         const varName = match[1];
-
-
-        const excludedKeywords = Array.from(JINJA2_KEYWORDS) as string[];
-
-
-        if (varName.includes('(')) {
-          continue;
-        }
-
-        if (!excludedKeywords.includes(varName.toLowerCase())) {
+        if (varName.includes('(')) continue;
+        if (!SHARED_JINJA2_KEYWORDS.has(varName.toLowerCase())) {
           variables.push(varName);
         }
       }
     }
 
-
-    const uniqueVariables = Array.from(new Set(variables));
-    return uniqueVariables;
+    return Array.from(new Set(variables));
   }
 
   /**
@@ -1333,37 +887,6 @@ export class Jinja2NunjucksProcessor {
   }
 
   /**
-   * 格式化SQL日期
-   */
-  private formatSQLDate(date: Date, format: string): string {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
-    const seconds = String(date.getSeconds()).padStart(2, '0');
-
-    return format
-      .replace('YYYY', String(year))
-      .replace('MM', month)
-      .replace('DD', day)
-      .replace('HH', hours)
-      .replace('mm', minutes)
-      .replace('ss', seconds);
-  }
-
-  /**
-   * 生成UUID
-   */
-  private generateUUID(): string {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-      const r = (Math.random() * PROCESSING_CONFIG.BASE_16) | 0;
-      const v = c === 'x' ? r : (r & 0x3) | 0x8;
-      return v.toString(PROCESSING_CONFIG.BASE_16);
-    });
-  }
-
-  /**
    * 获取模板预览
    */
   public getTemplatePreview(_template: string, maxLength: number = PROCESSING_CONFIG.DEFAULT_TEMPLATE_PREVIEW_LENGTH): string {
@@ -1375,27 +898,6 @@ export class Jinja2NunjucksProcessor {
     }
 
     return preview;
-  }
-
-  /**
-   * 设置过滤器容错处理
-   */
-  private setupFilterFallback(): void {
-
-
-    const unknownFilters = ['tojson', 'filesizeformat', 'equalto'];
-
-    unknownFilters.forEach(filterName => {
-      try {
-        this.env.getFilter(filterName);
-      } catch (_error) {
-
-        this.env.addFilter(filterName, (value: unknown, ..._args: unknown[]) => {
-          Logger.warn(`Unknown filter "${filterName}" ignored, returning original value`);
-          return value;
-        });
-      }
-    });
   }
 
   /**
@@ -1471,9 +973,7 @@ export class Jinja2NunjucksProcessor {
       '循环语句 ({% for item in items %}...{% endfor %})',
       '过滤器 ({{ variable | filter }})',
       '注释 ({# comment #})',
-      '模板继承 ({% extends %})',
-      '包含模板 ({% include %})',
-      '宏定义 ({% macro %})',
+      '测试表达式 ({% if x is divisibleby(3) %})',
       '集合操作',
       '自定义过滤器和函数',
     ];

@@ -1863,22 +1863,15 @@ export class Jinja2EditorV2 extends LitElement {
    */
   private renderWithNunjucks(template: string): string {
     try {
-
-
-
       this.validateAndCleanVariables();
 
-
-
       const result = this.nunjucksEnv.renderString(template, buildNestedContext(this.variableValues));
-
 
       const suspiciousPatterns = [
         { pattern: /VAR_\d+/, description: 'VAR_N pattern' },
         { pattern: /\d+VAR\d+/, description: 'NVAR_N pattern' },
         { pattern: /42VAR/, description: '42VAR pattern' },
         { pattern: /demo_use_where_clause\d/, description: 'String number appending' },
-        { pattern: /\d{3}/, description: 'Triple digit patterns (like 422, 412)' }
       ];
 
       const detectedIssues: string[] = [];
@@ -1900,9 +1893,7 @@ export class Jinja2EditorV2 extends LitElement {
       this.recordVariableChange('NUNJUCKS_ERROR', null, { error: errorMessage }, 'template_render', 'after_render',
         `Nunjucks render failed: ${errorMessage}`);
 
-
-      console.warn('Nunjucks rendering failed, falling back to simulation method:', error);
-      return this.simulateTemplateRendering(template);
+      return `-- [渲染错误] ${errorMessage}\n-- 请检查模板语法和变量值\n${template}`;
     }
   }
 
@@ -1913,20 +1904,17 @@ export class Jinja2EditorV2 extends LitElement {
     Object.keys(this.variableValues).forEach(variableName => {
       const value = this.variableValues[variableName];
 
-
       if (typeof value === 'string') {
         const suspiciousPatterns = [
-          /VAR_\d+/,
-          /\d+VAR\d+/,
-          /42VAR/,
-          /^demo_.*\d+$/
+          /^VAR_\d+$/,
+          /^\d+VAR\d+$/,
+          /^42VAR/,
         ];
 
         const detectedPattern = suspiciousPatterns.find(pattern => pattern.test(value));
 
         if (detectedPattern) {
           this.sendLogToOutputChannel('VARIABLE_VALIDATION', `Suspicious placeholder detected in ${variableName}: ${value} (pattern: ${detectedPattern.source})`);
-
 
           const cleanValue = this.generateCleanDefaultValue(variableName);
           this.variableValues[variableName] = cleanValue;
@@ -2433,8 +2421,8 @@ Includes: Right panel HTML tracking
     });
   }
 
-  private handleSubmit() {
-    void this.renderTemplate();
+  private async handleSubmit() {
+    await this.renderTemplate();
     this.dispatchEvent(new CustomEvent('template-submit', {
       detail: {
         template: this.template,

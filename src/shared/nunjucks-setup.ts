@@ -1,5 +1,11 @@
 import * as nunjucks from 'nunjucks';
 
+declare module 'nunjucks' {
+  interface Environment {
+    addTest(name: string, func: (...args: unknown[]) => boolean): void;
+  }
+}
+
 const BASE_10 = 10;
 const BINARY_BASE = 1024;
 const DECIMAL_BASE = 1000;
@@ -18,11 +24,17 @@ function formatSQLDate(date: Date, format: string): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
   const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
 
   return format
-    .replace('YYYY', String(year))
-    .replace('MM', month)
-    .replace('DD', day);
+    .replace('%Y', String(year)).replace('YYYY', String(year))
+    .replace('%m', month).replace('MM', month)
+    .replace('%d', day).replace('DD', day)
+    .replace('%H', hours).replace('HH', hours)
+    .replace('%M', minutes).replace('mm', minutes)
+    .replace('%S', seconds).replace('ss', seconds);
 }
 
 function registerSQLFilters(env: nunjucks.Environment): void {
@@ -138,12 +150,13 @@ function registerCollectionFilters(env: nunjucks.Environment): void {
     return isNaN(num) ? '0' : String(Math.abs(num));
   });
 
-  env.addFilter('round', (value: unknown, precision: number = 0) => {
+  env.addFilter('round', (value: unknown, precision: number = 0, method: string = 'common') => {
     if (value === null || value === undefined || value === '') return '0';
     const num = Number(value);
     if (isNaN(num)) return '0';
-    if (precision === 0) return String(Math.round(num));
     const factor = Math.pow(BASE_10, precision);
+    if (method === 'ceil') return String(Math.ceil(num * factor) / factor);
+    if (method === 'floor') return String(Math.floor(num * factor) / factor);
     return String(Math.round(num * factor) / factor);
   });
 
@@ -203,6 +216,31 @@ function registerCollectionFilters(env: nunjucks.Environment): void {
   });
 }
 
+function registerJinja2Tests(env: nunjucks.Environment): void {
+  env.addTest('divisibleby', (...args: unknown[]) => (args[0] as number) % (args[1] as number) === 0);
+  env.addTest('even', (...args: unknown[]) => (args[0] as number) % 2 === 0);
+  env.addTest('odd', (...args: unknown[]) => (args[0] as number) % 2 !== 0);
+  env.addTest('number', (...args: unknown[]) => typeof args[0] === 'number' && !isNaN(Number(args[0])));
+  env.addTest('integer', (...args: unknown[]) => typeof args[0] === 'number' && Number.isInteger(args[0]));
+  env.addTest('float', (...args: unknown[]) => typeof args[0] === 'number' && !Number.isInteger(args[0]));
+  env.addTest('string', (...args: unknown[]) => typeof args[0] === 'string');
+  env.addTest('mapping', (...args: unknown[]) => typeof args[0] === 'object' && args[0] !== null && !Array.isArray(args[0]));
+  env.addTest('iterable', (...args: unknown[]) => Array.isArray(args[0]) || typeof args[0] === 'string');
+  env.addTest('sequence', (...args: unknown[]) => Array.isArray(args[0]));
+  env.addTest('sameas', (...args: unknown[]) => args[0] === args[1]);
+  env.addTest('none', (...args: unknown[]) => args[0] === null || args[0] === undefined);
+  env.addTest('boolean', (...args: unknown[]) => typeof args[0] === 'boolean');
+  env.addTest('lower', (...args: unknown[]) => typeof args[0] === 'string' && args[0] === args[0].toLowerCase());
+  env.addTest('upper', (...args: unknown[]) => typeof args[0] === 'string' && args[0] === args[0].toUpperCase());
+  env.addTest('in', (...args: unknown[]) => {
+    const [value, seq] = args;
+    if (Array.isArray(seq)) return seq.includes(value);
+    if (typeof seq === 'string' && typeof value === 'string') return seq.includes(value);
+    if (typeof seq === 'object' && seq !== null) return String(value) in (seq as Record<string, unknown>);
+    return false;
+  });
+}
+
 function registerCustomGlobals(env: nunjucks.Environment): void {
   env.addGlobal('now', () => new Date());
   env.addGlobal('uuid', () => generateUUID());
@@ -222,6 +260,7 @@ export function createAlignedNunjucksEnv(): nunjucks.Environment {
   registerTypeFilters(env);
   registerStringFilters(env);
   registerCollectionFilters(env);
+  registerJinja2Tests(env);
   registerCustomGlobals(env);
 
   return env;

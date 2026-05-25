@@ -1,7 +1,8 @@
 /**
  * Template Parser for V2 Editor
  *
- * Parses Jinja2 templates and extracts variable positions and context
+ * Parses Jinja2 templates and extracts variable positions and context.
+ * Uses shared JINJA2_REGEX patterns for consistency with processor.ts (Extension host).
  */
 
 import type {
@@ -13,25 +14,21 @@ import type {
   Jinja2Variable
 } from '../types.js';
 import { createJinja2Variable } from './variable-utils.js';
+import {
+  JINJA2_REGEX,
+  JINJA2_KEYWORDS,
+  extractVariableFromExpression,
+} from '../../../../shared/jinja2-patterns.js';
 
-/**
- * Regular expressions for Jinja2 syntax parsing
- */
 const JINJA2_PATTERNS = {
-
-  VARIABLE: /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*\}\}/g,
-
-  BLOCK: /\{%\s*(if|elif|else|endif|for|endfor|set|macro|include|extends|block|endblock)[^%]*%\}/g,
-
-  COMMENT: /\{#[\s\S]*?#\}/g,
-
-  FILTER: /\|\s*([a-zA-Z_][a-zA-Z0-9_]*)/g,
-
-  IF_CONDITION: /\{%\s*(if|elif)\s+([^%]+?)\s*%\}/g,
-  FOR_LOOP: /\{%\s*for\s+(\w+)\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*%\}/g,
-  SET_ASSIGNMENT: /\{%\s*set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^%]+?)\s*%\}/g,
-
-  VARIABLE_IN_EXPRESSION: /\b([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\b/g
+  VARIABLE: JINJA2_REGEX.EXPRESSION,
+  BLOCK: JINJA2_REGEX.BLOCK,
+  COMMENT: JINJA2_REGEX.COMMENT,
+  FILTER: JINJA2_REGEX.FILTER,
+  IF_CONDITION: JINJA2_REGEX.IF_CONDITION,
+  FOR_LOOP: JINJA2_REGEX.FOR_LOOP,
+  SET_ASSIGNMENT: JINJA2_REGEX.SET_ASSIGNMENT,
+  VARIABLE_IN_EXPRESSION: JINJA2_REGEX.IDENTIFIER,
 };
 
 /**
@@ -67,7 +64,9 @@ function extractVariables(template: string): EnhancedVariable[] {
   let match;
   while ((match = JINJA2_PATTERNS.VARIABLE.exec(template)) !== null) {
     const fullMatch = match[0];
-    const variableName = match[1];
+    const { variableName: rawName } = extractVariableFromExpression(match[1]);
+    const variableName = rawName.trim();
+    if (!variableName || JINJA2_KEYWORDS.has(variableName.toLowerCase())) continue;
     const startIndex = match.index;
     const endIndex = startIndex + fullMatch.length;
 
@@ -271,14 +270,7 @@ function extractVariablesFromExpression(
     const variableName = match[1];
 
 
-    const skipWords = new Set([
-      'if', 'elif', 'else', 'endif', 'for', 'endfor', 'set', 'endset',
-      'in', 'and', 'or', 'not', 'is', 'defined', 'undefined', 'none', 'null',
-      'true', 'false', 'length', 'first', 'last', 'sort', 'reverse', 'round',
-      'int', 'float', 'string', 'list', 'dict', 'range', 'lipsum', 'cycler'
-    ]);
-
-    if (skipWords.has(variableName.toLowerCase())) {
+    if (JINJA2_KEYWORDS.has(variableName.toLowerCase())) {
       continue;
     }
 

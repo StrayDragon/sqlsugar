@@ -14,7 +14,7 @@ llman_spec_evidence:
 kind: llman.sdd.spec
 name: "jinja2-visual-editor"
 purpose: 提供基于 WebView 的 Jinja2 SQL 模板可视化编辑器，支持变量类型推断、实时 SQL 预览、智能默认值生成，帮助用户快速生成参数化的 SQL 查询。
-requirements[13]{req_id,title,statement}:
+requirements[15]{req_id,title,statement}:
   "R-J2E-001",AST 变量提取,系统 MUST 通过 Nunjucks AST 解析提取模板变量并回退到正则匹配
   "R-J2E-002",类型推断,系统 MUST 基于变量名称模式推断类型(string/number/boolean/date)
   "R-J2E-003",可视化编辑器,系统 MUST 提供 Lit 组件实现的可视化编辑器支持点击变量弹出编辑框
@@ -28,7 +28,9 @@ requirements[13]{req_id,title,statement}:
   "R-J2E-011",测试覆盖,系统 MUST 达到推断系统 90% 和整体 80% 的测试覆盖率
   "R-J2E-012",Schema 感知推断,系统 MUST 利用 ORM schema 信息增强变量类型推断准确度
   "R-J2E-013",列名补全,系统 SHALL 在变量值输入时基于 schema 提供列名/表名补全建议
-scenarios[13]{req_id,id,given,when,then}:
+  "R-J2E-016",模板浏览器,系统 MUST 在可视化编辑器中提供模板库浏览和插入功能
+  "R-J2E-017",参数类型扩展,系统 MUST 在可视化编辑器中支持 array/enum/optional 等复合参数类型的交互式输入
+scenarios[15]{req_id,id,given,when,then}:
   "R-J2E-001",baseline,"模板含 {{ user_id }} 和 {% if is_active %}",用户打开可视化编辑器,变量列表显示 user_id 和 is_active
   "R-J2E-002",baseline,变量名为 user_id 和 is_active,编辑器推断变量类型,user_id 推断为 number 且 is_active 推断为 boolean
   "R-J2E-003",baseline,编辑器已打开含多个变量的模板,用户点击模板中高亮的变量,弹出编辑框且可修改变量值
@@ -42,4 +44,6 @@ scenarios[13]{req_id,id,given,when,then}:
   "R-J2E-011",S001,推断系统所有分支已覆盖,"运行 pnpm test:coverage",推断模块达到 90% 覆盖率
   "R-J2E-012",S001,ORM schema 显示 email 列为 String 类型,"模板中有 {{ email }} 变量",推断为 string 类型且默认值为 email 格式
   "R-J2E-013",S001,用户在变量值输入框中输入,schema 中有匹配的列名,输入框展示补全建议列表
+  "R-J2E-016",S001,用户点击编辑器中的模板库按钮,系统展示模板列表,用户选择模板后插入到当前编辑区域
+  "R-J2E-017",S001,模板参数定义为 enum 类型(排序方向),可视化编辑器渲染参数,展示下拉选择而非普通文本输入框
 ```

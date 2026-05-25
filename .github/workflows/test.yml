@@ -1,13 +1,14 @@
-name: Test Extension
+name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [main, '**-*']
+  pull_request:
+    branches: [main]
 
 jobs:
-  test:
+  lint-and-types:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -15,7 +16,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 18.x
+          node-version: 20.x
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -28,19 +29,59 @@ jobs:
       - name: Install dependencies
         run: just install
 
-      - name: Setup sqls
-        run: |
-          # Download sqls zip for Linux
-          curl -L -o sqls.zip https://github.com/sqls-server/sqls/releases/download/v0.2.27/sqls-linux-0.2.27.zip
-          unzip sqls.zip
-          chmod +x sqls
-          sudo mv sqls /usr/local/bin/sqls
-          sqls --version
-
       - name: Run linting and type checking
         run: just lint
 
-      # Note: Tests are currently disabled in the project
-      # When tests are re-enabled, we can add them back here
-      # - name: Run tests
-      #   run: just test
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
+      - name: Setup just
+        uses: extractions/setup-just@v3
+
+      - name: Install dependencies
+        run: just install
+
+      - name: Run unit tests with coverage
+        run: just test-coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-report
+          path: coverage/
+          retention-days: 7
+
+  spec-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install llman
+        run: |
+          curl -L -o llman.tar.gz https://github.com/StrayDragon/llman/releases/latest/download/llman-x86_64-unknown-linux-gnu.tar.gz || true
+          if [ -f llman.tar.gz ]; then
+            tar -xzf llman.tar.gz
+            chmod +x llman
+            sudo mv llman /usr/local/bin/
+          else
+            echo "::warning::llman binary not available, skipping spec validation"
+            exit 0
+          fi
+
+      - name: Validate specs and changes
+        run: llman sdd validate --all --no-interactive

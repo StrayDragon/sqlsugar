@@ -1,5 +1,4 @@
 # SQLSugar VS Code Extension - Justfile
-# Simplified task runner for packaging, and cleanup
 
 # Default recipe - show available commands
 default:
@@ -25,10 +24,6 @@ type-check:
 build-declarations:
     pnpm run build:declarations
 
-# Run tests
-test:
-    pnpm run test
-
 # Fix lint issues automatically
 lint-fix:
     pnpm run lint:fix
@@ -37,6 +32,54 @@ lint-fix:
 lint:
     pnpm run check-types
     pnpm run lint
+
+# =============================================================================
+# Quality Assurance
+# =============================================================================
+
+# Run unit tests
+test:
+    pnpm run test
+
+# Run tests with coverage report
+test-coverage:
+    pnpm run test:coverage
+
+# Run tests in watch mode (development)
+test-watch:
+    pnpm run test:watch
+
+# Run tests with Vitest UI
+test-ui:
+    pnpm run test:ui
+
+# Validate llmanspec specs and changes
+spec-validate:
+    llman sdd validate --all --no-interactive
+
+# Check spec staleness
+spec-check:
+    #!/usr/bin/env bash
+    set -e
+    STALE=$(llman sdd validate --specs --no-interactive 2>&1 | grep -c "STALE" || true)
+    echo "Stale specs: $STALE"
+    if [ "$STALE" -gt 0 ]; then
+      echo "⚠️  Some specs may need updating"
+    else
+      echo "✅ All specs up to date"
+    fi
+
+# Full QA pipeline (local equivalent of CI)
+qa: lint test-coverage spec-validate
+    @echo "✅ All QA checks passed"
+
+# Quick pre-commit check (fast feedback)
+pre-commit: type-check test
+    @echo "✅ Ready to commit"
+
+# Simulate full CI locally
+ci-local: lint test-coverage spec-validate build
+    @echo "✅ CI simulation complete"
 
 # =============================================================================
 # Code Hygiene

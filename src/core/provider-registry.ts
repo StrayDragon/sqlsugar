@@ -40,6 +40,7 @@ export class ProviderRegistry {
   private static instance: ProviderRegistry | undefined;
   private providers = new Map<string, Provider[]>();
 
+  // eslint-disable-next-line @typescript-eslint/no-empty-function
   private constructor() {}
 
   public static getInstance(): ProviderRegistry {

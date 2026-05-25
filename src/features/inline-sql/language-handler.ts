@@ -259,7 +259,7 @@ export class LanguageHandler {
     if (originalQuote === 'backtick' || originalQuote === 'template') {
       return originalQuote;
     }
-    if (content && content.includes('\n')) {
+    if (content?.includes('\n')) {
       return 'template';
     }
     return originalQuote;

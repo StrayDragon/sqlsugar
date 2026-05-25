@@ -119,7 +119,7 @@ export const mockVSCode = {
     openTextDocument: vi.fn((uriOrOptions: unknown) => {
       if (typeof uriOrOptions === 'string' || uriOrOptions instanceof MockUri) {
         return Promise.resolve(new MockTextDocument(
-          typeof uriOrOptions === 'string' ? MockUri.file(uriOrOptions) : uriOrOptions as MockUri
+          typeof uriOrOptions === 'string' ? MockUri.file(uriOrOptions) : uriOrOptions as unknown as MockUri
         ));
       }
       const opts = uriOrOptions as { content?: string; language?: string };

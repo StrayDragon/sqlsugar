@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 import { DIContainer } from './di-container';
+import { ProviderRegistry } from './provider-registry';
+import { LanguageHandlerAdapter, PatternInferenceAdapter } from './adapters';
 import { Logger } from './logger';
 import { registerInlineSQLFeature } from '../features/inline-sql';
 import { registerJinja2Feature } from '../features/jinja2';
+import { LanguageHandler } from '../features/inline-sql/language-handler';
 
 
 let outputChannel: vscode.OutputChannel | undefined;
@@ -29,6 +32,10 @@ export function activate(context: vscode.ExtensionContext) {
     container.register('context', context);
     container.register('outputChannel', outputChannel);
 
+
+    const registry = ProviderRegistry.getInstance();
+    registry.register('language', new LanguageHandlerAdapter(new LanguageHandler()));
+    registry.register('inference', new PatternInferenceAdapter());
 
     registerInlineSQLFeature(container, context);
     registerJinja2Feature(container, context);
@@ -58,6 +65,7 @@ export async function deactivate() {
     }
 
 
+    ProviderRegistry.getInstance().clear();
     DIContainer.getInstance().clear();
 
     if (outputChannel) {

@@ -14,23 +14,27 @@ llman_spec_evidence:
 ```toon
 kind: llman.sdd.spec
 name: "plugin-architecture"
-purpose: "设计可扩展的插件架构，通过 Provider 注册模式让核心功能可被扩展，支持社区开发自定义方言、ORM、AI 后端、模板函数等插件。"
-requirements[8]{req_id,title,statement}:
-  R-PLG-001,Provider 注册,系统 MUST 提供 ProviderRegistry 管理所有 Provider 的注册/查找/优先级
-  R-PLG-002,Language Provider,系统 MUST 定义 LanguageProvider 接口支持多语言 SQL 提取和重构
-  R-PLG-003,Dialect Provider,系统 MUST 定义 DialectProvider 接口支持 SQL 方言验证和格式化
-  R-PLG-004,Inference Provider,系统 MUST 定义 InferenceProvider 接口支持变量类型推断优先级链
-  R-PLG-005,AI Provider,系统 MUST 定义 AIProvider 接口支持 AI 后端适配
-  R-PLG-006,Database Provider,系统 MUST 定义 DatabaseProvider 接口支持数据库连接适配
-  R-PLG-007,Extension API,系统 SHALL 公开 VS Code Extension API 允许第三方扩展注册 Provider
-  R-PLG-008,配置驱动选择,系统 MUST 支持用户通过配置指定优先使用的 Provider
-scenarios[8]{req_id,id,given,when,then}:
-  R-PLG-001,baseline,"多个 InferenceProvider 已注册","系统需要推断变量类型","按优先级链逐个调用直到获得结果"
-  R-PLG-002,baseline,"Python LanguageProvider 已注册","用户在 Python 文件中选中 SQL","LanguageProvider 正确提取 SQL 内容"
-  R-PLG-003,baseline,"第三方扩展注册了 ClickHouse DialectProvider","用户编辑 SQL 文件","自动获得 ClickHouse 语法验证支持"
-  R-PLG-004,baseline,"Pattern 和 ORM 两个 InferenceProvider 注册","变量需要推断类型","ORM Provider 优先级高时优先使用其结果"
-  R-PLG-005,baseline,"用户配置 Ollama 为优先 AIProvider","用户使用 AI 功能","请求走 Ollama 本地模型"
-  R-PLG-006,baseline,"PostgreSQL DatabaseProvider 已注册","用户创建 PostgreSQL 连接","通过对应 Provider 建立连接"
-  R-PLG-007,baseline,"开发者创建新扩展注册 Go LanguageProvider","用户在 Go 文件中选中 SQL","获得与 Python 相同的内联 SQL 编辑支持"
-  R-PLG-008,baseline,"用户配置 MySQL 为优先 Dialect","用户打开 SQL 文件","默认使用 MySQL 方言验证"
+purpose: 设计可扩展的插件架构，通过 Provider 注册模式让核心功能可被扩展，支持社区开发自定义方言、ORM、AI 后端、模板函数等插件。
+requirements[10]{req_id,title,statement}:
+  "R-PLG-001",Provider 注册,系统 MUST 提供 ProviderRegistry 管理所有 Provider 的注册/查找/优先级
+  "R-PLG-002",Language Provider,系统 MUST 定义 LanguageProvider 接口支持多语言 SQL 提取和重构
+  "R-PLG-003",Dialect Provider,系统 MUST 定义 DialectProvider 接口支持 SQL 方言验证和格式化
+  "R-PLG-004",Inference Provider,系统 MUST 定义 InferenceProvider 接口支持变量类型推断优先级链
+  "R-PLG-005",AI Provider,系统 MUST 定义 AIProvider 接口支持 AI 后端适配
+  "R-PLG-006",Database Provider,系统 MUST 定义 DatabaseProvider 接口支持数据库连接适配
+  "R-PLG-007",Extension API,系统 SHALL 公开 VS Code Extension API 允许第三方扩展注册 Provider
+  "R-PLG-008",配置驱动选择,系统 MUST 支持用户通过配置指定优先使用的 Provider
+  "R-PLG-009",渐进式迁移,系统 MUST 支持从现有 DI 容器平滑迁移到 Provider 注册模式
+  "R-PLG-010",基础 Provider 类型,系统 MUST 在此阶段实现 LanguageProvider 和 InferenceProvider 基础接口
+scenarios[10]{req_id,id,given,when,then}:
+  "R-PLG-001",baseline,多个 InferenceProvider 已注册,系统需要推断变量类型,按优先级链逐个调用直到获得结果
+  "R-PLG-002",baseline,Python LanguageProvider 已注册,用户在 Python 文件中选中 SQL,LanguageProvider 正确提取 SQL 内容
+  "R-PLG-003",baseline,第三方扩展注册了 ClickHouse DialectProvider,用户编辑 SQL 文件,自动获得 ClickHouse 语法验证支持
+  "R-PLG-004",baseline,Pattern 和 ORM 两个 InferenceProvider 注册,变量需要推断类型,ORM Provider 优先级高时优先使用其结果
+  "R-PLG-005",baseline,用户配置 Ollama 为优先 AIProvider,用户使用 AI 功能,请求走 Ollama 本地模型
+  "R-PLG-006",baseline,PostgreSQL DatabaseProvider 已注册,用户创建 PostgreSQL 连接,通过对应 Provider 建立连接
+  "R-PLG-007",baseline,开发者创建新扩展注册 Go LanguageProvider,用户在 Go 文件中选中 SQL,获得与 Python 相同的内联 SQL 编辑支持
+  "R-PLG-008",baseline,用户配置 MySQL 为优先 Dialect,用户打开 SQL 文件,默认使用 MySQL 方言验证
+  "R-PLG-009",S001,现有 DIContainer 注册了服务,引入 ProviderRegistry,原有服务通过适配器继续工作
+  "R-PLG-010",S001,LanguageProvider 接口已定义,现有 LanguageHandler 实现适配器,Python/JS/TS 语言支持不受影响
 ```

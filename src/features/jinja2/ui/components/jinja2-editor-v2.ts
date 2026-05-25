@@ -10,6 +10,7 @@ import SqlHighlighter from '../utils/sql-highlighter.js';
 import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
 import type { CompleteEditorV2Config } from '../types/config.js';
 import nunjucks from 'nunjucks';
+import { createAlignedNunjucksEnv, buildNestedContext } from '../../../../shared/nunjucks-setup.js';
 
 @customElement('jinja2-editor-v2')
 export class Jinja2EditorV2 extends LitElement {
@@ -898,11 +899,7 @@ export class Jinja2EditorV2 extends LitElement {
       highlightVariables: false // We'll handle variables differently in SQL preview
     });
 
-    // 🚀 NEW: Initialize nunjucks environment for stable rendering
-    this.nunjucksEnv = new nunjucks.Environment(null, {
-      autoescape: false,
-      throwOnUndefined: false
-    });
+    this.nunjucksEnv = createAlignedNunjucksEnv();
 
     this.initializeValues();
     this.highlightTemplate();
@@ -1873,7 +1870,7 @@ export class Jinja2EditorV2 extends LitElement {
 
 
 
-      const result = this.nunjucksEnv.renderString(template, this.variableValues);
+      const result = this.nunjucksEnv.renderString(template, buildNestedContext(this.variableValues));
 
 
       const suspiciousPatterns = [

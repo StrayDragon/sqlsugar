@@ -20,6 +20,7 @@ export function registerInlineSQLFeature(
   );
 
   context.subscriptions.push(disposable);
+  context.subscriptions.push(handler);
 
   Logger.debug('Inline SQL feature registered');
 }

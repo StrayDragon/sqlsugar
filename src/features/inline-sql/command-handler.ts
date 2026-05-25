@@ -7,13 +7,17 @@ import { TempFileManager } from './temp-file-manager';
 /**
  * 内联SQL编辑命令处理器
  */
-export class InlineSQLCommandHandler {
+export class InlineSQLCommandHandler implements vscode.Disposable {
   private languageHandler: LanguageHandler;
   private tempFileManager: TempFileManager;
 
   constructor(_container: DIContainer) {
     this.languageHandler = new LanguageHandler();
     this.tempFileManager = new TempFileManager(this.languageHandler);
+  }
+
+  public dispose(): void {
+    this.tempFileManager.dispose();
   }
 
   /**

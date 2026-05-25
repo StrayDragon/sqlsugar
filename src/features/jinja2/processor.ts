@@ -12,6 +12,7 @@ import {
   JINJA2_KEYWORDS,
 } from './constants';
 import { LRUCache } from './ui/utils/lru-cache';
+import { createAlignedNunjucksEnv, buildNestedContext as sharedBuildNestedContext } from '../../shared/nunjucks-setup';
 
 export type Jinja2VariableValue =
   | string
@@ -98,24 +99,10 @@ export class Jinja2NunjucksProcessor {
 
   private constructor() {
 
-    this.env = new nunjucks.Environment(null, {
-      autoescape: false,
-      throwOnUndefined: false,
-    });
+    this.env = createAlignedNunjucksEnv();
 
-    // Initialize caches for performance optimization
     this.variableCache = new LRUCache<Jinja2Variable[]>(PROCESSING_CONFIG.MAX_ITERATIONS_FOR_LRU);
     this.templateCache = new LRUCache<{ valid: boolean; errors: string[] }>(50);
-
-
-    nunjucks.installJinjaCompat();
-
-
-    this.addCustomFilters();
-
-
-    this.addCustomGlobals();
-
 
     this.setupFilterFallback();
   }
@@ -134,7 +121,7 @@ export class Jinja2NunjucksProcessor {
   public renderTemplate(_template: string, context: Record<string, unknown>): string {
     try {
 
-      const nestedContext = this.buildNestedContext(context);
+      const nestedContext = sharedBuildNestedContext(context);
       return this.env.renderString(_template, nestedContext);
     } catch (_error) {
 

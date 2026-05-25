@@ -476,9 +476,6 @@ export class Jinja2WebviewEditorV2 {
     const nonce = getNonce();
     const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
 
-    const nunjucksUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'nunjucks.min.js')
-    );
     const jinjaEditorV2Uri = webview.asWebviewUri(
       vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'jinja2-editor-v2', 'jinja2-editor-v2.js')
     );
@@ -509,7 +506,6 @@ export class Jinja2WebviewEditorV2 {
       }
     })();
   </script>
-  <script src="${nunjucksUri}"></script>
   <script src="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js'))}"></script>
   <script type="module" src="${jinjaEditorV2Uri}"></script>
 </body>

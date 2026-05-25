@@ -204,5 +204,20 @@ export const mockVSCode = {
   },
 };
 
+// Re-export properties as named exports so `import * as vscode from 'vscode'` works
+export const Uri = MockUri;
+export const Position = MockPosition;
+export const Range = MockRange;
+export const Selection = MockSelection;
+export const Disposable = MockDisposable;
+export const workspace = mockVSCode.workspace;
+export const window = mockVSCode.window;
+export const commands = mockVSCode.commands;
+export const env = mockVSCode.env;
+export const ExtensionMode = mockVSCode.ExtensionMode;
+export const ViewColumn = mockVSCode.ViewColumn;
+export const StatusBarAlignment = mockVSCode.StatusBarAlignment;
+export const DiagnosticSeverity = mockVSCode.DiagnosticSeverity;
+
 export default mockVSCode;
 export { MockUri, MockPosition, MockRange, MockSelection, MockTextDocument, MockEventEmitter, MockDisposable };

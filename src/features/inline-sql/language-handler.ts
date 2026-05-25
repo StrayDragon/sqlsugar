@@ -206,7 +206,7 @@ export class LanguageHandler {
         return this.selectPythonQuote(originalQuote, content);
       case 'javascript':
       case 'typescript':
-        return this.selectJavaScriptQuote(originalQuote);
+        return this.selectJavaScriptQuote(originalQuote, content);
       case 'markdown':
         return this.selectMarkdownQuote(originalQuote);
       default:
@@ -253,10 +253,15 @@ export class LanguageHandler {
 
   /**
    * JavaScript/TypeScript语言引号选择
+   * 多行内容自动升级为模板字面量
    */
-  private selectJavaScriptQuote(originalQuote: QuoteType): QuoteType {
-
-
+  private selectJavaScriptQuote(originalQuote: QuoteType, content?: string): QuoteType {
+    if (originalQuote === 'backtick' || originalQuote === 'template') {
+      return originalQuote;
+    }
+    if (content && content.includes('\n')) {
+      return 'template';
+    }
     return originalQuote;
   }
 

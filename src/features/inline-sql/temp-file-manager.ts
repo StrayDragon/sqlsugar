@@ -79,6 +79,7 @@ export class TempFileManager {
 
 
       this.registerSaveListener(tempFileInfo);
+      this.registerCloseListener(tempFileInfo);
 
       return Result.ok(tempUri);
     } catch (error) {
@@ -167,6 +168,19 @@ export class TempFileManager {
   }
 
   /**
+   * 注册关闭监听器 — 当临时文件 tab 关闭时触发清理
+   */
+  private registerCloseListener(tempFileInfo: TempFileInfo): void {
+    const disposable = vscode.workspace.onDidCloseTextDocument(doc => {
+      if (doc.uri.fsPath === tempFileInfo.uri.fsPath) {
+        this.cleanupTempFile(tempFileInfo.uri);
+      }
+    });
+
+    tempFileInfo.disposables.push(disposable);
+  }
+
+  /**
    * 处理临时文件变化
    */
   private async handleTempFileChange(tempFileInfo: TempFileInfo): Promise<void> {
@@ -182,6 +196,13 @@ export class TempFileManager {
       if (!result.ok) {
         Logger.error('Sync failed:', result.error);
         vscode.window.showErrorMessage(`Failed to sync changes: ${result.error}`);
+      } else {
+        const cleanupOnClose = vscode.workspace
+          .getConfiguration('sqlsugar')
+          .get<boolean>('cleanupOnClose', true);
+        if (!cleanupOnClose) {
+          this.cleanupTempFile(tempFileInfo.uri);
+        }
       }
     } catch (error) {
       Logger.error('Sync error:', error);

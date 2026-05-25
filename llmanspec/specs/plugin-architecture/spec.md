@@ -15,7 +15,7 @@ llman_spec_evidence:
 kind: llman.sdd.spec
 name: "plugin-architecture"
 purpose: 设计可扩展的插件架构，通过 Provider 注册模式让核心功能可被扩展，支持社区开发自定义方言、ORM、AI 后端、模板函数等插件。
-requirements[10]{req_id,title,statement}:
+requirements[12]{req_id,title,statement}:
   "R-PLG-001",Provider 注册,系统 MUST 提供 ProviderRegistry 管理所有 Provider 的注册/查找/优先级
   "R-PLG-002",Language Provider,系统 MUST 定义 LanguageProvider 接口支持多语言 SQL 提取和重构
   "R-PLG-003",Dialect Provider,系统 MUST 定义 DialectProvider 接口支持 SQL 方言验证和格式化
@@ -26,7 +26,9 @@ requirements[10]{req_id,title,statement}:
   "R-PLG-008",配置驱动选择,系统 MUST 支持用户通过配置指定优先使用的 Provider
   "R-PLG-009",渐进式迁移,系统 MUST 支持从现有 DI 容器平滑迁移到 Provider 注册模式
   "R-PLG-010",基础 Provider 类型,系统 MUST 在此阶段实现 LanguageProvider 和 InferenceProvider 基础接口
-scenarios[10]{req_id,id,given,when,then}:
+  "R-PLG-011",内置方言 Provider,系统 MUST 内置 PostgreSQL/MySQL/SQLite 三个 DialectProvider 实现
+  "R-PLG-012",方言自动检测,系统 SHALL 根据文件注释或项目配置自动选择合适的 DialectProvider
+scenarios[12]{req_id,id,given,when,then}:
   "R-PLG-001",baseline,多个 InferenceProvider 已注册,系统需要推断变量类型,按优先级链逐个调用直到获得结果
   "R-PLG-002",baseline,Python LanguageProvider 已注册,用户在 Python 文件中选中 SQL,LanguageProvider 正确提取 SQL 内容
   "R-PLG-003",baseline,第三方扩展注册了 ClickHouse DialectProvider,用户编辑 SQL 文件,自动获得 ClickHouse 语法验证支持
@@ -37,4 +39,6 @@ scenarios[10]{req_id,id,given,when,then}:
   "R-PLG-008",baseline,用户配置 MySQL 为优先 Dialect,用户打开 SQL 文件,默认使用 MySQL 方言验证
   "R-PLG-009",S001,现有 DIContainer 注册了服务,引入 ProviderRegistry,原有服务通过适配器继续工作
   "R-PLG-010",S001,LanguageProvider 接口已定义,现有 LanguageHandler 实现适配器,Python/JS/TS 语言支持不受影响
+  "R-PLG-011",S001,用户打开 .sql 文件,系统初始化方言支持,状态栏显示默认方言且 Diagnostics 可用
+  "R-PLG-012",S001,"SQL 文件顶部有 -- dialect: mysql 注释",系统读取文件,自动切换到 MySQL DialectProvider
 ```

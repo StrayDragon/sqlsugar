@@ -5,6 +5,7 @@ import { LanguageHandlerAdapter, PatternInferenceAdapter } from './adapters';
 import { Logger } from './logger';
 import { registerInlineSQLFeature } from '../features/inline-sql';
 import { registerJinja2Feature } from '../features/jinja2';
+import { registerSQLIntelligenceFeature } from '../features/sql-intelligence';
 import { LanguageHandler } from '../features/inline-sql/language-handler';
 
 
@@ -39,6 +40,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     registerInlineSQLFeature(container, context);
     registerJinja2Feature(container, context);
+    registerSQLIntelligenceFeature(context);
 
     Logger.info('SQLSugar extension activated successfully');
     outputChannel.appendLine('[SQLSugar] All features registered and ready');

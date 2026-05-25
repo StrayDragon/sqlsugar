@@ -1,0 +1,9 @@
+```toon
+kind: llman.sdd.delta
+ops[2]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-J2E-012",Schema 感知推断,系统 MUST 利用 ORM schema 信息增强变量类型推断准确度,null,null,null
+  add_requirement,"R-J2E-013",列名补全,系统 SHALL 在变量值输入时基于 schema 提供列名/表名补全建议,null,null,null
+op_scenarios[2]{req_id,id,given,when,then}:
+  R-J2E-012,S001,ORM schema 显示 email 列为 String 类型,模板中有 {{ email }} 变量,推断为 string 类型且默认值为 email 格式
+  R-J2E-013,S001,用户在变量值输入框中输入,schema 中有匹配的列名,输入框展示补全建议列表
+```

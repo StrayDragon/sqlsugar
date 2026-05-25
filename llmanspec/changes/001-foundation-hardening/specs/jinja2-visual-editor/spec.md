@@ -1,0 +1,11 @@
+```toon
+kind: llman.sdd.delta
+ops[3]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-J2E-009",WebView 渲染对齐,系统 MUST 确保 WebView 端 Nunjucks 环境与 Extension 端完全一致(含 installJinjaCompat 和自定义 filter),null,null,null
+  add_requirement,"R-J2E-010",UI 组件拆分,系统 MUST 将编辑器单体组件拆分为 TemplatePanel/VariableEditor/SQLPreview/Toolbar 独立组件,null,null,null
+  add_requirement,"R-J2E-011",测试覆盖,系统 MUST 达到推断系统 90% 和整体 80% 的测试覆盖率,null,null,null
+op_scenarios[3]{req_id,id,given,when,then}:
+  R-J2E-009,S001,模板使用自定义 sql_quote filter 和嵌套变量,WebView 渲染预览,结果与 Extension 端 processor 渲染完全一致
+  R-J2E-010,S001,编辑器打开包含 5 个变量的模板,开发者检查组件树,可见独立的 TemplatePanel/VariableEditor/SQLPreview/Toolbar 组件
+  R-J2E-011,S001,推断系统所有分支已覆盖,运行 pnpm test:coverage,推断模块达到 90% 覆盖率
+```

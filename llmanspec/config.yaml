@@ -2,28 +2,28 @@
 schema: spec-driven
 locale: zh-Hans
 
-# 项目上下文（可选）
-# 技术栈、约定、约束等。在 AI 创建 artifact 时会展示。
-# context: |
-#   Tech stack: TypeScript, React, Node.js
-#   We use conventional commits
-#   Domain: e-commerce platform
+context: |
+  项目: SQLSugar - VS Code 扩展，提供内联 SQL 编辑和 Jinja2 模板可视化处理
+  技术栈: TypeScript, Lit (WebView UI), esbuild, Vitest, Nunjucks, pnpm
+  VS Code Engine: ^1.74.0
+  目标定位: 全能型 SQL 开发辅助平台（嵌入式 SQL 专家 + 轻量 SQL 工作台 + 模板平台 + AI 助手）
+  当前版本: 0.1.0
+  架构模式: 双构建目标 (CJS extension + ESM webview), DI 容器, Feature 模块化, Provider 注册模式(规划中)
 
-# 按 artifact 的规则（可选）
-# artifact_id -> string[] 的映射。
-# rules:
-#   proposal:
-#     - 提案保持在 500 字以内
-#     - 必须包含"非目标"章节
-#   tasks:
-#     - 每个任务不超过 2 小时
+rules:
+  proposal:
+    - 提案保持在 800 字以内
+    - 必须包含"非目标"章节
+    - 必须说明与现有功能的关系
+  tasks:
+    - 每个任务不超过 4 小时
+    - 必须包含可验证的完成标准
 
-# 可选额外技能（默认禁用，取消注释以启用）
-# extra_skills:
-#   - llman-sdd-new-change
-#   - llman-sdd-continue
-#   - llman-sdd-ff
-#   - llman-sdd-show
-#   - llman-sdd-sync
-#   - llman-sdd-validate
-#   - llman-sdd-verify
+extra_skills:
+  - llman-sdd-new-change
+  - llman-sdd-continue
+  - llman-sdd-ff
+  - llman-sdd-show
+  - llman-sdd-sync
+  - llman-sdd-validate
+  - llman-sdd-verify

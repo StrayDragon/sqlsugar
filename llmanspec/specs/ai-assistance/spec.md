@@ -1,0 +1,34 @@
+---
+llman_spec_valid_scope:
+  - src/features/ai/
+  - src/core/providers/
+  - src/test/
+llman_spec_valid_commands:
+  - pnpm run test
+  - pnpm run check-types
+llman_spec_evidence:
+  - "单元测试: AI Provider 接口 mock 测试通过"
+  - "集成测试: NL 转 SQL 生成基本场景通过"
+---
+
+```toon
+kind: llman.sdd.spec
+name: "ai-assistance"
+purpose: "集成 AI 能力辅助 SQL 开发，支持自然语言转 SQL、SQL 解释、查询优化建议、智能模板生成，通过可配置的 AI Provider 适配多种后端。"
+requirements[7]{req_id,title,statement}:
+  R-AI-001,Provider 抽象,系统 MUST 提供 AIProvider 抽象接口支持多种 AI 后端
+  R-AI-002,自然语言转 SQL,系统 MUST 支持用户输入自然语言描述并生成 SQL 查询
+  R-AI-003,SQL 解释,系统 MUST 支持选中 SQL 后生成自然语言解释
+  R-AI-004,优化建议,系统 SHALL 分析 SQL 结构并提供索引/重写/分页等优化建议
+  R-AI-005,模板生成,系统 SHALL 根据表结构和业务描述自动生成 Jinja2 模板
+  R-AI-006,流式输出,系统 MUST 支持 AI 生成过程的流式输出让用户可见进度
+  R-AI-007,隐私控制,系统 MUST 允许用户控制哪些信息发送给 AI 后端
+scenarios[7]{req_id,id,given,when,then}:
+  R-AI-001,baseline,"用户配置了 Ollama 本地模型","用户使用 AI 功能","所有请求走本地模型无外部网络请求"
+  R-AI-002,baseline,"用户在编辑器中输入自然语言描述","用户触发生成命令","系统结合可用 schema 生成对应 SQL"
+  R-AI-003,baseline,"用户选中复杂 JOIN SQL","用户触发解释命令","展示该查询的自然语言解释"
+  R-AI-004,baseline,"用户执行了全表扫描查询","系统分析查询","提示建议添加索引或添加 WHERE 条件"
+  R-AI-005,baseline,"用户描述需要分页查询用户列表","用户触发模板生成","生成含 LIMIT/OFFSET 参数的 Jinja2 模板"
+  R-AI-006,baseline,"用户触发了复杂 SQL 生成","AI 开始生成","用户可见逐字输出直到生成完成"
+  R-AI-007,baseline,"用户禁用发送 schema 信息","用户使用 AI 功能","AI 请求中不包含数据库结构信息"
+```

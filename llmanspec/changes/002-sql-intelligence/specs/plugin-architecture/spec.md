@@ -1,0 +1,9 @@
+```toon
+kind: llman.sdd.delta
+ops[2]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-PLG-011",内置方言 Provider,系统 MUST 内置 PostgreSQL/MySQL/SQLite 三个 DialectProvider 实现,null,null,null
+  add_requirement,"R-PLG-012",方言自动检测,系统 SHALL 根据文件注释或项目配置自动选择合适的 DialectProvider,null,null,null
+op_scenarios[2]{req_id,id,given,when,then}:
+  R-PLG-011,S001,用户打开 .sql 文件,系统初始化方言支持,状态栏显示默认方言且 Diagnostics 可用
+  R-PLG-012,S001,SQL 文件顶部有 -- dialect: mysql 注释,系统读取文件,自动切换到 MySQL DialectProvider
+```

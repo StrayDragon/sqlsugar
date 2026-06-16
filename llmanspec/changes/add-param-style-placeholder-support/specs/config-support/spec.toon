@@ -1,0 +1,7 @@
+kind: llman.sdd.delta
+ops[2]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-J2E-030",分析器配置项,系统 MUST 提供 sqlsugar.paramStyle.enabledAnalyzers 配置项让用户预设默认启用的分析器,null,null,null
+  add_requirement,"R-J2E-031",配置持久化,系统 MUST 持久化用户的分析器选择并在下次打开编辑器时恢复,null,null,null
+op_scenarios[2]{req_id,id,given,when,then}:
+  "R-J2E-030",S001,用户在 VS Code 设置中配置 enabledAnalyzers 为 named 和 asyncpg,用户打开编辑器,默认勾选 named 和 asyncpg 分析器
+  "R-J2E-031",S001,用户手动选择分析器后关闭编辑器,用户重新打开编辑器,之前选择的分析器状态被恢复

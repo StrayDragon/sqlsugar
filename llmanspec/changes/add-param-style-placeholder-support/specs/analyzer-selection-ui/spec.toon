@@ -1,0 +1,9 @@
+kind: llman.sdd.delta
+ops[3]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-J2E-025",分析器选择组件,系统 MUST 在编辑器工具栏中提供分析器选择组件支持自动检测和手动多选,null,null,null
+  add_requirement,"R-J2E-026",自动检测模式,系统 MUST 支持自动检测模式根据 SQL 内容自动选择最合适的分析器,null,null,null
+  add_requirement,"R-J2E-027",手动多选模式,系统 MUST 支持手动多选模式允许用户勾选多个分析器同时工作,null,null,null
+op_scenarios[3]{req_id,id,given,when,then}:
+  "R-J2E-025",S001,用户打开 Jinja2 编辑器,工具栏显示分析器选择下拉菜单,用户可以看到可用的分析器列表
+  "R-J2E-026",S001,用户选择自动检测模式,系统分析 SQL 内容,自动选择最合适的分析器组合
+  "R-J2E-027",S001,用户手动勾选 named 和 asyncpg 分析器,系统执行这两个分析器,同时提取两种风格的参数

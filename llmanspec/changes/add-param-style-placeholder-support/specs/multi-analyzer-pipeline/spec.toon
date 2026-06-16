@@ -1,0 +1,9 @@
+kind: llman.sdd.delta
+ops[3]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-J2E-018",分析器管道架构,系统 MUST 实现可插拔的分析器管道支持按优先级依次执行多个分析器,null,null,null
+  add_requirement,"R-J2E-019",分析器优先级,系统 MUST 为每个分析器分配优先级并按优先级顺序执行,null,null,null
+  add_requirement,"R-J2E-020",短路执行,系统 MUST 支持分析器短路执行当某个分析器成功提取参数后可选择跳过后续分析器,null,null,null
+op_scenarios[3]{req_id,id,given,when,then}:
+  "R-J2E-018",S001,系统配置了多个分析器,用户打开包含参数的 SQL 模板,分析器按优先级依次执行并合并结果
+  "R-J2E-019",S001,系统有 Jinja2 分析器(优先级 1)和 named 分析器(优先级 2),用户打开模板,先执行 Jinja2 分析器再执行 named 分析器
+  "R-J2E-020",S001,系统配置了短路模式且 Jinja2 分析器成功提取参数,用户打开模板,仅 Jinja2 分析器执行后续分析器被跳过

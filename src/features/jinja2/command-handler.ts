@@ -7,6 +7,12 @@ import { Jinja2NunjucksProcessor, Jinja2Variable } from './processor';
 import { Jinja2WebviewEditorV2 } from './webview';
 import type { VariableProcessingContext } from './ui/types/data-processing';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy';
+import { AnalyzerPipeline } from './analyzers/analyzer-pipeline';
+import { Jinja2Analyzer } from './analyzers/jinja2-analyzer';
+import { NamedParamAnalyzer } from './analyzers/named-param-analyzer';
+import { NumericParamAnalyzer } from './analyzers/numeric-param-analyzer';
+import { PyformatParamAnalyzer } from './analyzers/pyformat-param-analyzer';
+import { AsyncpgParamAnalyzer } from './analyzers/asyncpg-param-analyzer';
 
 /**
  * 占位符检测结果
@@ -108,26 +114,49 @@ export class Jinja2NunjucksHandler {
 
 
     const variables = processor.extractVariables(selectedText);
-    if (variables.length === 0 && !placeholderDetection.hasSQLAlchemy) {
+
+    // Check for all parameter styles using analyzer pipeline
+    const analyzerPipeline = new AnalyzerPipeline();
+    analyzerPipeline.register(new Jinja2Analyzer());
+    analyzerPipeline.register(new NamedParamAnalyzer());
+    analyzerPipeline.register(new NumericParamAnalyzer());
+    analyzerPipeline.register(new PyformatParamAnalyzer());
+    analyzerPipeline.register(new AsyncpgParamAnalyzer());
+
+    const analysisResult = analyzerPipeline.execute(selectedText);
+    const hasParamPlaceholders = analysisResult.parameters.some(p => p.type !== 'jinja2');
+
+    if (variables.length === 0 && !placeholderDetection.hasSQLAlchemy && !hasParamPlaceholders) {
       vscode.window.showInformationMessage(
-        'No Jinja2 variables or SQLAlchemy placeholders found in selected template.',
+        'No Jinja2 variables or parameter placeholders found in selected template.',
         { modal: false }
       );
       return false;
     }
 
+    // Convert parameter placeholders to Jinja2Variable format for the editor
+    const paramVariables: Jinja2Variable[] = analysisResult.parameters
+      .filter(p => p.type !== 'jinja2')
+      .map(p => ({
+        name: p.name,
+        type: 'string' as const,
+        description: `${p.type} parameter: ${p.originalText}`,
+      }));
+
+    // Merge Jinja2 variables with parameter placeholders
+    const allVariables = [...variables, ...paramVariables];
 
     switch (mode) {
       case 'quick':
-        return await this.handleQuickMode(selectedText, variables, placeholderDetection);
+        return await this.handleQuickMode(selectedText, allVariables, placeholderDetection);
       case 'wizard':
-        return await this.handleWizardMode(selectedText, variables, placeholderDetection);
+        return await this.handleWizardMode(selectedText, allVariables, placeholderDetection);
       case 'webviewV2':
-        return await this.handleWebviewV2Mode(selectedText, variables, placeholderDetection);
+        return await this.handleWebviewV2Mode(selectedText, allVariables, placeholderDetection);
       case 'defaults':
-        return await this.handleDefaultsMode(selectedText, variables, placeholderDetection);
+        return await this.handleDefaultsMode(selectedText, allVariables, placeholderDetection);
       default:
-        return await this.handleQuickMode(selectedText, variables, placeholderDetection);
+        return await this.handleQuickMode(selectedText, allVariables, placeholderDetection);
     }
   }
 
@@ -367,10 +396,43 @@ export class Jinja2NunjucksHandler {
   }
 
   /**
-   * 提取变量
+   * 提取变量（包括 Jinja2 变量和参数占位符）
    */
   public extractVariables(template: string): Jinja2Variable[] {
-    return this.processor.extractVariables(template);
+    // Extract Jinja2 variables
+    const jinja2Variables = this.processor.extractVariables(template);
+
+    // Extract parameter placeholders using analyzer pipeline
+    const analyzerPipeline = new AnalyzerPipeline();
+    analyzerPipeline.register(new Jinja2Analyzer());
+    analyzerPipeline.register(new NamedParamAnalyzer());
+    analyzerPipeline.register(new NumericParamAnalyzer());
+    analyzerPipeline.register(new PyformatParamAnalyzer());
+    analyzerPipeline.register(new AsyncpgParamAnalyzer());
+
+    const analysisResult = analyzerPipeline.execute(template);
+
+    // Convert parameter placeholders to Jinja2Variable format
+    const paramVariables: Jinja2Variable[] = analysisResult.parameters
+      .filter(p => p.type !== 'jinja2')
+      .map(p => ({
+        name: p.name,
+        type: 'string' as const,
+        description: `${p.type} parameter: ${p.originalText}`,
+      }));
+
+    // Merge and deduplicate
+    const allVariables = [...jinja2Variables];
+    const existingNames = new Set(allVariables.map(v => v.name));
+
+    for (const param of paramVariables) {
+      if (!existingNames.has(param.name)) {
+        allVariables.push(param);
+        existingNames.add(param.name);
+      }
+    }
+
+    return allVariables;
   }
 
   /**

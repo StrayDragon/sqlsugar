@@ -205,6 +205,27 @@
           "type": "boolean",
           "default": true,
           "description": "Enable bidirectional scroll synchronization between template and SQL preview"
+        },
+        "sqlsugar.paramStyle.enabledAnalyzers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "jinja2",
+              "named",
+              "numeric",
+              "pyformat",
+              "asyncpg"
+            ]
+          },
+          "default": ["jinja2"],
+          "description": "Default enabled parameter analyzers. 'jinja2' is always recommended."
+        },
+        "sqlsugar.paramStyle.defaultMode": {
+          "type": "string",
+          "enum": ["auto", "manual"],
+          "default": "auto",
+          "description": "Default analyzer selection mode. 'auto' detects analyzers from SQL content."
         }
       }
     }

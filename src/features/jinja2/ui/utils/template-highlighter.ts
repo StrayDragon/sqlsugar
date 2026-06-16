@@ -123,6 +123,10 @@ export class TemplateHighlighter {
 
 
       result = this.highlightVariablesInControlStructures(result, variables);
+
+      // Highlight parameter placeholders (:param, $1, %(name)s, :1)
+      result = this.highlightParameterPlaceholders(result);
+
       return result;
     } catch (error) {
       console.warn('Template highlighting failed:', error);
@@ -166,6 +170,66 @@ export class TemplateHighlighter {
     });
 
     return result;
+  }
+
+  /**
+   * Highlights parameter placeholders in SQL
+   * Supports: :param (named), $1 (asyncpg), %(name)s (pyformat), :1 (numeric)
+   */
+  private highlightParameterPlaceholders(html: string): string {
+    let result = html;
+
+    // Named parameters :param (but not ::escaped or :1 numeric)
+    // Match :word but not inside already highlighted spans or Jinja2 expressions
+    result = result.replace(/(?<![:\w]):([a-zA-Z_]\w*)\b(?!\s*[}%])/g, (match, paramName) => {
+      // Skip if inside a span (already highlighted)
+      if (this.isInsideSpan(result, match)) return match;
+      return `<span class="template-variable param-highlight param-named" data-variable="${paramName}" data-type="named" data-param-style="named" title="Named: :${paramName} - Click to edit">${match}</span>`;
+    });
+
+    // Asyncpg parameters $1, $2, ...
+    result = result.replace(/\$(\d+)\b/g, (match, index) => {
+      if (this.isInsideSpan(result, match)) return match;
+      return `<span class="template-variable param-highlight param-asyncpg" data-variable="$${index}" data-type="asyncpg" data-param-style="asyncpg" title="Asyncpg: ${match} - Click to edit">${match}</span>`;
+    });
+
+    // Pyformat parameters %(name)s
+    result = result.replace(/%\(([\w]+)\)s/g, (match, paramName) => {
+      if (this.isInsideSpan(result, match)) return match;
+      return `<span class="template-variable param-highlight param-pyformat" data-variable="${paramName}" data-type="pyformat" data-param-style="pyformat" title="Pyformat: ${match} - Click to edit">${match}</span>`;
+    });
+
+    // Numeric parameters :1, :2, ... (Oracle style)
+    result = result.replace(/(?<!:):(\d+)\b/g, (match, index) => {
+      if (this.isInsideSpan(result, match)) return match;
+      return `<span class="template-variable param-highlight param-numeric" data-variable="$${index}" data-type="numeric" data-param-style="numeric" title="Numeric: ${match} - Click to edit">${match}</span>`;
+    });
+
+    return result;
+  }
+
+  /**
+   * Check if a match is already inside a variable-highlight or param-highlight span
+   */
+  private isInsideSpan(html: string, match: string): boolean {
+    const matchIndex = html.indexOf(match);
+    if (matchIndex === -1) return false;
+
+    // Check if the match is inside a variable-highlight or param-highlight span
+    // by looking backwards for opening spans that haven't been closed
+    const before = html.substring(0, matchIndex);
+
+    // Find all span openings and closings
+    const spanOpenRegex = /<span[^>]*class="[^"]*(?:variable-highlight|param-highlight)[^"]*"[^>]*>/g;
+    const spanCloseRegex = /<\/span>/g;
+
+    let openCount = 0;
+    let closeCount = 0;
+
+    while (spanOpenRegex.exec(before) !== null) openCount++;
+    while (spanCloseRegex.exec(before) !== null) closeCount++;
+
+    return openCount > closeCount;
   }
 
 

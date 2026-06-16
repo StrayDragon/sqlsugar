@@ -1,0 +1,7 @@
+kind: llman.sdd.delta
+ops[2]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-J2E-028",参数统一展示,系统 MUST 在变量编辑器中统一展示 Jinja2 变量和参数占位符提供一致的编辑体验,null,null,null
+  add_requirement,"R-J2E-029",参数类型标识,系统 MUST 为每个参数显示其来源类型(Jinja2/named/numeric/pyformat/asyncpg),null,null,null
+op_scenarios[2]{req_id,id,given,when,then}:
+  "R-J2E-028",S001,模板包含 Jinja2 变量和 named 参数,用户打开变量编辑器,两种类型的参数都显示在同一个列表中
+  "R-J2E-029",S001,变量编辑器显示多个参数,用户查看参数列表,每个参数旁边显示其来源类型图标或标签

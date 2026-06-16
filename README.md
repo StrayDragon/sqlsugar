@@ -28,6 +28,12 @@
 
 - 编辑 `Jinja2 SQL` 内嵌字符串模板 (`SQLSugar: Copy Jinja2 Template SQL (Visual Editor)`) : 编辑区选中文本右键菜单选择触发
   - 识别并解析Jinja2模板, 并自动获取推断字段默认值, 用户可以在可视化编辑器中自由配置字段值和类型, 模板实时渲染, 方便复制并使用渲染后的SQL
+  - **多参数风格支持**: 除 Jinja2 变量外，还支持多种 SQL 参数占位符风格：
+    - `:param` (Named/SQLAlchemy)
+    - `:1`, `:2` (Numeric/Oracle)
+    - `%(param)s` (Pyformat/psycopg2)
+    - `$1`, `$2` (Asyncpg/PostgreSQL)
+  - 工具栏提供分析器选择器，支持自动检测或手动选择要识别的参数风格
 
 # 插件设置
 

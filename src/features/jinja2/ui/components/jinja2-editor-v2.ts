@@ -319,6 +319,49 @@ export class Jinja2EditorV2 extends LitElement {
       box-shadow: 0 0 8px rgba(66, 133, 244, 0.5);
     }
 
+    /* Parameter placeholder styles */
+    .param-highlight {
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-radius: 3px;
+      padding: 1px 3px;
+      margin: -1px -3px;
+      transition: all var(--transition-fast);
+      position: relative;
+    }
+
+    .param-named {
+      background-color: rgba(206, 145, 120, 0.2);
+    }
+    .param-named:hover {
+      background-color: rgba(206, 145, 120, 0.35);
+      border-color: #ce9178;
+    }
+
+    .param-asyncpg {
+      background-color: rgba(78, 201, 176, 0.2);
+    }
+    .param-asyncpg:hover {
+      background-color: rgba(78, 201, 176, 0.35);
+      border-color: #4ec9b0;
+    }
+
+    .param-pyformat {
+      background-color: rgba(197, 134, 192, 0.2);
+    }
+    .param-pyformat:hover {
+      background-color: rgba(197, 134, 192, 0.35);
+      border-color: #c586c0;
+    }
+
+    .param-numeric {
+      background-color: rgba(106, 153, 85, 0.2);
+    }
+    .param-numeric:hover {
+      background-color: rgba(106, 153, 85, 0.35);
+      border-color: #6a9955;
+    }
+
     /* Variable value display next to variable */
     .variable-value-display {
       margin-left: 8px;
@@ -1404,29 +1447,25 @@ export class Jinja2EditorV2 extends LitElement {
   private handleTemplateClick(event: Event) {
     const target = event.target as HTMLElement;
 
-
     let variableElement: HTMLElement | null = null;
 
+    // Look for both variable-highlight and param-highlight
+    variableElement = target.closest('.variable-highlight, .param-highlight') as HTMLElement;
 
-    variableElement = target.closest('.variable-highlight') as HTMLElement;
-
-
-    if (!variableElement && target.classList.contains('variable-highlight')) {
+    if (!variableElement && (target.classList.contains('variable-highlight') || target.classList.contains('param-highlight'))) {
       variableElement = target;
     }
-
 
     if (!variableElement) {
       let parent = target.parentElement;
       while (parent && parent !== document.body) {
-        if (parent.classList.contains('variable-highlight')) {
+        if (parent.classList.contains('variable-highlight') || parent.classList.contains('param-highlight')) {
           variableElement = parent;
           break;
         }
         parent = parent.parentElement;
       }
     }
-
 
     if (!variableElement) {
       let element: HTMLElement | null = target;
@@ -1441,14 +1480,14 @@ export class Jinja2EditorV2 extends LitElement {
 
     if (variableElement) {
       const variableName = variableElement.getAttribute('data-variable');
+      const paramStyle = variableElement.getAttribute('data-param-style');
       if (variableName) {
-        this.showVariablePopup(variableName, event);
+        this.showVariablePopup(variableName, event, paramStyle || undefined);
       }
     }
   }
 
-  private showVariablePopup(variableName: string, event: Event) {
-
+  private showVariablePopup(variableName: string, event: Event, paramStyle?: string) {
     const rect = (event.target as HTMLElement).getBoundingClientRect();
     const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
     const scrollY = window.pageYOffset || document.documentElement.scrollTop;
@@ -1458,13 +1497,13 @@ export class Jinja2EditorV2 extends LitElement {
       y: rect.bottom + scrollY + 5
     };
 
-
     this.activeVariable = variableName;
-    const variableType = this.getVariableType(variableName);
+
+    // For parameter placeholders, use 'string' type by default
+    const variableType = paramStyle ? 'string' : this.getVariableType(variableName);
     this.activeVariableType = variableType;
     this.popupValue = this.formatValueForEdit(this.variableValues[variableName], variableType);
     this.showTypeSelector = false;
-
 
     event.stopPropagation();
   }

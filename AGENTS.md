@@ -8,8 +8,6 @@
 保留此托管块，便于 `llman sdd update` 刷新。
 <!-- LLMANSPEC:END -->
 
-# CLAUDE.md
-
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
@@ -18,35 +16,58 @@ SQLSugar is a VS Code extension that provides inline SQL editing capabilities wi
 
 ## Common Development Commands
 
-### Building and Development
-- `pnpm run compile` - Compile TypeScript with full checks (types + lint + declarations + build)
-- `pnpm run package` - Production build with optimizations
-- `pnpm run check-types` - Run TypeScript type checking without emitting files
-- `pnpm run build:declarations` - Generate TypeScript declaration files for dist/types/
-- `node esbuild.js` - Main build script (supports --production, --watch, --extension-only, --webview-only flags)
+This project uses a `justfile` for task automation. Below are the primary commands aligned with the justfile recipes.
+
+### Development Setup
+- `just install` - Install dependencies (runs `pnpm install --frozen-lockfile`)
+- `just build` - Build the extension (runs `pnpm run compile`)
+- `just type-check` - Run TypeScript type checking (runs `pnpm run check-types`)
+- `just build-declarations` - Generate TypeScript declaration files (runs `pnpm run build:declarations`)
 
 ### Code Quality
-- `pnpm run lint` - Run ESLint on src/ directory
-- `pnpm run lint:fix` - Auto-fix ESLint issues
-- `pnpm run clean` - Remove dist/, out/, and *.vsix files
+- `just lint` - Run full linting (type-check + ESLint)
+- `just lint-fix` - Auto-fix ESLint issues (runs `pnpm run lint:fix`)
+- `just clean` - Remove dist/, out/, and *.vsix files
 
 ### Testing
-- `pnpm run test` - Run all tests with Vitest
-- `pnpm run test:watch` - Run tests in watch mode
-- `pnpm run test:ui` - Run tests with Vitest UI
-- `pnpm run test:coverage` - Run tests with coverage reports (80% global, 90% for jinja2/inference)
+- `just test` - Run unit tests with Vitest
+- `just test-coverage` - Run tests with coverage reports
+- `just test-watch` - Run tests in watch mode for development
+- `just test-ui` - Run tests with Vitest UI
 
-### Distribution
-- `pnpm run vsix` - Package extension as sqlsugar.vsix using vsce
+### Quality Assurance Pipelines
+- `just pre-commit` - Quick pre-commit check (type-check + tests)
+- `just qa` - Full QA pipeline (lint + test-coverage + spec-validate)
+- `just ci-local` - Simulate full CI locally (lint + test-coverage + spec-validate + build)
+
+### Specification Management
+- `just spec-validate` - Validate llmanspec specs and changes
+- `just spec-check` - Check spec staleness
+
+### Packaging and Distribution
+- `just package-vsix` - Package extension as .vsix file (runs `pnpm run vsix`)
+- `just install-vsix` - Install extension locally for testing
+- `just backup` - Create timestamped backup of current .vsix
+
+### Code Hygiene
+- `just after-ai-write-remove-comments` - Clean unnecessary line comments in src/
 
 ## Architecture Overview
 
 ### Core Structure
-- **src/core/** - Contains extension core functionality:
+- **src/core/** - Extension core functionality:
   - `extension.ts` - Main extension activation/deactivation logic
   - `di-container.ts` - Dependency injection container for service management
   - `logger.ts` - Centralized logging system
   - `result.ts` - Result type for error handling
+  - `adapters.ts` - Adapter interfaces and implementations
+  - `provider-registry.ts` - Provider registry for extensibility
+
+### Shared Modules
+- **src/shared/** - Shared utilities and configurations:
+  - `jinja2-patterns.ts` - Jinja2 pattern matching utilities
+  - `nunjucks-setup.ts` - Nunjucks template engine configuration
+  - `types.ts` - Shared type definitions
 
 ### Feature Modules
 - **src/features/inline-sql/** - Inline SQL editing functionality:
@@ -56,32 +77,43 @@ SQLSugar is a VS Code extension that provides inline SQL editing capabilities wi
   - `indent-sync.ts` - Synchronizes indentation between original and temp files
 
 - **src/features/jinja2/** - Jinja2 template processing with visual editor:
-  - `command-handler.ts` - Main command orchestrator
+  - `command-handler.ts` - Main command orchestrator (Jinja2NunjucksHandler)
   - `sqlalchemy.ts` - SQLAlchemy integration for database metadata
-  - `inference/` - Variable type inference system
-  - `ui/` - WebView-based visual editor built with Lit elements
+  - `processor.ts` - Core Jinja2/Nunjucks template processor
+  - `webview.ts` - WebView editor integration
+  - **ui/** - WebView-based visual editor built with Lit elements:
+    - **components/** - Lit web components (editor, toolbar, popovers, etc.)
+    - **config/** - Editor configuration
+    - **styles/** - Design system and animations
+    - **types/** - TypeScript type definitions
+    - **utils/** - Utility functions (highlighting, caching, parsing)
 
 ### Build System
 - **esbuild.js** - Dual-target build system:
   - Main extension: CommonJS for VS Code runtime compatibility
   - Jinja2 Editor V2: ESM for browser webview compatibility
   - Supports parallel builds and resource copying
+  - Entry points: `src/extension.ts` (main) and `src/features/jinja2/ui/index.ts` (webview)
 
 ### Testing Infrastructure
 - **vitest.config.ts** - Configured with jsdom environment and path aliases:
   - `@/` → src/
+  - `@test` → src/test/
   - `@features/` → src/features/
   - `@jinja2/` → src/features/jinja2/
   - `vscode` → mocked VS Code API
+- **src/test/** - Test directory with unit, integration, and visual tests
 
 ## Key Technologies
 
 - **Runtime**: VS Code Extension API with TypeScript
-- **UI Framework**: Lit (web-based visual editor)
-- **Template Engine**: Nunjucks (Jinja2 compatible)
+- **UI Framework**: Lit 3.x (web-based visual editor)
+- **Template Engine**: Nunjucks 3.x (Jinja2 compatible)
+- **SQL Parsing**: node-sql-parser, sql-formatter
+- **Validation**: Zod 4.x
 - **Build**: esbuild with dual-target configuration
 - **Testing**: Vitest with jsdom and VS Code API mocking
-- **Package Manager**: pnpm (enforced by preinstall script)
+- **Package Manager**: pnpm 10.x (enforced by preinstall script)
 
 ## Development Notes
 
@@ -91,10 +123,12 @@ SQLSugar is a VS Code extension that provides inline SQL editing capabilities wi
 
 ### Configuration
 Extension supports extensive configuration via VS Code settings (`sqlsugar.*` prefix), including:
-- Temporary file cleanup behavior
-- Jinja2 variable inference rules
-- Visual editor appearance and behavior
-- SQL syntax highlighting themes
+- Temporary file cleanup behavior (`tempFileCleanup`, `cleanupOnClose`)
+- Jinja2 variable inference rules (`jinja2TypeInference.customRules`)
+- Visual editor appearance and behavior (`v2Editor.*` settings)
+- SQL syntax highlighting themes (`sqlSyntaxHighlightTheme`, `sqlSyntaxHighlightFontSize`)
+- Clipboard operations (`enableWlCopyFallback` for Linux Wayland)
+- Debug logging (`logLevel`)
 
 ### WebView Integration
 The Jinja2 visual editor runs as a VS Code WebView with:
@@ -102,3 +136,5 @@ The Jinja2 visual editor runs as a VS Code WebView with:
 - Bidirectional scroll synchronization
 - Real-time template rendering
 - Intelligent variable type inference
+- Keyboard navigation support
+- Animation and transition effects

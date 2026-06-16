@@ -1,20 +1,7 @@
----
-llman_spec_valid_scope:
-  - src/core/
-  - src/features/
-  - src/test/
-llman_spec_valid_commands:
-  - pnpm run test
-  - pnpm run check-types
-llman_spec_evidence:
-  - "单元测试: Provider 注册和查找通过"
-  - "集成测试: 自定义 Provider 加载成功"
----
-
-```toon
 kind: llman.sdd.spec
 name: "plugin-architecture"
 purpose: 设计可扩展的插件架构，通过 Provider 注册模式让核心功能可被扩展，支持社区开发自定义方言、ORM、AI 后端、模板函数等插件。
+valid_scope[3]: src/core/,src/features/,src/test/
 requirements[14]{req_id,title,statement}:
   "R-PLG-001",Provider 注册,系统 MUST 提供 ProviderRegistry 管理所有 Provider 的注册/查找/优先级
   "R-PLG-002",Language Provider,系统 MUST 定义 LanguageProvider 接口支持多语言 SQL 提取和重构
@@ -45,4 +32,3 @@ scenarios[14]{req_id,id,given,when,then}:
   "R-PLG-012",S001,"SQL 文件顶部有 -- dialect: mysql 注释",系统读取文件,自动切换到 MySQL DialectProvider
   "R-PLG-013",S001,项目同时包含 SQLAlchemy 和 Django model,扩展激活扫描工作区,两个 Provider 分别识别各自的 model 并合并到统一 schema
   "R-PLG-014",S001,多个 ORMProvider 返回同名表的 schema,ORMDiscoveryService 合并结果,优先使用有更多列信息的 Provider 结果
-```

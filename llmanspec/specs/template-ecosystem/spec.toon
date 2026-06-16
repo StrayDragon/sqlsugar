@@ -1,19 +1,7 @@
----
-llman_spec_valid_scope:
-  - src/features/templates/
-  - src/test/
-llman_spec_valid_commands:
-  - pnpm run test
-  - pnpm run check-types
-llman_spec_evidence:
-  - "单元测试: 模板加载和参数解析通过"
-  - "集成测试: 模板渲染和导出正确"
----
-
-```toon
 kind: llman.sdd.spec
 name: "template-ecosystem"
 purpose: 构建可复用、可共享的 SQL 模板生态系统，内置常见 SQL 模式库，支持团队共享模板、增强的参数类型系统、模板测试框架。
+valid_scope[2]: src/features/templates/,src/test/
 requirements[10]{req_id,title,statement}:
   "R-TPL-001",内置模板库,系统 MUST 内置 20+ 常见 SQL 模式模板(CRUD/分页/聚合/CTE/窗口函数等)
   "R-TPL-002",项目模板,系统 MUST 支持从 .sqlsugar/templates/ 目录加载团队共享模板
@@ -36,4 +24,3 @@ scenarios[10]{req_id,id,given,when,then}:
   "R-TPL-008",S001,模板定义了 PostgreSQL 和 MySQL 两个变体,用户当前方言为 MySQL,自动使用 MySQL 变体渲染
   "R-TPL-009",S001,base 模板定义了通用 SELECT 结构,子模板覆盖 WHERE 条件,渲染结果合并 base 结构和自定义条件
   "R-TPL-010",S001,"CI 流程调用 sqlsugar validate-templates",模板有语法错误,命令返回非零退出码并报告错误位置
-```

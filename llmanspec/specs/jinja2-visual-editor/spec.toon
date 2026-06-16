@@ -1,19 +1,7 @@
----
-llman_spec_valid_scope:
-  - src/features/jinja2/
-  - src/test/
-llman_spec_valid_commands:
-  - pnpm run test
-  - pnpm run check-types
-llman_spec_evidence:
-  - "pnpm run test 通过"
-  - "手动测试: 选中 Jinja2 SQL 模板触发可视化编辑器"
----
-
-```toon
 kind: llman.sdd.spec
 name: "jinja2-visual-editor"
 purpose: 提供基于 WebView 的 Jinja2 SQL 模板可视化编辑器，支持变量类型推断、实时 SQL 预览、智能默认值生成，帮助用户快速生成参数化的 SQL 查询。
+valid_scope[2]: src/features/jinja2/,src/test/
 requirements[15]{req_id,title,statement}:
   "R-J2E-001",AST 变量提取,系统 MUST 通过 Nunjucks AST 解析提取模板变量并回退到正则匹配
   "R-J2E-002",类型推断,系统 MUST 基于变量名称模式推断类型(string/number/boolean/date)
@@ -46,4 +34,3 @@ scenarios[15]{req_id,id,given,when,then}:
   "R-J2E-013",S001,用户在变量值输入框中输入,schema 中有匹配的列名,输入框展示补全建议列表
   "R-J2E-016",S001,用户点击编辑器中的模板库按钮,系统展示模板列表,用户选择模板后插入到当前编辑区域
   "R-J2E-017",S001,模板参数定义为 enum 类型(排序方向),可视化编辑器渲染参数,展示下拉选择而非普通文本输入框
-```

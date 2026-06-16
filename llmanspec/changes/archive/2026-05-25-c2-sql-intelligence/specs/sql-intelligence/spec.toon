@@ -1,0 +1,11 @@
+kind: llman.sdd.delta
+ops[4]{op,req_id,title,statement,from,to,name}:
+  add_requirement,"R-SQL-007",SQL Parser 集成,"系统 MUST 集成 node-sql-parser 支持多方言 AST 解析",null,null,null
+  add_requirement,"R-SQL-008",格式化引擎,"系统 MUST 集成 sql-formatter 并支持 Format Document 命令",null,null,null
+  add_requirement,"R-SQL-009",Jinja2 模板兼容,系统 MUST 在验证 SQL 时智能处理 Jinja2/Nunjucks 模板语法不产生误报,null,null,null
+  add_requirement,"R-SQL-010",内联 SQL 验证,"系统 SHALL 对 inline-sql 临时文件提供实时语法验证",null,null,null
+op_scenarios[4]{req_id,id,given,when,then}:
+  "R-SQL-007",S001,用户编辑含 PostgreSQL 特有语法的 SQL,系统进行 AST 解析,正确识别 PostgreSQL 特有节点(如 ARRAY 类型)
+  "R-SQL-008",S001,用户选中未格式化的复杂 SQL,执行 Format Document,"SQL 按 4-space 缩进和大写关键字格式化"
+  "R-SQL-009",S001,"SQL 中包含 {{ variable }} 模板语法",系统进行语法验证,模板部分被跳过不产生语法错误
+  "R-SQL-010",S001,"用户通过 inline-sql 打开临时文件",用户输入错误 SQL 语法,实时标记语法错误位置

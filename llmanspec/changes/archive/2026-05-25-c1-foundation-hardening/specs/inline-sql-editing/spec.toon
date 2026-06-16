@@ -1,11 +1,9 @@
-```toon
 kind: llman.sdd.delta
 ops[3]{op,req_id,title,statement,from,to,name}:
   modify_requirement,"R-ISE-005",临时文件清理修复,系统 MUST 通过 onDidCloseTextDocument hook 实现可配置的临时文件自动清理,null,null,null
   add_requirement,"R-ISE-007",测试覆盖,系统 MUST 达到 80% 以上的单元测试覆盖率,null,null,null
   add_requirement,"R-ISE-008",JS/TS 引号升级,系统 MUST 在 JS/TS 中当内容包含换行时自动升级为模板字面量,null,null,null
 op_scenarios[3]{req_id,id,given,when,then}:
-  R-ISE-005,fix-cleanup,配置 cleanupOnClose 为 true,用户关闭临时文件 tab,onDidCloseTextDocument 触发并删除临时文件
-  R-ISE-007,S001,所有核心功能已实现,运行 pnpm test:coverage,覆盖率报告显示 80%+ 整体覆盖
-  R-ISE-008,S001,JS 文件中选中单行 SQL 字符串,编辑后 SQL 变为多行,回写时自动使用模板字面量包裹
-```
+  "R-ISE-005","fix-cleanup",配置 cleanupOnClose 为 true,用户关闭临时文件 tab,onDidCloseTextDocument 触发并删除临时文件
+  "R-ISE-007",S001,所有核心功能已实现,"运行 pnpm test:coverage",覆盖率报告显示 80%+ 整体覆盖
+  "R-ISE-008",S001,JS 文件中选中单行 SQL 字符串,编辑后 SQL 变为多行,回写时自动使用模板字面量包裹

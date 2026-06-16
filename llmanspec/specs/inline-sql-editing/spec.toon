@@ -1,19 +1,7 @@
----
-llman_spec_valid_scope:
-  - src/features/inline-sql/
-  - src/test/
-llman_spec_valid_commands:
-  - pnpm run test
-  - pnpm run check-types
-llman_spec_evidence:
-  - "pnpm run test 通过"
-  - "手动测试: Python/JS/TS 中选中 SQL 字符串触发编辑命令"
----
-
-```toon
 kind: llman.sdd.spec
 name: "inline-sql-editing"
 purpose: 在 VS Code 中选中嵌入代码的 SQL 字符串，打开独立临时 .sql 文件进行编辑，保存后自动回写到原始代码位置。支持多语言引号处理和缩进同步。
+valid_scope[2]: "src/features/inline-sql/",src/test/
 requirements[8]{req_id,title,statement}:
   "R-ISE-001",Python 字符串处理,系统 MUST 支持 Python 单引号/双引号/三引号 SQL 字符串提取和回写并保持 f/r/u 前缀
   "R-ISE-002",JS/TS 字符串处理,系统 MUST 支持 JavaScript/TypeScript 模板字面量和普通字符串的 SQL 提取
@@ -32,4 +20,3 @@ scenarios[8]{req_id,id,given,when,then}:
   "R-ISE-006",baseline,用户选中的文本不含 SQL 关键词,用户触发编辑命令,系统弹出确认对话框询问是否继续
   "R-ISE-007",S001,所有核心功能已实现,"运行 pnpm test:coverage",覆盖率报告显示 80%+ 整体覆盖
   "R-ISE-008",S001,JS 文件中选中单行 SQL 字符串,编辑后 SQL 变为多行,回写时自动使用模板字面量包裹
-```

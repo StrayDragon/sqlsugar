@@ -1,55 +1,26 @@
 ---
-name: "llman-sdd-graph"
-description: "根据变更提案的 frontmatter（depends_on/blocks）生成依赖关系图。"
+name: "llman-sdd-sync"
+description: "手动把 delta specs 同步到主 specs（不归档 change）。"
 ---
 
-# LLMAN SDD 依赖图
+# LLMAN SDD Sync
 
-使用此 skill 可视化变更之间的依赖关系。
+使用此 skill 将活动 change 的 delta specs 同步到主 specs（**不归档** change）。
 
-## 用法
+这是一个手动、可复现的协议。
 
-**聚焦视图（seed 模式）：** 展示指定变更及其关系邻域。
-
-```bash
-llman sdd graph <change-id>              # 该变更 + 直接关系（depth 1）
-llman sdd graph <change-id> --depth 3    # 递归 3 层
-llman sdd graph <change-id> --depth 0    # 仅该变更自身
-```
-
-seed 模式沿 upstream（depends_on）、downstream（被谁依赖）、blocks 三个方向遍历，自动发现活跃和已归档变更。
-
-**全局视图（scope 模式）：** 按范围展示所有变更。
-
-```bash
-llman sdd graph                          # 所有活跃变更（默认）
-llman sdd graph --scope archived         # 所有已归档（已完成）变更
-llman sdd graph --scope all              # 全部
-```
-
-## 输出
-
-- 输出为 mermaid flowchart 到标准输出，可管道到文件或渲染器：
-  ```
-  llman sdd graph c50 > deps.mmd
-  llman sdd graph c50 --depth 2 | mmdc -i - -o deps.png
-  ```
-- 已归档（已完成）变更以 "✓ done" 后缀和绿色高亮显示。
-- 当图中存在互不相连的分组时，每组渲染为独立的 subgraph，标注 "Active"、"Done" 或 "Mixed"。
-
-## 提案 frontmatter 格式
-
-```yaml
----
-depends_on:
-  - other-change-id
-blocks:
-  - blocked-change-id
----
-
-## Why
-...
-```
+## 步骤
+1. 确定 change id（不明确时让用户选择）。
+   - 始终说明："使用变更：<id>"。
+2. 对每个 delta spec：`llmanspec/changes/<id>/specs/<capability>/spec.toon`
+   - 阅读 delta
+   - 阅读（或创建）主 spec：`llmanspec/specs/<capability>/spec.toon`
+   - 按 delta 语义手动应用（add/modify/remove/rename + scenarios），保持主 spec 为独立的 TOON 文档
+3. 校验 specs：
+   ```bash
+   llman sdd validate --specs --strict --no-interactive
+   ```
+4. sync 不负责归档；准备好后执行 `llman sdd archive run <id>`。
 
 在执行之前，请先阅读 `llmanspec/config.yaml`，若其中包含 `context` 与 `rules` 请遵循。
 
@@ -65,7 +36,6 @@ blocks:
 - `llman sdd archive freeze [--before YYYY-MM-DD] [--keep-recent N] [--dry-run]`（将已归档目录冻结到单一冷备文件）
 - `llman sdd archive thaw [--change <id> ...] [--dest <path>]`（从冷备文件恢复目录）
 - `llman sdd graph [CHANGE] [--format mermaid] [--scope active|archived|all] [--depth N]`（生成变更依赖图并输出到标准输出）
-
 
 常见校验修复（TOON 独立文件 spec）：
 

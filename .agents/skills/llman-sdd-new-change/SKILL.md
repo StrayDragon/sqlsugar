@@ -1,55 +1,32 @@
 ---
-name: "llman-sdd-graph"
-description: "根据变更提案的 frontmatter（depends_on/blocks）生成依赖关系图。"
+name: "llman-sdd-new-change"
+description: "创建新的 SDD 变更提案与增量 specs。"
 ---
 
-# LLMAN SDD 依赖图
+# LLMAN SDD 新变更
 
-使用此 skill 可视化变更之间的依赖关系。
+创建一个包含规划工件的变更（proposal + delta specs + tasks；design 可选）。
 
-## 用法
-
-**聚焦视图（seed 模式）：** 展示指定变更及其关系邻域。
-
-```bash
-llman sdd graph <change-id>              # 该变更 + 直接关系（depth 1）
-llman sdd graph <change-id> --depth 3    # 递归 3 层
-llman sdd graph <change-id> --depth 0    # 仅该变更自身
-```
-
-seed 模式沿 upstream（depends_on）、downstream（被谁依赖）、blocks 三个方向遍历，自动发现活跃和已归档变更。
-
-**全局视图（scope 模式）：** 按范围展示所有变更。
-
-```bash
-llman sdd graph                          # 所有活跃变更（默认）
-llman sdd graph --scope archived         # 所有已归档（已完成）变更
-llman sdd graph --scope all              # 全部
-```
-
-## 输出
-
-- 输出为 mermaid flowchart 到标准输出，可管道到文件或渲染器：
-  ```
-  llman sdd graph c50 > deps.mmd
-  llman sdd graph c50 --depth 2 | mmdc -i - -o deps.png
-  ```
-- 已归档（已完成）变更以 "✓ done" 后缀和绿色高亮显示。
-- 当图中存在互不相连的分组时，每组渲染为独立的 subgraph，标注 "Active"、"Done" 或 "Mixed"。
-
-## 提案 frontmatter 格式
-
-```yaml
----
-depends_on:
-  - other-change-id
-blocks:
-  - blocked-change-id
----
-
-## Why
-...
-```
+## 步骤
+1. 明确 change id 与范围（kebab-case，动词前缀：`add-`、`update-`、`remove-`、`refactor-`）。
+   - 若用户只给了描述，先问 1–3 个澄清问题，再提议一个 id 并让用户确认。
+2. 确保项目已初始化：
+   - 必须存在 `llmanspec/`；若不存在，提示先运行 `llman sdd init`，然后 STOP。
+3. 创建 `llmanspec/changes/<change-id>/` 与 `llmanspec/changes/<change-id>/specs/`。
+   - 若变更已存在，STOP 并建议使用 `llman-sdd-continue`。
+4. 在 `llmanspec/changes/<change-id>/` 下创建工件：
+   - `proposal.md`（Why / What Changes / Capabilities / Impact）
+   - 为每个 capability 创建 `specs/<capability>/spec.toon`（每个文件一份独立的 TOON 文档）：
+     - 建议优先通过 authoring helpers 生成，确保 TOON payload 规范：
+       - `llman sdd delta skeleton <change-id> <capability>`
+       - `llman sdd delta add-op ...`
+       - `llman sdd delta add-scenario ...`
+     - 至少包含一个 `add_requirement`/`modify_requirement` op（statement 必须含 MUST/SHALL），并且至少包含一行匹配的 op scenario
+   - 仅在涉及权衡/迁移时创建 `design.md`
+   - `tasks.md`：按顺序拆分为可勾选清单（包含校验命令）
+5. 校验：`llman sdd validate <change-id> --strict --no-interactive`。
+   此步骤必须通过后才能继续。若出现 TOON 解析错误，需修复引号：表格化行中包含逗号/冒号/方括号的值必须用双引号包裹。
+6. 进入实现阶段：建议使用 `llman-sdd-apply`。
 
 在执行之前，请先阅读 `llmanspec/config.yaml`，若其中包含 `context` 与 `rules` 请遵循。
 
@@ -139,3 +116,16 @@ r1,happy,"","a trigger happens","the outcome is observed"
 - `ethics.required_evidence`：列出高影响输出前必须具备的证据。
 - `ethics.refusal_contract`：定义何时拒答以及安全替代响应方式。
 - `ethics.escalation_policy`：定义何时必须升级为用户确认/人工复核。
+
+## Future 到执行的规划
+- 将 `llmanspec/changes/<id>/future.md` 视为候选待办池，而不是静态备注。
+- 审查 `Deferred Items`、`Branch Options`、`Triggers to Reopen`，并把每项归类为：
+  - `now`（需要立即转化为可执行工作）
+  - `later`（保留在 future.md，补充明确触发信号）
+  - `drop`（移除或标记拒绝并说明原因）
+- 对每个 `now` 项，产出明确落地路径：
+  - 后续 change id（`add-...`、`update-...`、`refactor-...`）
+  - 受影响 capability/spec 路径
+  - 第一条可执行动作（`llman-sdd-propose`、`llman-sdd-new-change`、`llman-sdd-continue`、`llman-sdd-ff` 或 `llman-sdd-apply`）
+- 保持可追溯性：在新 proposal/design/tasks 中引用来源 future 条目。
+- 若存在高不确定性，先暂停并提问，再创建新变更工件。

@@ -1,20 +1,7 @@
----
-llman_spec_valid_scope:
-  - src/features/sql-intelligence/
-  - src/core/providers/
-  - src/test/
-llman_spec_valid_commands:
-  - pnpm run test
-  - pnpm run check-types
-llman_spec_evidence:
-  - "单元测试: 多方言 SQL 解析和验证通过"
-  - "集成测试: 格式化输出与期望一致"
----
-
-```toon
 kind: llman.sdd.spec
 name: "sql-intelligence"
 purpose: 为 SQL 编辑提供方言感知的智能能力，包括语法验证、格式化、补全提示，让用户在 VS Code 中获得专业 SQL IDE 级别的编辑体验。
+valid_scope[3]: "src/features/sql-intelligence/",src/core/providers/,src/test/
 requirements[10]{req_id,title,statement}:
   "R-SQL-001",多方言支持,系统 MUST 支持 PostgreSQL/MySQL/SQLite/SQL Server/BigQuery 方言解析
   "R-SQL-002",语法验证,系统 MUST 实时验证 SQL 语法并通过 VS Code Diagnostics 展示错误
@@ -37,4 +24,3 @@ scenarios[10]{req_id,id,given,when,then}:
   "R-SQL-008",S001,用户选中未格式化的复杂 SQL,执行 Format Document,"SQL 按 4-space 缩进和大写关键字格式化"
   "R-SQL-009",S001,"SQL 中包含 {{ variable }} 模板语法",系统进行语法验证,模板部分被跳过不产生语法错误
   "R-SQL-010",S001,"用户通过 inline-sql 打开临时文件",用户输入错误 SQL 语法,实时标记语法错误位置
-```

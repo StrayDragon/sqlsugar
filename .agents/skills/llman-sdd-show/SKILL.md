@@ -1,55 +1,18 @@
 ---
-name: "llman-sdd-graph"
-description: "根据变更提案的 frontmatter（depends_on/blocks）生成依赖关系图。"
+name: "llman-sdd-show"
+description: "快速查看 llmanspec 变更与 specs。"
 ---
 
-# LLMAN SDD 依赖图
+# LLMAN SDD 查看
 
-使用此 skill 可视化变更之间的依赖关系。
+使用此 skill 快速查看变更与 specs。
 
-## 用法
-
-**聚焦视图（seed 模式）：** 展示指定变更及其关系邻域。
-
-```bash
-llman sdd graph <change-id>              # 该变更 + 直接关系（depth 1）
-llman sdd graph <change-id> --depth 3    # 递归 3 层
-llman sdd graph <change-id> --depth 0    # 仅该变更自身
-```
-
-seed 模式沿 upstream（depends_on）、downstream（被谁依赖）、blocks 三个方向遍历，自动发现活跃和已归档变更。
-
-**全局视图（scope 模式）：** 按范围展示所有变更。
-
-```bash
-llman sdd graph                          # 所有活跃变更（默认）
-llman sdd graph --scope archived         # 所有已归档（已完成）变更
-llman sdd graph --scope all              # 全部
-```
-
-## 输出
-
-- 输出为 mermaid flowchart 到标准输出，可管道到文件或渲染器：
-  ```
-  llman sdd graph c50 > deps.mmd
-  llman sdd graph c50 --depth 2 | mmdc -i - -o deps.png
-  ```
-- 已归档（已完成）变更以 "✓ done" 后缀和绿色高亮显示。
-- 当图中存在互不相连的分组时，每组渲染为独立的 subgraph，标注 "Active"、"Done" 或 "Mixed"。
-
-## 提案 frontmatter 格式
-
-```yaml
----
-depends_on:
-  - other-change-id
-blocks:
-  - blocked-change-id
----
-
-## Why
-...
-```
+## 步骤
+1. 列出条目：`llman sdd list` 或 `llman sdd list --specs`。
+2. 如果 id 不明确，展示列表并让用户选择。
+3. 查看详情：`llman sdd show <id>`。
+4. 需要时使用 `--type change|spec` 消除歧义。
+5. 使用 `--json` 获取结构化输出。
 
 在执行之前，请先阅读 `llmanspec/config.yaml`，若其中包含 `context` 与 `rules` 请遵循。
 

@@ -141,6 +141,7 @@ export class Jinja2NunjucksHandler {
         name: p.name,
         type: 'string' as const,
         description: `${p.type} parameter: ${p.originalText}`,
+        paramPattern: p.originalText,
       }));
 
     // Merge Jinja2 variables with parameter placeholders
@@ -419,6 +420,7 @@ export class Jinja2NunjucksHandler {
         name: p.name,
         type: 'string' as const,
         description: `${p.type} parameter: ${p.originalText}`,
+        paramPattern: p.originalText,
       }));
 
     // Merge and deduplicate

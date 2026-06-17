@@ -60,6 +60,8 @@ export interface Jinja2Variable {
   valid?: boolean;
   validationError?: string;
   extractionMethod?: 'nunjucks' | 'regex' | 'fallback';
+  /** For parameter placeholders ($1, :param, etc.): the literal pattern to replace in rendered SQL */
+  paramPattern?: string;
 }
 
 /**

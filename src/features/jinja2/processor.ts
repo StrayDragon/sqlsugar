@@ -83,6 +83,8 @@ export interface Jinja2Variable {
   description?: string;
   required?: boolean;
   filters?: string[];
+  /** For parameter placeholders ($1, :param, etc.): the literal text to replace in rendered SQL */
+  paramPattern?: string;
 
   valid?: boolean;
   validationError?: string;

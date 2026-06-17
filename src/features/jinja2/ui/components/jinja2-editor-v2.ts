@@ -47,6 +47,8 @@ export class Jinja2EditorV2 extends LitElement {
   @state() accessor showTypeSelector: boolean = false;
   @state() accessor syncScroll: boolean = true;
 
+  /** Debug: captures intermediate states from highlightTemplate() for diagnosis */
+  private _highlightDebugInfo = '';
 
   private variableChangeLogs: Array<{
     timestamp: string;
@@ -696,7 +698,7 @@ export class Jinja2EditorV2 extends LitElement {
 
     .highlighted-template .hljs-operator,
     .sql-preview .hljs-operator {
-      color: var(--hljs-operator, #d4d4d4) !important;
+      color: var(--hljs-operator, #e0e0e0) !important;
     }
 
     .highlighted-template .hljs-string,
@@ -706,7 +708,7 @@ export class Jinja2EditorV2 extends LitElement {
 
     .highlighted-template .hljs-number,
     .sql-preview .hljs-number {
-      color: var(--hljs-number, #b5cea8) !important;
+      color: var(--hljs-number, #79c0ff) !important;
     }
 
     .highlighted-template .hljs-comment,
@@ -980,10 +982,10 @@ export class Jinja2EditorV2 extends LitElement {
       'vscode-dark': {
         '--hljs-keyword': '#569cd6',
         '--hljs-string': '#ce9178',
-        '--hljs-number': '#b5cea8',
+        '--hljs-number': '#79c0ff',
         '--hljs-comment': '#6a9955',
         '--hljs-function': '#dcdcaa',
-        '--hljs-operator': '#d4d4d4',
+        '--hljs-operator': '#e0e0e0',
         '--hljs-literal': '#c586c0',
         '--hljs-type': '#9cdcfe',
         '--hljs-built_in': '#4ec9b0'
@@ -1097,6 +1099,13 @@ export class Jinja2EditorV2 extends LitElement {
       return;
     }
 
+    // Collect debug info at each step
+    const debugLines: string[] = [];
+    debugLines.push(`=== HIGHLIGHT DEBUG ${new Date().toISOString()} ===`);
+    debugLines.push(`Template (${this.template.length} chars): ${JSON.stringify(this.template)}`);
+    debugLines.push(`Variables count: ${this.variables.length}`);
+    debugLines.push(`Variables: ${JSON.stringify(this.variables.map(v => ({name:v.name,type:v.type})))}`);
+
     try {
       // Convert Jinja2Variable[] to EnhancedVariable[] for the highlighter
       const enhancedVariables: EnhancedVariable[] = this.variables.map(v => ({
@@ -1122,18 +1131,30 @@ export class Jinja2EditorV2 extends LitElement {
         this.variableValues
       );
 
+      debugLines.push(`Result html length: ${result.html.length}`);
+      debugLines.push(`Result html (first 1500 chars): ${result.html.substring(0, 1500)}`);
+      debugLines.push(`Contains param-highlight: ${result.html.includes('param-highlight')}`);
+      debugLines.push(`Contains param-asyncpg: ${result.html.includes('param-asyncpg')}`);
+      debugLines.push(`Contains param-named: ${result.html.includes('param-named')}`);
+      debugLines.push(`Contains __SQLSUGAR_PARAM_ (stale token): ${result.html.includes('__SQLSUGAR_PARAM_')}`);
+      debugLines.push(`Contains 'variable-highlight': ${result.html.includes('variable-highlight')}`);
+
       let highlighted = result.html;
 
       // Apply control structure highlighting to ensure all variables are highlighted
-      // This handles variables in {% if %}, {% for %}, {% set %} that TemplateHighlighter might miss
       highlighted = this.applyControlStructureHighlighting(highlighted);
 
+      debugLines.push(`After control structure hl, length: ${highlighted.length}`);
+      debugLines.push(`After control structure hl, contains param-highlight: ${highlighted.includes('param-highlight')}`);
+
       this.highlightedTemplate = highlighted;
+      this._highlightDebugInfo = debugLines.join('\n');
     } catch (error) {
+      debugLines.push(`ERROR: ${String(error)}`);
+      this._highlightDebugInfo = debugLines.join('\n');
       console.error('Template highlighting failed:', error);
       // Fallback to basic highlighting if TemplateHighlighter fails
       let fallbackHighlighted = this.fallbackTemplateHighlight();
-      // Still apply control structure highlighting to ensure variables are properly wrapped
       fallbackHighlighted = this.applyControlStructureHighlighting(fallbackHighlighted);
       this.highlightedTemplate = fallbackHighlighted;
     }
@@ -1904,7 +1925,11 @@ export class Jinja2EditorV2 extends LitElement {
     try {
       this.validateAndCleanVariables();
 
-      const result = this.nunjucksEnv.renderString(template, buildNestedContext(this.variableValues));
+      let result = this.nunjucksEnv.renderString(template, buildNestedContext(this.variableValues));
+
+      // Replace parameter placeholders ($1, :param, etc.) with user values.
+      // Nunjucks treats them as plain text; we must replace them manually.
+      result = this.replaceParamPlaceholders(result);
 
       const suspiciousPatterns = [
         { pattern: /VAR_\d+/, description: 'VAR_N pattern' },
@@ -1934,6 +1959,50 @@ export class Jinja2EditorV2 extends LitElement {
 
       return `-- [渲染错误] ${errorMessage}\n-- 请检查模板语法和变量值\n${template}`;
     }
+  }
+
+  /**
+   * Replace parameter placeholders ($1, :param, %(name)s, :1) in rendered
+   * SQL with user-configured values. Nunjucks treats these as plain text,
+   * so we must do the substitution manually after template rendering.
+   */
+  private replaceParamPlaceholders(sql: string): string {
+    let result = sql;
+
+    // Build map: pattern text → user value
+    // Order: longer patterns first to avoid partial matches (e.g., $10 before $1)
+    const replacements: Array<{ pattern: string; value: string }> = [];
+
+    for (const v of this.variables) {
+      if (!v.paramPattern) continue;
+      const val = this.variableValues[v.name];
+      if (val === undefined || val === null) continue;
+
+      let valueStr: string;
+      if (typeof val === 'string') {
+        valueStr = `'${val.replace(/'/g, "''")}'`;
+      } else if (typeof val === 'boolean') {
+        valueStr = val ? 'TRUE' : 'FALSE';
+      } else if (typeof val === 'number') {
+        valueStr = String(val);
+      } else {
+        valueStr = String(val);
+      }
+
+      replacements.push({ pattern: v.paramPattern, value: valueStr });
+    }
+
+    // Sort by pattern length descending so $10 replaces before $1
+    replacements.sort((a, b) => b.pattern.length - a.pattern.length);
+
+    for (const { pattern, value } of replacements) {
+      // Escape regex special chars in pattern
+      const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escaped, 'g');
+      result = result.replace(regex, value);
+    }
+
+    return result;
   }
 
   /**
@@ -2363,6 +2432,32 @@ export class Jinja2EditorV2 extends LitElement {
     }
   }
 
+  /**
+   * Copy highlight debug info to clipboard for diagnosis.
+   */
+  private async handleCopyDebugLog() {
+    // Force re-highlight to capture fresh debug info
+    this.highlightTemplate();
+    await new Promise(r => setTimeout(r, 50));
+
+    const debugText = this._highlightDebugInfo
+      || '(No debug info captured. Try again after template loads.)';
+
+    try {
+      await navigator.clipboard.writeText(debugText);
+      this.showNotification('调试日志已复制到剪贴板，请粘贴给开发者', 'success');
+    } catch {
+      // Fallback: show in a textarea for manual copy
+      const ta = document.createElement('textarea');
+      ta.value = debugText;
+      ta.style.cssText = 'position:fixed;top:20px;left:20px;width:90vw;height:60vh;z-index:99999;font:12px monospace';
+      document.body.appendChild(ta);
+      ta.select();
+      this.showNotification('请从文本框复制调试日志（Ctrl+A, Ctrl+C）', 'info');
+      setTimeout(() => ta.remove(), 60000);
+    }
+  }
+
   private handleExportVariableLogs() {
     if (this.variableChangeLogs.length === 0) {
       return;
@@ -2682,8 +2777,8 @@ Includes: Right panel HTML tracking
               <span>🔗</span>
               <span>联动</span>
             </button>
-            <button class="header-button" @click=${this.handleExportVariableLogs} title="导出变量变化日志">
-              📋 变量日志
+            <button class="header-button" @click=${this.handleCopyDebugLog} title="复制调试日志（排查高亮问题）">
+              🐛 调试日志
             </button>
             <button class="header-button primary" @click=${this.handleSubmit}>
               ✅ 提交

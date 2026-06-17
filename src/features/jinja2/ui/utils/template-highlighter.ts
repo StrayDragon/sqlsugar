@@ -2,7 +2,13 @@
  * Template Highlighter for V2 Editor
  *
  * Provides Jinja2 template syntax highlighting with SQL sub-language support
- * while maintaining clickable variable functionality
+ * while maintaining clickable variable functionality.
+ *
+ * Parameter placeholder highlighting strategy:
+ *   Placeholders ($1, :param, %(name)s, :1) are tokenized in raw text BEFORE
+ *   highlight.js syntax highlighting, because highlight.js splits them into
+ *   multiple <span> tags (e.g., $<span class="hljs-number">1</span>) making
+ *   post-hoc regex matching impossible. Tokens are restored after highlighting.
  */
 
 import type { EnhancedVariable } from '../types.js';
@@ -61,7 +67,6 @@ export class TemplateHighlighter {
 
   /**
    * Highlights Jinja2 template with SQL syntax highlighting
-   * Simple approach that preserves existing variable detection functionality
    */
   highlightTemplate(
     template: string,
@@ -77,7 +82,6 @@ export class TemplateHighlighter {
     }
 
     try {
-
       const highlighted = this.highlightTemplateWithSQL(template, variables, values);
 
       return {
@@ -92,8 +96,15 @@ export class TemplateHighlighter {
   }
 
   /**
-   * Advanced template highlighting that combines highlight.js syntax highlighting
-   * with our custom variable highlighting for clickable elements
+   * Advanced template highlighting that combines highlight.js syntax
+   * highlighting with custom variable/param highlighting for clickable elements.
+   *
+   * Phases:
+   *   1. Tokenize param placeholders in raw text (before highlight.js)
+   *   2. SQL syntax highlight via highlight.js
+   *   3. Restore param placeholder tokens to highlighted spans
+   *   4. Highlight Jinja2 {{ variables }} with clickable spans
+   *   5. Highlight variables in control structures
    */
   private highlightTemplateWithSQL(
     template: string,
@@ -101,37 +112,145 @@ export class TemplateHighlighter {
     values: Record<string, Jinja2VariableValue> = {}
   ): string {
     try {
+      // Phase 1: Tokenize parameter placeholders in raw text before highlight.js
+      const { text: tokenizedText, tokenMap } = this.tokenizeParamPlaceholders(template);
 
+      // Phase 2: Run highlight.js SQL syntax highlighting on tokenized text
       const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
-      const highlighted = hljsInstance.highlight(template, { language: 'sql', ignoreIllegals: true });
-
+      const highlighted = hljsInstance.highlight(tokenizedText, {
+        language: 'sql',
+        ignoreIllegals: true,
+      });
 
       let result = highlighted.value;
 
-      variables.forEach(variable => {
+      // Phase 3: Restore parameter placeholder tokens to highlighted spans
+      result = this.restoreParamTokens(result, tokenMap);
 
-        const varPattern = new RegExp(`{{\\s*${this.escapeRegex(variable.name)}\\s*}}`, 'g');
-
+      // Phase 4: Highlight Jinja2 {{ variables }} with clickable spans
+      variables.forEach((variable) => {
+        const varPattern = new RegExp(
+          `{{\\s*${this.escapeRegex(variable.name)}\\s*}}`,
+          'g'
+        );
 
         result = result.replace(varPattern, (match: string) => {
-          const valueDisplay = this.formatValueForDisplay(values[variable.name]);
+          const valueDisplay = this.formatValueForDisplay(
+            values[variable.name]
+          );
           const variableHTML = `<span class="template-variable variable-highlight" data-variable="${variable.name}" data-type="${variable.type}" title="Variable: ${variable.name} (${variable.type}) - Click to edit">${match}</span>`;
-          const valueHTML = valueDisplay ? `<span class="variable-value-display">${valueDisplay}</span>` : '';
+          const valueHTML = valueDisplay
+            ? `<span class="variable-value-display">${valueDisplay}</span>`
+            : '';
           return variableHTML + valueHTML;
         });
       });
 
-
+      // Phase 5: Highlight variables in Jinja2 control structures
       result = this.highlightVariablesInControlStructures(result, variables);
-
-      // Highlight parameter placeholders (:param, $1, %(name)s, :1)
-      result = this.highlightParameterPlaceholders(result);
 
       return result;
     } catch (error) {
       console.warn('Template highlighting failed:', error);
       return this.escapeHtml(template);
     }
+  }
+
+  /**
+   * Tokenize all parameter placeholder patterns in raw template text
+   * so they survive highlight.js syntax highlighting intact.
+   *
+   * Replacement order matters — most specific patterns first:
+   *   1. Pyformat %(name)s
+   *   2. Asyncpg $1, $2
+   *   3. Numeric :1, :2 (before generic named to avoid conflict)
+   *   4. Named :param (last, excluded by earlier patterns)
+   *
+   * Each is skipped if inside a Jinja2 expression ({{ }} or {% %}).
+   */
+  private tokenizeParamPlaceholders(rawText: string): {
+    text: string;
+    tokenMap: Map<string, string>;
+  } {
+    const tokenMap = new Map<string, string>();
+    let tokenCounter = 0;
+    let text = rawText;
+
+    const nextToken = () => {
+      const token = `__SQLSUGAR_PARAM_${tokenCounter}__`;
+      tokenCounter++;
+      return token;
+    };
+
+    // --- Pyformat: %(name)s ---
+    text = text.replace(/%\(([\w]+)\)s/g, (match, paramName) => {
+      if (this.isInsideJinja2Expression(text, match)) return match;
+      const token = nextToken();
+      const html = `<span class="variable-highlight param-highlight param-pyformat" data-variable="${paramName}" data-type="pyformat" data-param-style="pyformat" title="Pyformat: ${match} - Click to edit">${match}</span>`;
+      tokenMap.set(token, html);
+      return token;
+    });
+
+    // --- Asyncpg: $1, $2, ... ---
+    text = text.replace(/\$(\d+)\b/g, (match, index) => {
+      if (this.isInsideJinja2Expression(text, match)) return match;
+      const token = nextToken();
+      const html = `<span class="variable-highlight param-highlight param-asyncpg" data-variable="${index}" data-type="asyncpg" data-param-style="asyncpg" title="Asyncpg: ${match} - Click to edit">${match}</span>`;
+      tokenMap.set(token, html);
+      return token;
+    });
+
+    // --- Numeric: :1, :2 (Oracle) ---
+    text = text.replace(/(?<!:):(\d+)\b/g, (match, index) => {
+      if (this.isInsideJinja2Expression(text, match)) return match;
+      const token = nextToken();
+      const html = `<span class="variable-highlight param-highlight param-numeric" data-variable="${index}" data-type="numeric" data-param-style="numeric" title="Numeric: ${match} - Click to edit">${match}</span>`;
+      tokenMap.set(token, html);
+      return token;
+    });
+
+    // --- Named: :param (not ::escaped, not inside {{ }} or {% %}) ---
+    const NAMED_REGEX = /(?<![\w:]):([a-zA-Z_]\w*)\b(?!\s*[}%])/g;
+    text = text.replace(NAMED_REGEX, (match, paramName) => {
+      if (this.isInsideJinja2Expression(text, match)) return match;
+      const token = nextToken();
+      const html = `<span class="variable-highlight param-highlight param-named" data-variable="${paramName}" data-type="named" data-param-style="named" title="Named: :${paramName} - Click to edit">${match}</span>`;
+      tokenMap.set(token, html);
+      return token;
+    });
+
+    return { text, tokenMap };
+  }
+
+  /**
+   * Check whether a position in the template string is inside a Jinja2
+   * expression ({{ }}) or control block ({% %}), where parameter
+   * placeholder highlighting should not apply.
+   */
+  private isInsideJinja2Expression(template: string, match: string): boolean {
+    const idx = template.indexOf(match);
+    if (idx === -1) return false;
+    const before = template.substring(0, idx);
+    const openExpr = (before.match(/\{\{/g) || []).length;
+    const closeExpr = (before.match(/\}\}/g) || []).length;
+    const openBlock = (before.match(/\{%/g) || []).length;
+    const closeBlock = (before.match(/%\}/g) || []).length;
+    return openExpr > closeExpr || openBlock > closeBlock;
+  }
+
+  /**
+   * Restore parameter placeholder tokens to their highlighted span HTML
+   * after highlight.js syntax highlighting has completed.
+   */
+  private restoreParamTokens(
+    highlightedHTML: string,
+    tokenMap: Map<string, string>
+  ): string {
+    let result = highlightedHTML;
+    for (const [token, replacementHTML] of tokenMap) {
+      result = result.replace(token, replacementHTML);
+    }
+    return result;
   }
 
   /**
@@ -142,7 +261,6 @@ export class TemplateHighlighter {
     variables: EnhancedVariable[]
   ): string {
     let result = highlightedHTML;
-
 
     result = result.replace(/{%\s*if\s+([^%]+)\s*%}/g, (match: string, condition: string) => {
       let highlightedCondition = condition;
@@ -155,7 +273,6 @@ export class TemplateHighlighter {
 
       return `{% if ${highlightedCondition} %}`;
     });
-
 
     result = result.replace(/{%\s*for\s+\w+\s+in\s+\w+\s*%}/g, (match: string) => {
       let highlightedMatch = match;
@@ -173,67 +290,6 @@ export class TemplateHighlighter {
   }
 
   /**
-   * Highlights parameter placeholders in SQL
-   * Supports: :param (named), $1 (asyncpg), %(name)s (pyformat), :1 (numeric)
-   */
-  private highlightParameterPlaceholders(html: string): string {
-    let result = html;
-
-    // Named parameters :param (but not ::escaped or :1 numeric)
-    // Match :word but not inside already highlighted spans or Jinja2 expressions
-    result = result.replace(/(?<![:\w]):([a-zA-Z_]\w*)\b(?!\s*[}%])/g, (match, paramName) => {
-      // Skip if inside a span (already highlighted)
-      if (this.isInsideSpan(result, match)) return match;
-      return `<span class="template-variable param-highlight param-named" data-variable="${paramName}" data-type="named" data-param-style="named" title="Named: :${paramName} - Click to edit">${match}</span>`;
-    });
-
-    // Asyncpg parameters $1, $2, ...
-    result = result.replace(/\$(\d+)\b/g, (match, index) => {
-      if (this.isInsideSpan(result, match)) return match;
-      return `<span class="template-variable param-highlight param-asyncpg" data-variable="$${index}" data-type="asyncpg" data-param-style="asyncpg" title="Asyncpg: ${match} - Click to edit">${match}</span>`;
-    });
-
-    // Pyformat parameters %(name)s
-    result = result.replace(/%\(([\w]+)\)s/g, (match, paramName) => {
-      if (this.isInsideSpan(result, match)) return match;
-      return `<span class="template-variable param-highlight param-pyformat" data-variable="${paramName}" data-type="pyformat" data-param-style="pyformat" title="Pyformat: ${match} - Click to edit">${match}</span>`;
-    });
-
-    // Numeric parameters :1, :2, ... (Oracle style)
-    result = result.replace(/(?<!:):(\d+)\b/g, (match, index) => {
-      if (this.isInsideSpan(result, match)) return match;
-      return `<span class="template-variable param-highlight param-numeric" data-variable="$${index}" data-type="numeric" data-param-style="numeric" title="Numeric: ${match} - Click to edit">${match}</span>`;
-    });
-
-    return result;
-  }
-
-  /**
-   * Check if a match is already inside a variable-highlight or param-highlight span
-   */
-  private isInsideSpan(html: string, match: string): boolean {
-    const matchIndex = html.indexOf(match);
-    if (matchIndex === -1) return false;
-
-    // Check if the match is inside a variable-highlight or param-highlight span
-    // by looking backwards for opening spans that haven't been closed
-    const before = html.substring(0, matchIndex);
-
-    // Find all span openings and closings
-    const spanOpenRegex = /<span[^>]*class="[^"]*(?:variable-highlight|param-highlight)[^"]*"[^>]*>/g;
-    const spanCloseRegex = /<\/span>/g;
-
-    let openCount = 0;
-    let closeCount = 0;
-
-    while (spanOpenRegex.exec(before) !== null) openCount++;
-    while (spanCloseRegex.exec(before) !== null) closeCount++;
-
-    return openCount > closeCount;
-  }
-
-
-  /**
    * Formats value for display in variable highlighting
    */
   private formatValueForDisplay(value: Jinja2VariableValue): string {
@@ -247,10 +303,8 @@ export class TemplateHighlighter {
 
   /**
    * Fallback highlighting when main highlighting fails
-   * Returns escaped HTML to ensure the template is still displayable
    */
   private fallbackHighlight(template: string): TemplateHighlightResult {
-
     return {
       html: this.escapeHtml(template),
       variables: [],

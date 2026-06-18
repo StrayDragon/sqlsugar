@@ -216,7 +216,7 @@ function registerCollectionFilters(env: nunjucks.Environment): void {
   });
 }
 
-function registerJinja2Tests(env: nunjucks.Environment): void {
+function registerTemplateTests(env: nunjucks.Environment): void {
   env.addTest('divisibleby', (...args: unknown[]) => (args[0] as number) % (args[1] as number) === 0);
   env.addTest('even', (...args: unknown[]) => (args[0] as number) % 2 === 0);
   env.addTest('odd', (...args: unknown[]) => (args[0] as number) % 2 !== 0);
@@ -260,7 +260,7 @@ export function createAlignedNunjucksEnv(): nunjucks.Environment {
   registerTypeFilters(env);
   registerStringFilters(env);
   registerCollectionFilters(env);
-  registerJinja2Tests(env);
+  registerTemplateTests(env);
   registerCustomGlobals(env);
 
   return env;

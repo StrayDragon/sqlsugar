@@ -82,6 +82,6 @@ class Comment(models.Model):
     expect(schemas[0].relations).toHaveLength(2);
     expect(schemas[0].relations[0].type).toBe('foreign-key');
     expect(schemas[0].relations[1].type).toBe('many-to-many');
-    expect(schemas[0].columns).toHaveLength(1); // text only, FK excluded
+    expect(schemas[0].columns).toHaveLength(1);
   });
 });

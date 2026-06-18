@@ -6,7 +6,7 @@ export interface TemplateParam {
   required: boolean;
   default?: unknown;
   description?: string;
-  options?: string[];  // for enum type
+  options?: string[];
 }
 
 export interface SQLTemplate {

@@ -48,7 +48,7 @@ describe('SQLParserService', () => {
 
   it('should handle SQL with Jinja2 templates', () => {
     const result = parser.parse('SELECT * FROM {{ table_name }} WHERE id = {{ id }}', 'mysql');
-    // After preprocessing, the SQL should be parseable (placeholders are identifiers)
+
     expect(result.preprocessResult.placeholders).toHaveLength(2);
   });
 

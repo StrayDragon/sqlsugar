@@ -1,9 +1,9 @@
 /// <reference types="vitest" />
 import { describe, it, expect } from 'vitest';
-import { Jinja2NunjucksProcessor } from '../features/jinja2/processor';
+import { TemplateProcessor } from '../features/templated-sql/processor';
 
 describe('Variable Inference', () => {
-  const processor = Jinja2NunjucksProcessor.getInstance();
+  const processor = TemplateProcessor.getInstance();
 
   describe('Basic Variable Detection', () => {
     it('should detect variables from basic template', () => {
@@ -27,7 +27,7 @@ WHERE id = {{ user_id }}
     it('should infer boolean type correctly', () => {
       const booleanVariables = [
         { name: 'is_active', expected: true },
-        { name: 'is_deleted', expected: false }, // deleted should be false
+        { name: 'is_deleted', expected: false },
         { name: 'has_permission', expected: true },
         { name: 'can_edit', expected: true },
         { name: 'enabled', expected: true },
@@ -73,7 +73,7 @@ WHERE id = {{ user_id }}
         const variables = processor.extractVariables(`{{ ${varName} }}`);
         const extracted = variables.find(v => v.name === varName);
         expect(extracted?.type).toBe('date');
-        expect(extracted?.defaultValue).toMatch(/^\d{4}-\d{2}-\d{2}$/); // YYYY-MM-DD format
+        expect(extracted?.defaultValue).toMatch(/^\d{4}-\d{2}-\d{2}$/);
       });
     });
 
@@ -111,7 +111,7 @@ WHERE id = {{ user_id | int }}
 
       expect(user_id?.filters).toContain('int');
       expect(user_name?.filters).toContain('upper');
-      // The AST parser may handle chained filters differently, but should at least include the first filter
+
       expect(start_date?.filters).toContain('sql_date');
     });
   });
@@ -132,9 +132,9 @@ WHERE id = {{ user_id }}
 
       const result = processor.generateDemoSQL(template);
 
-      expect(result.sql).toContain('123'); // user_id default
-      expect(result.sql).toContain('true'); // is_active default
-      expect(result.sql).toContain('示例名称'); // user_name default
+      expect(result.sql).toContain('123');
+      expect(result.sql).toContain('true');
+      expect(result.sql).toContain('示例名称');
       expect(result.variables).toHaveLength(3);
     });
   });
@@ -166,21 +166,21 @@ WHERE {{ status }} = 'active'
     it('should cache variable extraction results', () => {
       const template = `SELECT * FROM users WHERE {{ user_id }} AND {{ is_active }}`;
 
-      // First call - should compute and cache
+
       const start1 = Date.now();
       const variables1 = processor.extractVariables(template);
       const _time1 = Date.now() - start1;
 
-      // Second call - should use cache (will be faster)
+
       const start2 = Date.now();
       const variables2 = processor.extractVariables(template);
       const _time2 = Date.now() - start2;
 
-      // Results should be identical
+
       expect(variables1).toEqual(variables2);
       expect(variables1).toHaveLength(2);
 
-      // Check cache metrics
+
       const metrics = processor.getCacheMetrics();
       expect(metrics.variableCache.hits).toBeGreaterThanOrEqual(1);
       expect(metrics.variableCache.size).toBeGreaterThan(0);
@@ -189,17 +189,17 @@ WHERE {{ status }} = 'active'
     it('should cache template validation results', () => {
       const template = `SELECT * FROM users WHERE {{ user_id }}`;
 
-      // First call - should compute and cache
+
       const result1 = processor.validateTemplate(template);
 
-      // Second call - should use cache
+
       const result2 = processor.validateTemplate(template);
 
-      // Results should be identical
+
       expect(result1).toEqual(result2);
       expect(result1.valid).toBe(true);
 
-      // Check cache metrics
+
       const metrics = processor.getCacheMetrics();
       expect(metrics.templateCache.hits).toBeGreaterThanOrEqual(1);
       expect(metrics.templateCache.size).toBeGreaterThan(0);
@@ -225,7 +225,7 @@ WHERE {{ status }} = 'active'
     });
 
     it('should clear caches', () => {
-      // Generate some cache data
+
       processor.extractVariables('{{ user_id }}');
       processor.validateTemplate('SELECT * FROM users');
 
@@ -233,7 +233,7 @@ WHERE {{ status }} = 'active'
       expect(metrics.variableCache.size).toBeGreaterThan(0);
       expect(metrics.templateCache.size).toBeGreaterThan(0);
 
-      // Clear all caches
+
       processor.clearCaches();
 
       metrics = processor.getCacheMetrics();
@@ -242,20 +242,20 @@ WHERE {{ status }} = 'active'
     });
 
     it('should clear specific caches', () => {
-      // Generate some cache data
+
       processor.extractVariables('{{ user_id }}');
       processor.validateTemplate('SELECT * FROM users');
 
-      // Clear only variable cache
+
       processor.clearVariableCache();
       let metrics = processor.getCacheMetrics();
       expect(metrics.variableCache.size).toBe(0);
       expect(metrics.templateCache.size).toBeGreaterThan(0);
 
-      // Generate variable cache again
+
       processor.extractVariables('{{ user_id }}');
 
-      // Clear only template cache
+
       processor.clearTemplateCache();
       metrics = processor.getCacheMetrics();
       expect(metrics.variableCache.size).toBeGreaterThan(0);

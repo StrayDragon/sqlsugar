@@ -16,7 +16,7 @@ export default defineConfig({
         '**/*.config.*',
         'dist/',
         'out/',
-        'src/features/jinja2/ui/**',
+        'src/features/templated-sql/ui/**',
       ],
       thresholds: {
         global: {
@@ -25,7 +25,7 @@ export default defineConfig({
           lines: 50,
           statements: 50,
         },
-        './src/features/jinja2/processor.ts': {
+        './src/features/templated-sql/processor.ts': {
           branches: 70,
           functions: 70,
           lines: 70,
@@ -48,7 +48,7 @@ export default defineConfig({
       '@': resolve(__dirname, 'src'),
       '@test': resolve(__dirname, 'src/test'),
       '@features': resolve(__dirname, 'src/features'),
-      '@jinja2': resolve(__dirname, 'src/features/jinja2'),
+      '@templated-sql': resolve(__dirname, 'src/features/templated-sql'),
       vscode: resolve(__dirname, 'src/test/mocks/vscode.ts'),
     },
   },

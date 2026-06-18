@@ -17,7 +17,7 @@ export class SQLAlchemyProvider implements ORMProvider {
   readonly filePattern = ['**/models.py', '**/models/*.py', '**/model.py'];
 
   async discoverModels(workspacePath: string): Promise<string[]> {
-    // In a real implementation, this would use VS Code workspace.findFiles
+
     void workspacePath;
     return [];
   }

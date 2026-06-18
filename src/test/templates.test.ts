@@ -32,7 +32,7 @@ describe('TemplateRegistry', () => {
   it('should find by dialect (universal matches all)', () => {
     const registry = createDefaultRegistry();
     const mysql = registry.findByDialect('mysql');
-    expect(mysql.length).toBe(registry.size); // all are universal
+    expect(mysql.length).toBe(registry.size);
   });
 
   it('should register custom templates', () => {

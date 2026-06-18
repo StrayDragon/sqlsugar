@@ -5,12 +5,12 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { NamedParamAnalyzer } from '../features/jinja2/analyzers/named-param-analyzer.js';
-import { NumericParamAnalyzer } from '../features/jinja2/analyzers/numeric-param-analyzer.js';
-import { PyformatParamAnalyzer } from '../features/jinja2/analyzers/pyformat-param-analyzer.js';
-import { AsyncpgParamAnalyzer } from '../features/jinja2/analyzers/asyncpg-param-analyzer.js';
-import { Jinja2Analyzer } from '../features/jinja2/analyzers/jinja2-analyzer.js';
-import type { AnalyzerContext } from '../features/jinja2/analyzers/types.js';
+import { NamedParamAnalyzer } from '../features/templated-sql/analyzers/named-param-analyzer.js';
+import { NumericParamAnalyzer } from '../features/templated-sql/analyzers/numeric-param-analyzer.js';
+import { PyformatParamAnalyzer } from '../features/templated-sql/analyzers/pyformat-param-analyzer.js';
+import { AsyncpgParamAnalyzer } from '../features/templated-sql/analyzers/asyncpg-param-analyzer.js';
+import { TemplateExpressionAnalyzer } from '../features/templated-sql/analyzers/jinja2-analyzer.js';
+import type { AnalyzerContext } from '../features/templated-sql/analyzers/types.js';
 
 const emptyContext: AnalyzerContext = {
   template: '',
@@ -121,7 +121,7 @@ describe('NumericParamAnalyzer', () => {
     expect(result.hasResults).toBe(true);
     expect(result.parameters).toHaveLength(2);
     expect(result.parameters[0].name).toBe('1');
-    expect(result.parameters[0].position).toBe(0); // 0-based
+    expect(result.parameters[0].position).toBe(0);
     expect(result.parameters[1].name).toBe('2');
     expect(result.parameters[1].position).toBe(1);
   });
@@ -226,7 +226,7 @@ describe('AsyncpgParamAnalyzer', () => {
     expect(result.hasResults).toBe(true);
     expect(result.parameters).toHaveLength(2);
     expect(result.parameters[0].name).toBe('1');
-    expect(result.parameters[0].position).toBe(0); // 0-based
+    expect(result.parameters[0].position).toBe(0);
     expect(result.parameters[0].type).toBe('asyncpg');
     expect(result.parameters[1].name).toBe('2');
     expect(result.parameters[1].position).toBe(1);
@@ -276,8 +276,8 @@ describe('AsyncpgParamAnalyzer', () => {
   });
 });
 
-describe('Jinja2Analyzer', () => {
-  const analyzer = new Jinja2Analyzer();
+describe('TemplateExpressionAnalyzer', () => {
+  const analyzer = new TemplateExpressionAnalyzer();
 
   it('should extract Jinja2 variables', () => {
     const result = analyzer.analyze(
@@ -298,8 +298,8 @@ describe('Jinja2Analyzer', () => {
       emptyContext
     );
 
-    // Note: Jinja2Analyzer focuses on {{ }} expressions
-    // Condition variables are handled by template-parser.ts
+    // Note: TemplateExpressionAnalyzer focuses on {{ }} expressions
+
     expect(result.hasResults).toBe(false);
   });
 
@@ -354,7 +354,7 @@ describe('Jinja2Analyzer', () => {
 
 describe('Analyzer priority ordering', () => {
   it('jinja2 should have highest priority (lowest number)', () => {
-    const jinja2 = new Jinja2Analyzer();
+    const jinja2 = new TemplateExpressionAnalyzer();
     const named = new NamedParamAnalyzer();
     const numeric = new NumericParamAnalyzer();
     const pyformat = new PyformatParamAnalyzer();

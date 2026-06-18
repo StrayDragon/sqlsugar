@@ -5,19 +5,19 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AnalyzerPipeline } from '../features/jinja2/analyzers/analyzer-pipeline.js';
-import { Jinja2Analyzer } from '../features/jinja2/analyzers/jinja2-analyzer.js';
-import { NamedParamAnalyzer } from '../features/jinja2/analyzers/named-param-analyzer.js';
-import { NumericParamAnalyzer } from '../features/jinja2/analyzers/numeric-param-analyzer.js';
-import { PyformatParamAnalyzer } from '../features/jinja2/analyzers/pyformat-param-analyzer.js';
-import { AsyncpgParamAnalyzer } from '../features/jinja2/analyzers/asyncpg-param-analyzer.js';
+import { AnalyzerPipeline } from '../features/templated-sql/analyzers/analyzer-pipeline.js';
+import { TemplateExpressionAnalyzer } from '../features/templated-sql/analyzers/jinja2-analyzer.js';
+import { NamedParamAnalyzer } from '../features/templated-sql/analyzers/named-param-analyzer.js';
+import { NumericParamAnalyzer } from '../features/templated-sql/analyzers/numeric-param-analyzer.js';
+import { PyformatParamAnalyzer } from '../features/templated-sql/analyzers/pyformat-param-analyzer.js';
+import { AsyncpgParamAnalyzer } from '../features/templated-sql/analyzers/asyncpg-param-analyzer.js';
 
 describe('Analyzer Integration', () => {
   let pipeline: AnalyzerPipeline;
 
   beforeEach(() => {
     pipeline = new AnalyzerPipeline();
-    pipeline.register(new Jinja2Analyzer());
+    pipeline.register(new TemplateExpressionAnalyzer());
     pipeline.register(new NamedParamAnalyzer());
     pipeline.register(new NumericParamAnalyzer());
     pipeline.register(new PyformatParamAnalyzer());
@@ -121,7 +121,7 @@ describe('Analyzer Integration', () => {
       const sql = 'SELECT * FROM users WHERE id = :user_id';
       const result = pipeline.execute(sql, { shortCircuit: true });
 
-      // Should execute named analyzer and find results
+
       expect(result.metadata.executedAnalyzers).toContain('named');
       expect(result.parameters.some((p) => p.type === 'named')).toBe(true);
     });
@@ -188,7 +188,7 @@ describe('Analyzer Integration', () => {
 
   describe('deduplication', () => {
     it('should deduplicate same parameter from different analyzers', () => {
-      // This shouldn't normally happen, but tests the dedup logic
+
       const sql = 'SELECT :param';
 
       const result = pipeline.execute(sql, { deduplicate: true });
@@ -223,11 +223,11 @@ describe('Analyzer Integration', () => {
 
       const result = pipeline.execute(sql);
 
-      expect(result.metadata.executionTime).toBeLessThan(100); // Should be fast
+      expect(result.metadata.executionTime).toBeLessThan(100);
     });
 
     it('should handle large queries efficiently', () => {
-      // Generate a query with many parameters
+
       const params = Array.from({ length: 50 }, (_, i) => `param_${i}`);
       const conditions = params.map((p) => `${p} = :${p}`).join(' AND ');
       const sql = `SELECT * FROM t WHERE ${conditions}`;
@@ -269,7 +269,7 @@ describe('Analyzer Integration', () => {
       const result = pipeline.execute(sql);
 
       // Note: Current implementation extracts both :name and :id
-      // String literal handling is a known limitation
+
       const namedParams = result.parameters.filter((p) => p.type === 'named');
       expect(namedParams.length).toBeGreaterThanOrEqual(1);
       expect(namedParams.some((p) => p.name === 'id')).toBe(true);

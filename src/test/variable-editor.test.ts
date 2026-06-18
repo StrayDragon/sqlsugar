@@ -5,10 +5,10 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import '../features/jinja2/ui/components/variable-editor.js';
-import type { VariableEditor } from '../features/jinja2/ui/components/variable-editor.js';
-import type { Jinja2Variable } from '../features/jinja2/ui/types.js';
-import type { ExtractedParameter } from '../features/jinja2/analyzers/types.js';
+import '../features/templated-sql/ui/components/variable-editor.js';
+import type { VariableEditor } from '../features/templated-sql/ui/components/variable-editor.js';
+import type { TemplateVariable } from '../features/templated-sql/ui/types.js';
+import type { ExtractedParameter } from '../features/templated-sql/analyzers/types.js';
 
 describe('VariableEditor', () => {
   let element: VariableEditor;
@@ -30,7 +30,7 @@ describe('VariableEditor', () => {
   });
 
   it('should render Jinja2 variables', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number', isRequired: true },
       { name: 'name', type: 'string' },
     ];
@@ -70,7 +70,7 @@ describe('VariableEditor', () => {
   });
 
   it('should render unified variables from both sources', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number' },
     ];
     const parameters: ExtractedParameter[] = [
@@ -93,7 +93,7 @@ describe('VariableEditor', () => {
   });
 
   it('should show type tags', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number' },
     ];
     element.variables = variables;
@@ -105,7 +105,7 @@ describe('VariableEditor', () => {
   });
 
   it('should show required indicator', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number', isRequired: true },
     ];
     element.variables = variables;
@@ -119,7 +119,7 @@ describe('VariableEditor', () => {
   it('should group by source type when groupBySource is true', async () => {
     element.groupBySource = true;
 
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number' },
     ];
     const parameters: ExtractedParameter[] = [
@@ -144,7 +144,7 @@ describe('VariableEditor', () => {
   it('should render flat when groupBySource is false', async () => {
     element.groupBySource = false;
 
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number' },
     ];
     element.variables = variables;
@@ -155,7 +155,7 @@ describe('VariableEditor', () => {
   });
 
   it('should show value preview', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number', defaultValue: 123 },
     ];
     element.variables = variables;
@@ -168,7 +168,7 @@ describe('VariableEditor', () => {
   });
 
   it('should use default value when no value set', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number', defaultValue: 123 },
     ];
     element.variables = variables;
@@ -180,7 +180,7 @@ describe('VariableEditor', () => {
   });
 
   it('should handle variable click', async () => {
-    const variables: Jinja2Variable[] = [
+    const variables: TemplateVariable[] = [
       { name: 'user_id', type: 'number' },
     ];
     element.variables = variables;

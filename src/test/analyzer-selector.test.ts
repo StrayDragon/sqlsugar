@@ -5,8 +5,8 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import '../features/jinja2/ui/components/analyzer-selector.js';
-import type { AnalyzerSelector } from '../features/jinja2/ui/components/analyzer-selector.js';
+import '../features/templated-sql/ui/components/analyzer-selector.js';
+import type { AnalyzerSelector } from '../features/templated-sql/ui/components/analyzer-selector.js';
 
 describe('AnalyzerSelector', () => {
   let element: AnalyzerSelector;
@@ -83,14 +83,14 @@ describe('AnalyzerSelector', () => {
     trigger.click();
     await element.updateComplete;
 
-    // Find the checkbox for 'named' (second one)
+
     const checkboxes = element.shadowRoot!.querySelectorAll('input[type="checkbox"]');
     const namedCheckbox = checkboxes[1] as HTMLInputElement;
 
-    // Initially jinja2 is selected, named is not
+
     expect(element.selectedAnalyzers).toEqual(['jinja2']);
 
-    // Click to select named
+
     namedCheckbox.click();
     await element.updateComplete;
 
@@ -107,14 +107,14 @@ describe('AnalyzerSelector', () => {
     trigger.click();
     await element.updateComplete;
 
-    // Try to deselect jinja2 (the only selected one)
+
     const checkboxes = element.shadowRoot!.querySelectorAll('input[type="checkbox"]');
     const jinja2Checkbox = checkboxes[0] as HTMLInputElement;
 
     jinja2Checkbox.click();
     await element.updateComplete;
 
-    // Should still have jinja2 selected
+
     expect(element.selectedAnalyzers).toContain('jinja2');
   });
 
@@ -147,7 +147,7 @@ describe('AnalyzerSelector', () => {
 
     expect(element.shadowRoot!.querySelector('.dropdown')).toBeTruthy();
 
-    // Click outside
+
     document.body.click();
     await element.updateComplete;
 
@@ -171,7 +171,7 @@ describe('AnalyzerSelector', () => {
     trigger.click();
     await element.updateComplete;
 
-    // Dropdown should not open
+
     expect(element.shadowRoot!.querySelector('.dropdown')).toBeNull();
   });
 

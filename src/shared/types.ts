@@ -6,7 +6,7 @@
 /**
  * Jinja2变量值类型
  */
-export type Jinja2VariableValue =
+export type TemplateVariableValue =
   | string
   | number
   | boolean
@@ -19,7 +19,7 @@ export type Jinja2VariableValue =
 /**
  * Jinja2变量类型枚举
  */
-export type Jinja2VariableType =
+export type TemplateVariableType =
   | 'string'
   | 'number'
   | 'integer'

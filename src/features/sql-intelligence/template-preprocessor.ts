@@ -26,7 +26,7 @@ export class TemplatePreprocessor {
     let result = template;
     let offset = 0;
 
-    // Replace {{ variable }} with __J2_VAR_N__
+
     result = result.replace(/\{\{([^}]*)\}\}/g, (match, _content, matchOffset) => {
       const placeholder = `__J2_VAR_${this.varCounter}__`;
       placeholders.push({
@@ -41,7 +41,7 @@ export class TemplatePreprocessor {
       return placeholder;
     });
 
-    // Replace {% ... %} blocks with SQL comments
+
     result = result.replace(/\{%([^%]*?)%\}/g, (match, _content, matchOffset) => {
       const placeholder = `/* __J2_BLOCK_${this.blockCounter}__ */`;
       placeholders.push({
@@ -56,7 +56,7 @@ export class TemplatePreprocessor {
       return placeholder;
     });
 
-    // Replace {# ... #} comments
+
     result = result.replace(/\{#([^#]*?)#\}/g, (match, _content, matchOffset) => {
       const placeholder = `/* __J2_COMMENT__ */`;
       placeholders.push({

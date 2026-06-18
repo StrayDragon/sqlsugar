@@ -1,5 +1,5 @@
 import { LanguageHandler } from '../features/inline-sql/language-handler';
-import { Jinja2NunjucksProcessor } from '../features/jinja2/processor';
+import { TemplateProcessor } from '../features/templated-sql/processor';
 import type { LanguageProvider, InferenceProvider, InferenceResult } from './provider-registry';
 
 /**
@@ -40,10 +40,10 @@ export class PatternInferenceAdapter implements InferenceProvider {
   readonly name = 'Pattern-based Inference';
   readonly priority = 40;
 
-  private processor: Jinja2NunjucksProcessor;
+  private processor: TemplateProcessor;
 
   constructor() {
-    this.processor = Jinja2NunjucksProcessor.getInstance();
+    this.processor = TemplateProcessor.getInstance();
   }
 
   inferType(variableName: string): InferenceResult | null {

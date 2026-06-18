@@ -34,7 +34,7 @@ export class SQLParserService {
       return { valid: true, errors: [], ast, preprocessResult };
     } catch (error: unknown) {
       const parseError = this.extractError(error);
-      // Filter errors that fall within placeholder regions
+
       const filteredErrors = parseError.offset !== undefined
         && this.preprocessor.isInPlaceholderRegion(parseError.offset, preprocessResult.placeholders)
         ? []

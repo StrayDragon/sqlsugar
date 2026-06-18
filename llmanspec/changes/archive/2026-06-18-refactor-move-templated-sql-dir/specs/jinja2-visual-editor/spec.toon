@@ -1,0 +1,8 @@
+kind: llman.sdd.delta
+ops[2]{op,req_id,title,statement,from,to,name}:
+  modify_requirement,"R-J2E-018","编辑器实体命名扩展到结构层","系统 MUST 将 feature 目录、引擎类名、共享工具文件名与产品实体命名统一，使 src/features/templated-sql/ 成为唯一 feature 目录且不再残留 jinja2 目录或 Jinja2Nunjucks 前缀类名",null,null,null
+  add_requirement,"R-J2E-020","目录与类名一致性","系统 MUST 确保 feature 目录 src/features/templated-sql/ 下所有引擎层类名不包含 Jinja2 或 Nunjucks 技术栈前缀",null,null,null
+op_scenarios[3]{req_id,id,given,when,then}:
+  "R-J2E-018","dir-migration",代码库存在 src/features/jinja2/ 目录,审查 feature 目录结构,"src/features/jinja2/ 已不存在且 src/features/templated-sql/ 包含全部原文件，所有外部 import 路径已更新"
+  "R-J2E-018","class-rename",代码库存在 Jinja2NunjucksHandler/Jinja2NunjucksProcessor 等类名,审查引擎层类名,"command-handler.ts 导出 TemplatedSqlHandler、processor.ts 导出 TemplateProcessor、analyzers/ 导出 TemplateExpressionAnalyzer"
+  "R-J2E-020","naming-consistency",src/features/templated-sql/ 目录已就位,审查目录下所有 .ts 文件的导出符号,"不存在以 Jinja2 或 Jinjucks 为前缀的导出类名/函数名/类型名"

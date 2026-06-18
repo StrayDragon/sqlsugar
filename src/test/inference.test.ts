@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { Jinja2NunjucksProcessor } from '../features/jinja2/processor';
+import { TemplateProcessor } from '../features/templated-sql/processor';
 
-describe('Jinja2NunjucksProcessor', () => {
-  const processor = Jinja2NunjucksProcessor.getInstance();
+describe('TemplateProcessor', () => {
+  const processor = TemplateProcessor.getInstance();
 
   describe('renderTemplate', () => {
     it('should render simple variable substitution', () => {

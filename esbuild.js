@@ -169,7 +169,7 @@ async function buildExtension() {
 async function buildTemplatedSqlEditor() {
     const ctx = await esbuild.context({
         entryPoints: [
-            'src/features/jinja2/ui/index.ts'
+            'src/features/templated-sql/ui/index.ts'
         ],
         bundle: true,
         format: 'esm',

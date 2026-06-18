@@ -194,7 +194,7 @@ export const mockVSCode = {
   StatusBarAlignment: { Left: 1, Right: 2 },
   DiagnosticSeverity: { Error: 0, Warning: 1, Information: 2, Hint: 3 },
 
-  // Helpers for tests to fire events
+
   __test__: {
     fireDidSave: (doc: MockTextDocument) => onDidSaveEmitter.fire(doc),
     fireDidClose: (doc: MockTextDocument) => onDidCloseEmitter.fire(doc),
@@ -204,7 +204,7 @@ export const mockVSCode = {
   },
 };
 
-// Re-export properties as named exports so `import * as vscode from 'vscode'` works
+
 export const Uri = MockUri;
 export const Position = MockPosition;
 export const Range = MockRange;

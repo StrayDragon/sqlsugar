@@ -5,13 +5,13 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AnalyzerPipeline } from '../features/jinja2/analyzers/analyzer-pipeline.js';
+import { AnalyzerPipeline } from '../features/templated-sql/analyzers/analyzer-pipeline.js';
 import type {
   Analyzer,
   AnalyzerContext,
   AnalyzerResult,
   ExtractedParameter,
-} from '../features/jinja2/analyzers/types.js';
+} from '../features/templated-sql/analyzers/types.js';
 
 /**
  * Mock analyzer for testing

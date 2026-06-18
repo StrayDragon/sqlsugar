@@ -5,7 +5,6 @@ import { Logger } from '../../core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './processor';
 import { TemplatedSqlWebviewEditor } from './webview';
-import type { VariableProcessingContext } from './ui/types/data-processing';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy';
 import { AnalyzerPipeline } from './analyzers/analyzer-pipeline';
 import { Jinja2Analyzer } from './analyzers/jinja2-analyzer';
@@ -46,12 +45,10 @@ export class Jinja2NunjucksHandler {
   /**
    * 处理Jinja2模板 - 主要入口点
    */
-  public static async handleCopyTemplatedSql(
-    mode: 'quick' | 'wizard' | 'webview' | 'defaults' = 'quick'
-  ): Promise<boolean> {
+  public static async handleCopyTemplatedSql(): Promise<boolean> {
     try {
       const handler = Jinja2NunjucksHandler.getInstance();
-      return await handler.processTemplate(mode);
+      return await handler.processTemplate();
     } catch (error) {
       Logger.error('Failed to handle Jinja2 template:', error);
       vscode.window.showErrorMessage(
@@ -64,7 +61,7 @@ export class Jinja2NunjucksHandler {
   /**
    * 处理模板
    */
-  private async processTemplate(mode: string): Promise<boolean> {
+  private async processTemplate(): Promise<boolean> {
     const editor = vscode.window.activeTextEditor;
     if (!editor?.selection || editor.selection.isEmpty) {
       vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', {
@@ -147,18 +144,7 @@ export class Jinja2NunjucksHandler {
     // Merge Jinja2 variables with parameter placeholders
     const allVariables = [...variables, ...paramVariables];
 
-    switch (mode) {
-      case 'quick':
-        return await this.handleQuickMode(selectedText, allVariables, placeholderDetection);
-      case 'wizard':
-        return await this.handleWizardMode(selectedText, allVariables, placeholderDetection);
-      case 'webview':
-        return await this.handleWebviewMode(selectedText, allVariables, placeholderDetection);
-      case 'defaults':
-        return await this.handleDefaultsMode(selectedText, allVariables, placeholderDetection);
-      default:
-        return await this.handleQuickMode(selectedText, allVariables, placeholderDetection);
-    }
+    return await this.handleWebviewMode(selectedText, allVariables, placeholderDetection);
   }
 
   /**
@@ -192,71 +178,7 @@ export class Jinja2NunjucksHandler {
   }
 
   /**
-   * 快速模式 - 使用默认值生成
-   */
-  private async handleQuickMode(
-    template: string,
-    variables: Jinja2Variable[],
-    placeholderDetection: PlaceholderDetection
-  ): Promise<boolean> {
-    try {
-
-
-      const context = this.getDefaultValues(variables);
-
-      let sql = this.processor.renderWithCustomVariables(template, context);
-
-
-      if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
-        sql = result.convertedSQL;
-      }
-
-      await this.copyToClipboard(sql, template, variables, context);
-      return true;
-    } catch (error) {
-      vscode.window.showErrorMessage(
-        `Quick mode failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return false;
-    }
-  }
-
-  /**
-   * 向导模式 - 交互式变量输入
-   */
-  private async handleWizardMode(
-    template: string,
-    variables: Jinja2Variable[],
-    placeholderDetection: PlaceholderDetection
-  ): Promise<boolean> {
-    try {
-
-
-      const context = this.getDefaultValues(variables);
-
-
-      let sql = this.processor.renderWithCustomVariables(template, context);
-
-
-      if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
-        sql = result.convertedSQL;
-      }
-
-      await this.copyToClipboard(sql, template, variables, context);
-      return true;
-    } catch (error) {
-      vscode.window.showErrorMessage(
-        `Wizard mode failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return false;
-    }
-  }
-
-
-  /**
-   * WebView 可视化模式 - 新一代可视化编辑器
+   * WebView 可视化模式 - 唯一可视化编辑入口
    */
   private async handleWebviewMode(
     template: string,
@@ -280,65 +202,6 @@ export class Jinja2NunjucksHandler {
         { modal: false }
       );
 
-      return false;
-    }
-  }
-
-  /**
-   * 默认值模式 - 显示所有默认值选项
-   */
-  private async handleDefaultsMode(
-    template: string,
-    variables: Jinja2Variable[],
-    placeholderDetection: PlaceholderDetection
-  ): Promise<boolean> {
-    try {
-      const context: Record<string, unknown> = {};
-
-
-      for (const variable of variables) {
-        const defaultValue = this.formatDefaultValue(variable.defaultValue);
-        const result = await vscode.window.showQuickPick(
-          [
-            { label: `Use Default: ${defaultValue}`, value: variable.defaultValue },
-            { label: 'Enter Custom Value...', value: 'custom' },
-          ],
-          {
-            placeHolder: `Select value for "${variable.name}" (${variable.type})`,
-            title: `Configure Variable: ${variable.name}`,
-          }
-        );
-
-        if (!result) {
-          return false;
-        }
-
-        if (result.value === 'custom') {
-          const customValue = await this.promptForVariable(variable);
-          if (customValue === undefined) {
-            return false;
-          }
-          context[variable.name] = customValue;
-        } else {
-          context[variable.name] = result.value;
-        }
-      }
-
-
-      let sql = this.processor.renderWithCustomVariables(template, context);
-
-
-      if (placeholderDetection.hasSQLAlchemy) {
-        const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(sql, context as SQLAlchemyContext);
-        sql = result.convertedSQL;
-      }
-
-      await this.copyToClipboard(sql, template, variables, context);
-      return true;
-    } catch (error) {
-      vscode.window.showErrorMessage(
-        `Defaults mode failed: ${error instanceof Error ? error.message : String(error)}`
-      );
       return false;
     }
   }
@@ -452,64 +315,6 @@ export class Jinja2NunjucksHandler {
   }
 
   /**
-   * 提示输入变量值
-   */
-  private async promptForVariable(variable: Jinja2Variable): Promise<unknown> {
-    switch (variable.type) {
-      case 'string':
-        return await vscode.window.showInputBox({
-          title: `Enter string value for "${variable.name}"`,
-          placeHolder: `Enter text (default: ${variable.defaultValue})`,
-          prompt: `Enter a text value for ${variable.name}`,
-        });
-
-      case 'number':
-        const numberResult = await vscode.window.showInputBox({
-          title: `Enter number value for "${variable.name}"`,
-          placeHolder: `Enter number (default: ${variable.defaultValue})`,
-          prompt: `Enter a numeric value for ${variable.name}`,
-          validateInput: value => {
-            if (!value) {
-              return 'Please enter a number';
-            }
-            if (isNaN(Number(value))) {
-              return 'Please enter a valid number';
-            }
-            return null;
-          },
-        });
-        return numberResult ? Number(numberResult) : undefined;
-
-      case 'date':
-        const dateResult = await vscode.window.showInputBox({
-          title: `Enter date value for "${variable.name}"`,
-          placeHolder: `Enter date in YYYY-MM-DD format (default: ${variable.defaultValue})`,
-          prompt: `Enter a date in YYYY-MM-DD format for ${variable.name}`,
-          validateInput: value => {
-            if (!value) {
-              return 'Please enter a date';
-            }
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-              return 'Please enter date in YYYY-MM-DD format';
-            }
-            if (isNaN(Date.parse(value))) {
-              return 'Please enter a valid date';
-            }
-            return null;
-          },
-        });
-        return dateResult;
-
-      default:
-        return await vscode.window.showInputBox({
-          title: `Enter value for "${variable.name}"`,
-          placeHolder: `Enter value (default: ${variable.defaultValue})`,
-          prompt: `Enter a value for ${variable.name}`,
-        });
-    }
-  }
-
-  /**
    * 提示输入SQLAlchemy变量值
    */
   private async promptForSQLAlchemyVariable(varName: string): Promise<SQLAlchemyValue | undefined> {
@@ -595,16 +400,6 @@ export class Jinja2NunjucksHandler {
   }
 
   /**
-   * 格式化默认值显示
-   */
-  private formatDefaultValue(defaultValue: unknown): string {
-    if (defaultValue === undefined || defaultValue === null) {
-      return 'undefined';
-    }
-    return String(defaultValue);
-  }
-
-  /**
    * 复制文本到剪贴板，支持 wl-copy fallback
    */
   private async copyToClipboardWithFallback(text: string): Promise<void> {
@@ -641,61 +436,5 @@ export class Jinja2NunjucksHandler {
       Logger.error('wl-copy failed:', error);
       throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
     }
-  }
-
-  /**
-   * 获取变量的默认值
-   */
-  private getDefaultValues(variables: Jinja2Variable[]): VariableProcessingContext {
-    const context: VariableProcessingContext = {};
-
-    variables.forEach(variable => {
-      if (variable.defaultValue !== undefined) {
-        context[variable.name] = variable.defaultValue;
-      } else {
-
-        const name = variable.name.toLowerCase();
-        switch (variable.type) {
-          case 'string':
-            if (name.includes('id')) context[variable.name] = 'sample_id';
-            else if (name.includes('name')) context[variable.name] = 'Sample Name';
-            else if (name.includes('email')) context[variable.name] = 'test@example.com';
-            else context[variable.name] = 'demo_value';
-            break;
-          case 'number':
-          case 'integer':
-            if (name.includes('id')) context[variable.name] = 123;
-            else if (name.includes('count')) context[variable.name] = 10;
-            else context[variable.name] = 42;
-            break;
-          case 'boolean':
-            if (name.startsWith('is_') || name.startsWith('has_')) context[variable.name] = true;
-            else context[variable.name] = false;
-            break;
-          case 'date':
-            context[variable.name] = new Date().toISOString().split('T')[0];
-            break;
-          case 'datetime':
-            context[variable.name] = new Date().toISOString();
-            break;
-          case 'email':
-            context[variable.name] = 'test@example.com';
-            break;
-          case 'url':
-            context[variable.name] = 'https://example.com';
-            break;
-          case 'json':
-            context[variable.name] = {};
-            break;
-          case 'null':
-            context[variable.name] = null;
-            break;
-          default:
-            context[variable.name] = 'demo_value';
-        }
-      }
-    });
-
-    return context;
   }
 }

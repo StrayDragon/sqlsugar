@@ -17,7 +17,7 @@ export function registerJinja2Feature(
     'sqlsugar.copyTemplatedSql',
     async () => {
       try {
-        await Jinja2NunjucksHandler.handleCopyJinja2Template('webview');
+        await Jinja2NunjucksHandler.handleCopyTemplatedSql('webview');
       } catch (error) {
         Logger.error('Failed to execute copyTemplatedSql command:', error);
         const userMessage = error instanceof Error ? error.message : String(error);

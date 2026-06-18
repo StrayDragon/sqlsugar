@@ -46,7 +46,7 @@ export class Jinja2NunjucksHandler {
   /**
    * 处理Jinja2模板 - 主要入口点
    */
-  public static async handleCopyJinja2Template(
+  public static async handleCopyTemplatedSql(
     mode: 'quick' | 'wizard' | 'webview' | 'defaults' = 'quick'
   ): Promise<boolean> {
     try {

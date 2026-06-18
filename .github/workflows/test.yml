@@ -71,14 +71,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install llman and validate specs
-        run: |
-          curl -L -o llman.tar.gz https://github.com/StrayDragon/llman/releases/latest/download/llman-x86_64-unknown-linux-gnu.tar.gz || true
-          if [ -f llman.tar.gz ] && file llman.tar.gz | grep -q "gzip"; then
-            tar -xzf llman.tar.gz
-            chmod +x llman
-            sudo mv llman /usr/local/bin/
-            llman sdd validate --all --no-interactive
-          else
-            echo "::warning::llman binary not available, skipping spec validation"
-          fi
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install llman
+        run: cargo install llman
+
+      - name: Validate specs and changes
+        run: llman sdd validate --all --no-interactive

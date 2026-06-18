@@ -218,12 +218,17 @@
               "asyncpg"
             ]
           },
-          "default": ["jinja2"],
+          "default": [
+            "jinja2"
+          ],
           "description": "Default enabled parameter analyzers. 'jinja2' is always recommended."
         },
         "sqlsugar.paramStyle.defaultMode": {
           "type": "string",
-          "enum": ["auto", "manual"],
+          "enum": [
+            "auto",
+            "manual"
+          ],
           "default": "auto",
           "description": "Default analyzer selection mode. 'auto' detects analyzers from SQL content."
         }
@@ -269,6 +274,7 @@
     "@types/vscode": "1.74.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
+    "@vitest/coverage-v8": "^3.2.6",
     "@vitest/ui": "^3.2.4",
     "@vscode/vsce": "^3.6.1",
     "esbuild": "^0.25.8",

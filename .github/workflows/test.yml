@@ -74,7 +74,7 @@ jobs:
       - name: Install llman
         run: |
           curl -L -o llman.tar.gz https://github.com/StrayDragon/llman/releases/latest/download/llman-x86_64-unknown-linux-gnu.tar.gz || true
-          if [ -f llman.tar.gz ]; then
+          if [ -f llman.tar.gz ] && file llman.tar.gz | grep -q "gzip"; then
             tar -xzf llman.tar.gz
             chmod +x llman
             sudo mv llman /usr/local/bin/

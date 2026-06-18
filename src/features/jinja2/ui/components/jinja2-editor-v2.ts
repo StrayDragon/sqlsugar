@@ -690,52 +690,53 @@ export class Jinja2EditorV2 extends LitElement {
     }
 
     /* Highlight.js syntax highlighting - Dynamic theme support */
+    /* Default values now use light-theme-friendly colors for better contrast */
     .highlighted-template .hljs-keyword,
     .sql-preview .hljs-keyword {
-      color: var(--hljs-keyword, #569cd6) !important;
+      color: var(--hljs-keyword, #0000ff) !important;
       font-weight: bold;
     }
 
     .highlighted-template .hljs-operator,
     .sql-preview .hljs-operator {
-      color: var(--hljs-operator, #e0e0e0) !important;
+      color: var(--hljs-operator, #000000) !important;
     }
 
     .highlighted-template .hljs-string,
     .sql-preview .hljs-string {
-      color: var(--hljs-string, #ce9178) !important;
+      color: var(--hljs-string, #a31515) !important;
     }
 
     .highlighted-template .hljs-number,
     .sql-preview .hljs-number {
-      color: var(--hljs-number, #79c0ff) !important;
+      color: var(--hljs-number, #098658) !important;
     }
 
     .highlighted-template .hljs-comment,
     .sql-preview .hljs-comment {
-      color: var(--hljs-comment, #6a9955) !important;
+      color: var(--hljs-comment, #008000) !important;
       font-style: italic;
     }
 
     .highlighted-template .hljs-function,
     .sql-preview .hljs-function {
-      color: var(--hljs-function, #dcdcaa) !important;
+      color: var(--hljs-function, #795e26) !important;
     }
 
     /* Additional SQL syntax highlighting */
     .sql-preview .hljs-built_in,
     .highlighted-template .hljs-built_in {
-      color: var(--hljs-built_in, #4ec9b0) !important;
+      color: var(--hljs-built_in, #267f99) !important;
     }
 
     .sql-preview .hljs-literal,
     .highlighted-template .hljs-literal {
-      color: var(--hljs-literal, #c586c0) !important;
+      color: var(--hljs-literal, #0000ff) !important;
     }
 
     .sql-preview .hljs-type,
     .highlighted-template .hljs-type {
-      color: var(--hljs-type, #9cdcfe) !important;
+      color: var(--hljs-type, #267f99) !important;
     }
 
     /* Enhanced SQL preview styling */
@@ -978,7 +979,8 @@ export class Jinja2EditorV2 extends LitElement {
     if (!root) return;
 
     // Apply theme-specific custom properties for better visibility
-    const themeColors = {
+    const themeColors: Record<string, Record<string, string>> = {
+      // Dark themes
       'vscode-dark': {
         '--hljs-keyword': '#569cd6',
         '--hljs-string': '#ce9178',
@@ -1033,10 +1035,44 @@ export class Jinja2EditorV2 extends LitElement {
         '--hljs-literal': '#d19a66',
         '--hljs-type': '#e06c75',
         '--hljs-built_in': '#56b6c2'
+      },
+      // Light themes - optimized for readability on light backgrounds
+      'vscode-light': {
+        '--hljs-keyword': '#0000ff',
+        '--hljs-string': '#a31515',
+        '--hljs-number': '#098658',
+        '--hljs-comment': '#008000',
+        '--hljs-function': '#795e26',
+        '--hljs-operator': '#000000',
+        '--hljs-literal': '#0000ff',
+        '--hljs-type': '#267f99',
+        '--hljs-built_in': '#267f99'
+      },
+      'github-light': {
+        '--hljs-keyword': '#cf222e',
+        '--hljs-string': '#0a3069',
+        '--hljs-number': '#0550ae',
+        '--hljs-comment': '#6e7781',
+        '--hljs-function': '#8250df',
+        '--hljs-operator': '#24292f',
+        '--hljs-literal': '#cf222e',
+        '--hljs-type': '#953800',
+        '--hljs-built_in': '#0550ae'
+      },
+      'solarized-light': {
+        '--hljs-keyword': '#859900',
+        '--hljs-string': '#2aa198',
+        '--hljs-number': '#d33682',
+        '--hljs-comment': '#93a1a1',
+        '--hljs-function': '#268bd2',
+        '--hljs-operator': '#657b83',
+        '--hljs-literal': '#cb4b16',
+        '--hljs-type': '#b58900',
+        '--hljs-built_in': '#6c71c4'
       }
     };
 
-    const colors = themeColors[this.theme as keyof typeof themeColors] || themeColors['vscode-dark'];
+    const colors = themeColors[this.theme] || themeColors['vscode-dark'];
 
     // Apply custom properties to the host element
     Object.entries(colors).forEach(([property, value]) => {

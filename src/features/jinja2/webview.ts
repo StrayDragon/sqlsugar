@@ -488,11 +488,65 @@ export class Jinja2WebviewEditorV2 {
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src ${webview.cspSource} 'nonce-${nonce}' 'unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline';">
   <title>Jinja2 V2 Template Editor - ${templatePreview}</title>
   <link href="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'vs2015.min.css'))}" rel="stylesheet">
+  <style>
+    /* Light theme overrides - applied when VS Code uses a light theme */
+    :root {
+      /* Default light theme colors for better contrast */
+      --hljs-keyword: #0000ff;
+      --hljs-string: #a31515;
+      --hljs-number: #098658;
+      --hljs-comment: #008000;
+      --hljs-function: #795e26;
+      --hljs-operator: #000000;
+      --hljs-literal: #0000ff;
+      --hljs-type: #267f99;
+      --hljs-built_in: #267f99;
+    }
+
+    /* Dark theme overrides - applied when body has vscode-dark class */
+    body.vscode-dark {
+      --hljs-keyword: #569cd6;
+      --hljs-string: #ce9178;
+      --hljs-number: #79c0ff;
+      --hljs-comment: #6a9955;
+      --hljs-function: #dcdcaa;
+      --hljs-operator: #e0e0e0;
+      --hljs-literal: #c586c0;
+      --hljs-type: #9cdcfe;
+      --hljs-built_in: #4ec9b0;
+    }
+
+    /* High contrast light theme */
+    body.vscode-high-contrast:not(.vscode-dark) {
+      --hljs-keyword: #0000ff;
+      --hljs-string: #a31515;
+      --hljs-number: #098658;
+      --hljs-comment: #008000;
+      --hljs-function: #795e26;
+      --hljs-operator: #000000;
+      --hljs-literal: #0000ff;
+      --hljs-type: #267f99;
+      --hljs-built_in: #267f99;
+    }
+
+    /* High contrast dark theme */
+    body.vscode-high-contrast.vscode-dark {
+      --hljs-keyword: #569cd6;
+      --hljs-string: #ce9178;
+      --hljs-number: #79c0ff;
+      --hljs-comment: #6a9955;
+      --hljs-function: #dcdcaa;
+      --hljs-operator: #e0e0e0;
+      --hljs-literal: #c586c0;
+      --hljs-type: #9cdcfe;
+      --hljs-built_in: #4ec9b0;
+    }
+  </style>
 </head>
 <body>
   <sqlsugar-webview-v2-app></sqlsugar-webview-v2-app>
   <script nonce="${nonce}">
-
+    // Initialize VS Code API
     (function() {
       try {
         if (typeof acquireVsCodeApi === 'function') {
@@ -503,6 +557,29 @@ export class Jinja2WebviewEditorV2 {
         }
       } catch (_error) {
         console.error('[V2 WebView] Error initializing VS Code API:', _error);
+      }
+    })();
+
+    // Detect VS Code theme and apply appropriate class
+    (function detectTheme() {
+      const body = document.body;
+      const styles = getComputedStyle(body);
+      const bgColor = styles.backgroundColor;
+
+      // Simple heuristic: if background is dark, apply dark theme
+      if (bgColor) {
+        const rgb = bgColor.match(/\\d+/g);
+        if (rgb && rgb.length >= 3) {
+          const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
+          if (brightness < 128) {
+            body.classList.add('vscode-dark');
+          }
+        }
+      }
+
+      // Check for high contrast
+      if (window.matchMedia('(prefers-contrast: more)').matches) {
+        body.classList.add('vscode-high-contrast');
       }
     })();
   </script>

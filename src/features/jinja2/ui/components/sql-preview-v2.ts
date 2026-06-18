@@ -268,39 +268,71 @@ export class SqlPreviewV2 extends LitElement {
       margin-left: 40px;
     }
 
-    /* SQL Syntax Highlighting */
+    /* SQL Syntax Highlighting - Theme-aware with high contrast defaults */
     .sql-keyword {
-      color: var(--vscode-keyword-foreground, #569cd6);
+      color: var(--hljs-keyword, var(--vscode-keyword-foreground, #0000ff));
       font-weight: var(--font-weight-medium);
     }
 
     .sql-string {
-      color: var(--vscode-string-foreground, #ce9178);
+      color: var(--hljs-string, var(--vscode-string-foreground, #a31515));
     }
 
     .sql-number {
-      color: var(--vscode-number-foreground, #b5cea8);
+      color: var(--hljs-number, var(--vscode-number-foreground, #098658));
     }
 
     .sql-function {
-      color: var(--vscode-function-foreground, #dcdcaa);
+      color: var(--hljs-function, var(--vscode-function-foreground, #795e26));
     }
 
     .sql-operator {
-      color: var(--vscode-operator-foreground, #d4d4d4);
+      color: var(--hljs-operator, var(--vscode-operator-foreground, #000000));
     }
 
     .sql-comment {
-      color: var(--vscode-comment-foreground, #6a9955);
+      color: var(--hljs-comment, var(--vscode-comment-foreground, #008000));
       font-style: italic;
     }
 
     .sql-variable {
-      background: rgba(66, 133, 244, 0.2);
+      background: rgba(66, 133, 244, 0.15);
       border: 1px solid var(--vscode-focusBorder);
       border-radius: 3px;
       padding: 1px 3px;
       color: var(--vscode-foreground);
+      font-weight: var(--font-weight-medium);
+    }
+
+    /* Additional syntax elements for better readability */
+    .hljs-keyword {
+      color: var(--hljs-keyword, #0000ff) !important;
+    }
+
+    .hljs-string {
+      color: var(--hljs-string, #a31515) !important;
+    }
+
+    .hljs-number {
+      color: var(--hljs-number, #098658) !important;
+    }
+
+    .hljs-comment {
+      color: var(--hljs-comment, #008000) !important;
+    }
+
+    .hljs-function,
+    .hljs-title {
+      color: var(--hljs-function, #795e26) !important;
+    }
+
+    .hljs-built_in {
+      color: var(--hljs-built_in, #267f99) !important;
+    }
+
+    .hljs-type,
+    .hljs-literal {
+      color: var(--hljs-literal, #0000ff) !important;
     }
 
     /* Error Display */

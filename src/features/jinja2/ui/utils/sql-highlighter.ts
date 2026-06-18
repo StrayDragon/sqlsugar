@@ -325,6 +325,7 @@ export class SqlHighlighter {
 
   /**
    * Simple keyword highlighting as fallback
+   * Uses CSS variables for theme-aware colors
    */
   private simpleKeywordHighlighting(sql: string): string {
     if (!sql) return '';

@@ -15,6 +15,7 @@ export type SQLAlchemyContext = Record<string, SQLAlchemyValue>;
 export class SQLAlchemyPlaceholderProcessor {
   /**
    * 检测SQL字符串中的占位符类型
+   * Detects both {{ }} expressions and {% %} control blocks as Jinja2 content
    */
   public static detectPlaceholderTypes(sql: string): {
     hasJinja2: boolean;
@@ -22,7 +23,10 @@ export class SQLAlchemyPlaceholderProcessor {
     jinja2Vars: string[];
     sqlalchemyVars: string[];
   } {
-    const jinja2Regex = /\{\{\s*([^}]+)\s*\}\}/g;
+    // Match {{ variable }} expressions
+    const jinja2ExprRegex = /\{\{\s*([^}]+)\s*\}\}/g;
+    // Match {% control %} blocks (if, elif, else, endif, for, endfor, set, etc.)
+    const jinja2ControlRegex = /\{%[^%]*%\}/g;
     const sqlalchemyRegex = /:(\w+)\b/g;
 
     const jinja2Vars: string[] = [];
@@ -30,23 +34,39 @@ export class SQLAlchemyPlaceholderProcessor {
 
     let match;
 
-
-    while ((match = jinja2Regex.exec(sql)) !== null) {
+    // Extract variables from {{ }} expressions
+    while ((match = jinja2ExprRegex.exec(sql)) !== null) {
       const expr = match[1].trim();
       const vars = this.extractVariablesFromExpression(expr);
       jinja2Vars.push(...vars);
     }
 
+    // Detect {% %} control blocks as Jinja2 content
+    // Extract variables referenced inside control blocks
+    jinja2ControlRegex.lastIndex = 0;
+    while ((match = jinja2ControlRegex.exec(sql)) !== null) {
+      const controlBlock = match[0];
+      // Extract variable names from the control block content
+      const controlVars = this.extractVariablesFromExpression(
+        controlBlock.slice(2, -2).trim()
+      );
+      jinja2Vars.push(...controlVars);
+    }
 
+    // Detect SQLAlchemy :param style placeholders
     while ((match = sqlalchemyRegex.exec(sql)) !== null) {
       sqlalchemyVars.push(match[1]);
     }
 
+    const uniqueJinja2Vars = Array.from(new Set(jinja2Vars));
+    const uniqueSqlalchemyVars = Array.from(new Set(sqlalchemyVars));
+
     return {
-      hasJinja2: jinja2Vars.length > 0,
-      hasSQLAlchemy: sqlalchemyVars.length > 0,
-      jinja2Vars: Array.from(new Set(jinja2Vars)),
-      sqlalchemyVars: Array.from(new Set(sqlalchemyVars)),
+      // Jinja2 is present if we found {{ }} expressions OR {% %} control blocks
+      hasJinja2: uniqueJinja2Vars.length > 0 || (sql.match(/\{%[^%]*%\}/) !== null),
+      hasSQLAlchemy: uniqueSqlalchemyVars.length > 0,
+      jinja2Vars: uniqueJinja2Vars,
+      sqlalchemyVars: uniqueSqlalchemyVars,
     };
   }
 

@@ -20,7 +20,7 @@ export class SqlPreviewV2 extends LitElement {
   @property({ type: String }) accessor template: string = '';
   @property({ attribute: false }) accessor values: Record<string, Jinja2VariableValue> = {};
   @property({ attribute: false }) accessor variables: EnhancedVariable[] = [];
-  @property({ type: String }) accessor theme: string = 'vscode-dark';
+  @property({ type: String }) accessor theme: string = 'github-light';
   @property({ type: Boolean }) accessor showOriginal: boolean = true;
   @property({ type: Boolean }) accessor autoRender: boolean = true;
   @property({ type: Boolean }) accessor showLineNumbers: boolean = true;
@@ -266,6 +266,13 @@ export class SqlPreviewV2 extends LitElement {
 
     .code-content.with-line-numbers {
       margin-left: 40px;
+    }
+
+    /* Override vs2015.min.css base .hljs styles for light theme */
+    .hljs,
+    pre code.hljs {
+      background: var(--hljs-bg, var(--vscode-editor-background, transparent)) !important;
+      color: var(--hljs-fg, var(--vscode-editor-foreground, #333333)) !important;
     }
 
     /* SQL Syntax Highlighting - Theme-aware with high contrast defaults */
@@ -604,6 +611,12 @@ export class SqlPreviewV2 extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
 
+    // Auto-detect VS Code theme from body background color
+    this.detectTheme();
+    // Inject --hljs-* custom properties onto the host so highlight.js tokens
+    // (and plain text like *, =) stay readable on light themes. Without this,
+    // tokens fall back to --vscode-editor-foreground which renders as faint grey.
+    this.applyThemeColors();
 
     this.sqlHighlighter = new SqlHighlighter({
       theme: this.theme,
@@ -616,6 +629,82 @@ export class SqlPreviewV2 extends LitElement {
     if (this.autoRender) {
       this.scheduleRender();
     }
+  }
+
+  /**
+   * Detect VS Code theme. Prefer the class VS Code injects on <body>
+   * (vscode-light / vscode-dark); only fall back to a brightness heuristic when
+   * neither is present, and never treat a transparent background as dark.
+   * Defaults to the light (github) preset, which is the project's base theme.
+   */
+  private detectTheme(): void {
+    try {
+      const body = document.body;
+      if (body.classList.contains('vscode-dark')) {
+        this.theme = 'github-dark';
+        return;
+      }
+      if (body.classList.contains('vscode-light')) {
+        this.theme = 'github-light';
+        return;
+      }
+      const bg = getComputedStyle(body).backgroundColor;
+      const rgb = bg?.match(/\d+/g);
+      if (rgb && rgb.length >= 3) {
+        const alpha = rgb.length >= 4 ? parseInt(rgb[3], 10) / 255 : 1;
+        if (alpha > 0) {
+          const brightness = (parseInt(rgb[0], 10) * 299 + parseInt(rgb[1], 10) * 587 + parseInt(rgb[2], 10) * 114) / 1000;
+          this.theme = brightness < 128 ? 'github-dark' : 'github-light';
+          return;
+        }
+      }
+      this.theme = 'github-light';
+    } catch {
+      this.theme = 'github-light';
+    }
+  }
+
+  /**
+   * Apply theme-specific CSS custom properties onto the host element so highlight.js
+   * tokens — and plain text without a token class (*, =, spaces) — keep readable
+   * contrast on both light and dark backgrounds. Mirrors the editor's implementation.
+   *
+   * Properties are set on `this` (the host): custom properties defined on the host
+   * are inherited by the Shadow DOM, so this works regardless of attach timing.
+   */
+  private applyThemeColors(): void {
+    const isDark = this.theme === 'github-dark' || this.theme === 'vscode-dark';
+    const colors: Record<string, string> = isDark
+      ? {
+          '--hljs-bg': 'transparent',
+          '--hljs-fg': '#c9d1d9',
+          '--hljs-keyword': '#ff7b72',
+          '--hljs-string': '#a5d6ff',
+          '--hljs-number': '#79c0ff',
+          '--hljs-comment': '#8b949e',
+          '--hljs-function': '#d2a8ff',
+          '--hljs-operator': '#79c0ff',
+          '--hljs-literal': '#79c0ff',
+          '--hljs-type': '#ff7b72',
+          '--hljs-built_in': '#ffa657'
+        }
+      : {
+          '--hljs-bg': 'transparent',
+          '--hljs-fg': '#24292e',
+          '--hljs-keyword': '#d73a49',
+          '--hljs-string': '#032f62',
+          '--hljs-number': '#005cc5',
+          '--hljs-comment': '#6a737d',
+          '--hljs-function': '#6f42c1',
+          '--hljs-operator': '#005cc5',
+          '--hljs-literal': '#005cc5',
+          '--hljs-type': '#d73a49',
+          '--hljs-built_in': '#e36209'
+        };
+
+    Object.entries(colors).forEach(([property, value]) => {
+      this.style.setProperty(property, value);
+    });
   }
 
   override disconnectedCallback() {

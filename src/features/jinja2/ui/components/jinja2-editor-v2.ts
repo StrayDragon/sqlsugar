@@ -27,7 +27,7 @@ export class Jinja2EditorV2 extends LitElement {
     autoFocusFirst: false,
     logLevel: 'error'
   };
-  @property({ type: String }) accessor theme: string = 'vscode-dark';
+  @property({ type: String }) accessor theme: string = 'github-light';
   // @ts-ignore - Lit property decorators don't need override
   @property({ type: Boolean }) accessor showOriginal = true;
   // @ts-ignore - Lit property decorators don't need override
@@ -689,6 +689,19 @@ export class Jinja2EditorV2 extends LitElement {
       color: var(--vscode-foreground);
     }
 
+    /* Override vs2015.min.css base .hljs styles */
+    /* This is critical: vs2015.min.css sets .hljs{background:#1e1e1e;color:#dcdcdc} */
+    /* Plain text (*, =, spaces) inherits this color, so we must override it */
+    .highlighted-template .hljs,
+    .highlighted-template pre code.hljs,
+    .sql-preview .hljs,
+    .sql-preview pre code.hljs,
+    .code-content .hljs,
+    .code-content pre code.hljs {
+      background: var(--hljs-bg, var(--vscode-editor-background, transparent)) !important;
+      color: var(--hljs-fg, var(--vscode-editor-foreground, #333333)) !important;
+    }
+
     /* Highlight.js syntax highlighting - Dynamic theme support */
     /* Default values now use light-theme-friendly colors for better contrast */
     .highlighted-template .hljs-keyword,
@@ -927,6 +940,9 @@ export class Jinja2EditorV2 extends LitElement {
   override connectedCallback() {
     super.connectedCallback();
 
+    // Auto-detect VS Code theme from body background color
+    this.detectTheme();
+
     // Initialize template highlighter
     this.templateHighlighter = new TemplateHighlighter({
       theme: this.theme,
@@ -951,8 +967,45 @@ export class Jinja2EditorV2 extends LitElement {
     this.highlightTemplate();
     this.checkLayout();
 
+    // Apply theme colors after initialization
+    this.applyThemeColors();
+
     // Listen for resize events
     window.addEventListener('resize', this.handleResize);
+  }
+
+  /**
+   * Detect VS Code theme. Prefer the class VS Code injects on <body>
+   * (vscode-light / vscode-dark); only fall back to a brightness heuristic when
+   * neither is present, and never treat a transparent background as dark — that
+   * previously misclassified light themes as dark and applied the dark preset.
+   * Defaults to the light (github) preset, which is the project's base theme.
+   */
+  private detectTheme(): void {
+    try {
+      const body = document.body;
+      if (body.classList.contains('vscode-dark')) {
+        this.theme = 'github-dark';
+        return;
+      }
+      if (body.classList.contains('vscode-light')) {
+        this.theme = 'github-light';
+        return;
+      }
+      const bg = getComputedStyle(body).backgroundColor;
+      const rgb = bg?.match(/\d+/g);
+      if (rgb && rgb.length >= 3) {
+        const alpha = rgb.length >= 4 ? parseInt(rgb[3], 10) / 255 : 1;
+        if (alpha > 0) {
+          const brightness = (parseInt(rgb[0], 10) * 299 + parseInt(rgb[1], 10) * 587 + parseInt(rgb[2], 10) * 114) / 1000;
+          this.theme = brightness < 128 ? 'github-dark' : 'github-light';
+          return;
+        }
+      }
+      this.theme = 'github-light';
+    } catch {
+      this.theme = 'github-light';
+    }
   }
 
   override disconnectedCallback() {
@@ -975,13 +1028,20 @@ export class Jinja2EditorV2 extends LitElement {
   }
 
   private applyThemeColors() {
-    const root = this.shadowRoot?.host as HTMLElement;
-    if (!root) return;
+    // Set custom properties directly on the host element (this) so the Shadow DOM
+    // inherits them. Do NOT use this.shadowRoot?.host: at the first connectedCallback
+    // the shadowRoot is not yet attached, so `root` would be undefined and the call
+    // would silently no-op, leaving plain text (*, =, spaces) unstyled.
+    const root: HTMLElement = this;
 
     // Apply theme-specific custom properties for better visibility
+    // --hljs-bg/--hljs-fg override vs2015.min.css base .hljs{background:#1e1e1e;color:#dcdcdc}
+    // so plain text (*, =, spaces) is visible on light backgrounds
     const themeColors: Record<string, Record<string, string>> = {
       // Dark themes
       'vscode-dark': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#d4d4d4',
         '--hljs-keyword': '#569cd6',
         '--hljs-string': '#ce9178',
         '--hljs-number': '#79c0ff',
@@ -993,17 +1053,21 @@ export class Jinja2EditorV2 extends LitElement {
         '--hljs-built_in': '#4ec9b0'
       },
       'github-dark': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#c9d1d9',
         '--hljs-keyword': '#ff7b72',
         '--hljs-string': '#a5d6ff',
         '--hljs-number': '#79c0ff',
         '--hljs-comment': '#8b949e',
         '--hljs-function': '#d2a8ff',
-        '--hljs-operator': '#c9d1d9',
-        '--hljs-literal': '#ff7b72',
-        '--hljs-type': '#ffab70',
+        '--hljs-operator': '#79c0ff',
+        '--hljs-literal': '#79c0ff',
+        '--hljs-type': '#ff7b72',
         '--hljs-built_in': '#ffa657'
       },
       'monokai': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#f8f8f2',
         '--hljs-keyword': '#f92672',
         '--hljs-string': '#e6db74',
         '--hljs-number': '#ae81ff',
@@ -1015,6 +1079,8 @@ export class Jinja2EditorV2 extends LitElement {
         '--hljs-built_in': '#fd971f'
       },
       'dracula': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#f8f8f2',
         '--hljs-keyword': '#ff79c6',
         '--hljs-string': '#f1fa8c',
         '--hljs-number': '#bd93f9',
@@ -1026,6 +1092,8 @@ export class Jinja2EditorV2 extends LitElement {
         '--hljs-built_in': '#ffb86c'
       },
       'one-dark': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#abb2bf',
         '--hljs-keyword': '#c678dd',
         '--hljs-string': '#98c379',
         '--hljs-number': '#d19a66',
@@ -1038,6 +1106,8 @@ export class Jinja2EditorV2 extends LitElement {
       },
       // Light themes - optimized for readability on light backgrounds
       'vscode-light': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#333333',
         '--hljs-keyword': '#0000ff',
         '--hljs-string': '#a31515',
         '--hljs-number': '#098658',
@@ -1049,17 +1119,21 @@ export class Jinja2EditorV2 extends LitElement {
         '--hljs-built_in': '#267f99'
       },
       'github-light': {
-        '--hljs-keyword': '#cf222e',
-        '--hljs-string': '#0a3069',
-        '--hljs-number': '#0550ae',
-        '--hljs-comment': '#6e7781',
-        '--hljs-function': '#8250df',
-        '--hljs-operator': '#24292f',
-        '--hljs-literal': '#cf222e',
-        '--hljs-type': '#953800',
-        '--hljs-built_in': '#0550ae'
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#24292e',
+        '--hljs-keyword': '#d73a49',
+        '--hljs-string': '#032f62',
+        '--hljs-number': '#005cc5',
+        '--hljs-comment': '#6a737d',
+        '--hljs-function': '#6f42c1',
+        '--hljs-operator': '#005cc5',
+        '--hljs-literal': '#005cc5',
+        '--hljs-type': '#d73a49',
+        '--hljs-built_in': '#e36209'
       },
       'solarized-light': {
+        '--hljs-bg': 'transparent',
+        '--hljs-fg': '#657b83',
         '--hljs-keyword': '#859900',
         '--hljs-string': '#2aa198',
         '--hljs-number': '#d33682',
@@ -1072,7 +1146,7 @@ export class Jinja2EditorV2 extends LitElement {
       }
     };
 
-    const colors = themeColors[this.theme] || themeColors['vscode-dark'];
+    const colors = themeColors[this.theme] || themeColors['github-light'];
 
     // Apply custom properties to the host element
     Object.entries(colors).forEach(([property, value]) => {

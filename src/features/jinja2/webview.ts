@@ -492,54 +492,64 @@ export class Jinja2WebviewEditorV2 {
     /* Light theme overrides - applied when VS Code uses a light theme */
     :root {
       /* Default light theme colors for better contrast */
-      --hljs-keyword: #0000ff;
-      --hljs-string: #a31515;
-      --hljs-number: #098658;
-      --hljs-comment: #008000;
-      --hljs-function: #795e26;
-      --hljs-operator: #000000;
-      --hljs-literal: #0000ff;
-      --hljs-type: #267f99;
-      --hljs-built_in: #267f99;
+      /* Plain text (*, =, spaces) has no token class and inherits --hljs-fg;
+         it must be a high-contrast dark on light backgrounds or it looks faint. */
+      --hljs-bg: transparent;
+      --hljs-fg: #24292e;
+      --hljs-keyword: #d73a49;
+      --hljs-string: #032f62;
+      --hljs-number: #005cc5;
+      --hljs-comment: #6a737d;
+      --hljs-function: #6f42c1;
+      --hljs-operator: #005cc5;
+      --hljs-literal: #005cc5;
+      --hljs-type: #d73a49;
+      --hljs-built_in: #e36209;
     }
 
     /* Dark theme overrides - applied when body has vscode-dark class */
     body.vscode-dark {
-      --hljs-keyword: #569cd6;
-      --hljs-string: #ce9178;
+      --hljs-bg: transparent;
+      --hljs-fg: #c9d1d9;
+      --hljs-keyword: #ff7b72;
+      --hljs-string: #a5d6ff;
       --hljs-number: #79c0ff;
-      --hljs-comment: #6a9955;
-      --hljs-function: #dcdcaa;
-      --hljs-operator: #e0e0e0;
-      --hljs-literal: #c586c0;
-      --hljs-type: #9cdcfe;
-      --hljs-built_in: #4ec9b0;
+      --hljs-comment: #8b949e;
+      --hljs-function: #d2a8ff;
+      --hljs-operator: #79c0ff;
+      --hljs-literal: #79c0ff;
+      --hljs-type: #ff7b72;
+      --hljs-built_in: #ffa657;
     }
 
     /* High contrast light theme */
     body.vscode-high-contrast:not(.vscode-dark) {
-      --hljs-keyword: #0000ff;
-      --hljs-string: #a31515;
-      --hljs-number: #098658;
-      --hljs-comment: #008000;
-      --hljs-function: #795e26;
-      --hljs-operator: #000000;
-      --hljs-literal: #0000ff;
-      --hljs-type: #267f99;
-      --hljs-built_in: #267f99;
+      --hljs-bg: transparent;
+      --hljs-fg: #24292e;
+      --hljs-keyword: #d73a49;
+      --hljs-string: #032f62;
+      --hljs-number: #005cc5;
+      --hljs-comment: #6a737d;
+      --hljs-function: #6f42c1;
+      --hljs-operator: #005cc5;
+      --hljs-literal: #005cc5;
+      --hljs-type: #d73a49;
+      --hljs-built_in: #e36209;
     }
 
     /* High contrast dark theme */
     body.vscode-high-contrast.vscode-dark {
-      --hljs-keyword: #569cd6;
-      --hljs-string: #ce9178;
+      --hljs-bg: transparent;
+      --hljs-fg: #c9d1d9;
+      --hljs-keyword: #ff7b72;
+      --hljs-string: #a5d6ff;
       --hljs-number: #79c0ff;
-      --hljs-comment: #6a9955;
-      --hljs-function: #dcdcaa;
-      --hljs-operator: #e0e0e0;
-      --hljs-literal: #c586c0;
-      --hljs-type: #9cdcfe;
-      --hljs-built_in: #4ec9b0;
+      --hljs-comment: #8b949e;
+      --hljs-function: #d2a8ff;
+      --hljs-operator: #79c0ff;
+      --hljs-literal: #79c0ff;
+      --hljs-type: #ff7b72;
+      --hljs-built_in: #ffa657;
     }
   </style>
 </head>
@@ -560,24 +570,29 @@ export class Jinja2WebviewEditorV2 {
       }
     })();
 
-    // Detect VS Code theme and apply appropriate class
+    // Detect VS Code theme and apply appropriate class.
+    // VS Code already injects vscode-light / vscode-dark / vscode-high-contrast onto <body>.
+    // We only fall back to a brightness heuristic when NONE of those are present, and we
+    // never treat a transparent background (rgba(...,0)) as dark — that previously
+    // misclassified light themes as dark and applied the dark color preset.
     (function detectTheme() {
       const body = document.body;
-      const styles = getComputedStyle(body);
-      const bgColor = styles.backgroundColor;
-
-      // Simple heuristic: if background is dark, apply dark theme
-      if (bgColor) {
-        const rgb = bgColor.match(/\\d+/g);
+      const hasThemeClass = body.classList.contains('vscode-light')
+        || body.classList.contains('vscode-dark')
+        || body.classList.contains('vscode-high-contrast');
+      if (!hasThemeClass) {
+        const bg = getComputedStyle(body).backgroundColor;
+        const rgb = bg && bg.match(/\\d+/g);
         if (rgb && rgb.length >= 3) {
-          const brightness = (parseInt(rgb[0]) * 299 + parseInt(rgb[1]) * 587 + parseInt(rgb[2]) * 114) / 1000;
-          if (brightness < 128) {
-            body.classList.add('vscode-dark');
+          const alpha = rgb.length >= 4 ? parseInt(rgb[3], 10) / 255 : 1;
+          if (alpha > 0) {
+            const brightness = (parseInt(rgb[0], 10) * 299 + parseInt(rgb[1], 10) * 587 + parseInt(rgb[2], 10) * 114) / 1000;
+            if (brightness < 128) {
+              body.classList.add('vscode-dark');
+            }
           }
         }
       }
-
-      // Check for high contrast
       if (window.matchMedia('(prefers-contrast: more)').matches) {
         body.classList.add('vscode-high-contrast');
       }

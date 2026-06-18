@@ -1,5 +1,5 @@
 /**
- * Keyboard Navigation Manager for V2 Editor
+ * Keyboard Navigation Manager for Templated SQL Editor
  *
  * Handles all keyboard navigation and shortcuts
  */
@@ -7,7 +7,7 @@
 import type {
   EnhancedVariable,
   KeyboardNavigationEvent,
-  EditorV2Config
+  TemplatedSqlEditorConfig
 } from '../types.js';
 
 
@@ -45,11 +45,11 @@ export class KeyboardNavigationManager {
   };
 
   private variables: EnhancedVariable[] = [];
-  private config: EditorV2Config;
+  private config: TemplatedSqlEditorConfig;
   private shortcuts: Map<string, KeyboardShortcut> = new Map();
   private listeners: Set<(event: KeyboardNavigationEvent) => void> = new Set();
 
-  constructor(config: EditorV2Config) {
+  constructor(config: TemplatedSqlEditorConfig) {
     this.config = config;
     this.setupDefaultShortcuts();
   }
@@ -608,7 +608,7 @@ export class KeyboardNavigationManager {
   /**
    * Update configuration
    */
-  updateConfig(config: EditorV2Config): void {
+  updateConfig(config: TemplatedSqlEditorConfig): void {
     this.config = config;
     if (!config.keyboardNavigation) {
       this.resetNavigation();

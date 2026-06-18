@@ -73,7 +73,7 @@ export interface PerformancePreferences {
 /**
  * Enhanced editor configuration with new features
  */
-export interface CompleteEditorV2Config {
+export interface CompleteTemplatedSqlEditorConfig {
   // Existing configuration (backward compatible)
   popoverPlacement: 'auto' | 'top' | 'bottom' | 'left' | 'right';
   highlightStyle: 'background' | 'border' | 'underline';

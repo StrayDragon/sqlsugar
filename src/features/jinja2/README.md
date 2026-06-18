@@ -7,13 +7,13 @@
 ## 组件
 
 ### 核心
-- **command-handler.ts**：实现 `sqlsugar.copyJinja2Template` 命令
+- **command-handler.ts**：实现 `sqlsugar.copyTemplatedSql` 命令
 - **processor.ts**：基于 Nunjucks 的 Jinja2 模板渲染
 - **webview.ts**：WebView 面板管理
 - **sqlalchemy.ts**：SQLAlchemy 占位符（`:param`）支持
 
 ### UI（可视化编辑器）
-- **ui/editor/**：主编辑器组件（Jinja2EditorV2、SqlPreviewV2 等）
+- **ui/editor/**：主编辑器组件（TemplatedSqlEditor、TemplatedSqlPreview 等）
 - **ui/components/**：可复用 UI 组件（Button、Input、Select）
 - **ui/utils/**：工具（模板解析器、键盘导航等）
 - **ui/styles/**：设计系统和动画
@@ -56,7 +56,7 @@
 
 ## 配置
 
-所有设置在 `sqlsugar.v2Editor.*` 下：
+所有设置在 `sqlsugar.templatedSqlEditor.*` 下：
 - `popoverPlacement`：弹出框定位策略
 - `highlightStyle`：变量高亮样式
 - `autoPreview`：更改时自动更新预览

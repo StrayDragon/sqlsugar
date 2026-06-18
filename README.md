@@ -26,7 +26,7 @@
   - ORM 风格占位符支持：临时把 `:name` 转换为可编辑的字符串字面量，保存时还原为 `:name`，避免误把时间如 `12:34` 或 Postgres `::type` 当作占位符。
   - 临时文件自动清理：支持保存时或关闭编辑器时删除临时文件(可选)。
 
-- 编辑 `Jinja2 SQL` 内嵌字符串模板 (`SQLSugar: Copy Jinja2 Template SQL (Visual Editor)`) : 编辑区选中文本右键菜单选择触发
+- 编辑 `Jinja2 SQL` 内嵌字符串模板 (`SQLSugar: Copy To Templated SQL (Editor)`) : 编辑区选中文本右键菜单选择触发
   - 识别并解析Jinja2模板, 并自动获取推断字段默认值, 用户可以在可视化编辑器中自由配置字段值和类型, 模板实时渲染, 方便复制并使用渲染后的SQL
   - **多参数风格支持**: 除 Jinja2 变量外，还支持多种 SQL 参数占位符风格：
     - `:param` (Named/SQLAlchemy)

@@ -22,8 +22,8 @@
         "title": "SQLSugar: Edit Inline SQL"
       },
       {
-        "command": "sqlsugar.copyJinja2Template",
-        "title": "SQLSugar: Copy Jinja2 Template SQL (Visual Editor)"
+        "command": "sqlsugar.copyTemplatedSql",
+        "title": "SQLSugar: Copy To Templated SQL (Editor)"
       }
     ],
     "menus": {
@@ -34,7 +34,7 @@
           "group": "1_modification"
         },
         {
-          "command": "sqlsugar.copyJinja2Template",
+          "command": "sqlsugar.copyTemplatedSql",
           "when": "editorHasSelection",
           "group": "1_modification"
         }
@@ -154,7 +154,7 @@
           "default": true,
           "description": "Enable wl-copy fallback for clipboard operations on Linux Wayland systems"
         },
-        "sqlsugar.v2Editor.popoverPlacement": {
+        "sqlsugar.templatedSqlEditor.popoverPlacement": {
           "type": "string",
           "enum": [
             "auto",
@@ -164,9 +164,9 @@
             "right"
           ],
           "default": "auto",
-          "description": "Default placement for variable editing popovers in V2 editor"
+          "description": "Default placement for variable editing popovers in Templated SQL editor"
         },
-        "sqlsugar.v2Editor.highlightStyle": {
+        "sqlsugar.templatedSqlEditor.highlightStyle": {
           "type": "string",
           "enum": [
             "background",
@@ -176,32 +176,32 @@
           "default": "background",
           "description": "Visual style for highlighting variables in the template"
         },
-        "sqlsugar.v2Editor.autoPreview": {
+        "sqlsugar.templatedSqlEditor.autoPreview": {
           "type": "boolean",
           "default": true,
-          "description": "Automatically preview SQL when variables change in V2 editor"
+          "description": "Automatically preview SQL when variables change in Templated SQL editor"
         },
-        "sqlsugar.v2Editor.keyboardNavigation": {
+        "sqlsugar.templatedSqlEditor.keyboardNavigation": {
           "type": "boolean",
           "default": true,
-          "description": "Enable keyboard navigation (Tab, Enter, Escape) in V2 editor"
+          "description": "Enable keyboard navigation (Tab, Enter, Escape) in Templated SQL editor"
         },
-        "sqlsugar.v2Editor.animationsEnabled": {
+        "sqlsugar.templatedSqlEditor.animationsEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable animations and transitions in V2 editor"
+          "description": "Enable animations and transitions in Templated SQL editor"
         },
-        "sqlsugar.v2Editor.showSuggestions": {
+        "sqlsugar.templatedSqlEditor.showSuggestions": {
           "type": "boolean",
           "default": true,
           "description": "Show intelligent value suggestions based on variable names"
         },
-        "sqlsugar.v2Editor.autoFocusFirst": {
+        "sqlsugar.templatedSqlEditor.autoFocusFirst": {
           "type": "boolean",
           "default": false,
-          "description": "Automatically focus the first variable when opening the V2 editor"
+          "description": "Automatically focus the first variable when opening the Templated SQL editor"
         },
-        "sqlsugar.v2Editor.scrollSyncEnabled": {
+        "sqlsugar.templatedSqlEditor.scrollSyncEnabled": {
           "type": "boolean",
           "default": true,
           "description": "Enable bidirectional scroll synchronization between template and SQL preview"

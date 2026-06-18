@@ -1,5 +1,5 @@
 /**
- * SQL Syntax Highlighter for V2 Editor
+ * SQL Syntax Highlighter for Templated SQL Editor
  *
  * Provides professional SQL syntax highlighting using highlight.js
  * while maintaining support for clickable variables

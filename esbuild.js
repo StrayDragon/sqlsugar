@@ -164,9 +164,9 @@ async function buildExtension() {
 
 
 /**
- * Jinja2 Editor V2构建（可视化编辑器）
+ * Templated SQL Editor构建（可视化编辑器）
  */
-async function buildJinja2EditorV2() {
+async function buildTemplatedSqlEditor() {
     const ctx = await esbuild.context({
         entryPoints: [
             'src/features/jinja2/ui/index.ts'
@@ -178,9 +178,9 @@ async function buildJinja2EditorV2() {
         sourcemap: !production,
         sourcesContent: false,
         platform: 'browser',
-        outfile: 'dist/jinja2-editor-v2/jinja2-editor-v2.js',
+        outfile: 'dist/templated-sql-editor/templated-sql-editor.js',
         external: ['vscode'],
-        // Note: 'lit' should NOT be external for jinja2-editor-v2 since it needs to run in browser webview
+        // Note: 'lit' should NOT be external for templated-sql-editor since it needs to run in browser webview
         // highlight.js will be bundled for syntax highlighting functionality
         logLevel: 'silent',
         // Performance and size optimizations
@@ -222,10 +222,10 @@ async function main() {
 		buildPromises = [buildExtension()];
 	} else if (webviewOnly) {
 		// 只构建WebView组件
-		buildPromises = [buildJinja2EditorV2()];
+		buildPromises = [buildTemplatedSqlEditor()];
     } else {
-        // 默认：并行构建主扩展和 Jinja2 Editor V2
-        buildPromises = [buildExtension(), buildJinja2EditorV2()];
+        // 默认：并行构建主扩展和 Templated SQL Editor
+        buildPromises = [buildExtension(), buildTemplatedSqlEditor()];
 	}
 
 	if (!watch) {

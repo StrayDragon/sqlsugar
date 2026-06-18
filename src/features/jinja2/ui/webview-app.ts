@@ -1,7 +1,7 @@
 import { html, LitElement, css } from 'lit';
 import { customElement, state } from 'lit/decorators.js';
 import { Jinja2Variable } from './types.js';
-import type { CompleteEditorV2Config } from './types/config.js';
+import type { CompleteTemplatedSqlEditorConfig } from './types/config.js';
 import type { VscodeWebviewMessage } from './types/external-libraries.js';
 
 declare global {
@@ -14,8 +14,8 @@ declare global {
   }
 }
 
-@customElement('sqlsugar-webview-v2-app')
-export class SqlsugarWebviewV2App extends LitElement {
+@customElement('sqlsugar-templated-sql-app')
+export class TemplatedSqlWebviewApp extends LitElement {
   static override styles = css`
     :host {
       display: block;
@@ -33,7 +33,7 @@ export class SqlsugarWebviewV2App extends LitElement {
 
   @state() accessor templateText: string = '';
   @state() accessor variables: Jinja2Variable[] = [];
-  @state() accessor config: CompleteEditorV2Config | null = null;
+  @state() accessor config: CompleteTemplatedSqlEditorConfig | null = null;
 
   override connectedCallback(): void {
     super.connectedCallback();
@@ -89,14 +89,14 @@ export class SqlsugarWebviewV2App extends LitElement {
   override render() {
     return html`
       <div class="container">
-        <jinja2-editor-v2
+        <templated-sql-editor
           .template=${this.templateText}
           .variables=${this.variables}
           .config=${this.config}
-          .title="Jinja2 V2 Template Editor"
+          .title="Templated SQL Editor"
           @template-submit=${this.handleSubmit}
           @template-error=${this.handleError}
-        ></jinja2-editor-v2>
+        ></templated-sql-editor>
       </div>
     `;
   }
@@ -104,6 +104,6 @@ export class SqlsugarWebviewV2App extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'sqlsugar-webview-v2-app': SqlsugarWebviewV2App;
+    'sqlsugar-templated-sql-app': TemplatedSqlWebviewApp;
   }
 }

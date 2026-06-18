@@ -1,16 +1,16 @@
 /**
- * V2 Editor Configuration - Browser Compatible Version
+ * Templated SQL Editor Configuration - Browser Compatible Version
  *
- * Manages configuration for the V2 Jinja2 Visual Editor in browser environment.
+ * Manages configuration for the Templated SQL Editor in browser environment.
  * Configuration is passed from the extension side via initialization messages.
  */
 
-import type { EditorV2Config } from '../types.js';
+import type { TemplatedSqlEditorConfig } from '../types.js';
 
 /**
  * Default configuration values
  */
-const DEFAULT_CONFIG: EditorV2Config = {
+const DEFAULT_CONFIG: TemplatedSqlEditorConfig = {
   enabled: false,
   popoverPlacement: 'auto',
   highlightStyle: 'background',
@@ -22,11 +22,11 @@ const DEFAULT_CONFIG: EditorV2Config = {
 };
 
 /**
- * V2 Editor Configuration Manager - Browser Compatible
+ * Templated SQL Editor Configuration Manager - Browser Compatible
  */
-export class V2EditorConfig {
-  private static instance: V2EditorConfig;
-  private config: EditorV2Config;
+export class TemplatedSqlEditorConfigManager {
+  private static instance: TemplatedSqlEditorConfigManager;
+  private config: TemplatedSqlEditorConfig;
 
   private constructor() {
     this.config = { ...DEFAULT_CONFIG };
@@ -35,25 +35,25 @@ export class V2EditorConfig {
   /**
    * Get singleton instance
    */
-  public static getInstance(): V2EditorConfig {
-    if (!V2EditorConfig.instance) {
-      V2EditorConfig.instance = new V2EditorConfig();
+  public static getInstance(): TemplatedSqlEditorConfigManager {
+    if (!TemplatedSqlEditorConfigManager.instance) {
+      TemplatedSqlEditorConfigManager.instance = new TemplatedSqlEditorConfigManager();
     }
-    return V2EditorConfig.instance;
+    return TemplatedSqlEditorConfigManager.instance;
   }
 
   /**
-   * Get the complete V2 editor configuration
+   * Get the complete Templated SQL editor configuration
    */
-  static getConfig(): EditorV2Config {
-    const instance = V2EditorConfig.getInstance();
+  static getConfig(): TemplatedSqlEditorConfig {
+    const instance = TemplatedSqlEditorConfigManager.getInstance();
     return { ...instance.config };
   }
 
   /**
    * Get a specific configuration value
    */
-  static get<K extends keyof EditorV2Config>(key: K): EditorV2Config[K] {
+  static get<K extends keyof TemplatedSqlEditorConfig>(key: K): TemplatedSqlEditorConfig[K] {
     const config = this.getConfig();
     return config[key];
   }
@@ -61,8 +61,8 @@ export class V2EditorConfig {
   /**
    * Update configuration from extension side
    */
-  static updateConfig(newConfig: Partial<EditorV2Config>): void {
-    const instance = V2EditorConfig.getInstance();
+  static updateConfig(newConfig: Partial<TemplatedSqlEditorConfig>): void {
+    const instance = TemplatedSqlEditorConfigManager.getInstance();
     instance.config = {
       ...instance.config,
       ...newConfig
@@ -70,7 +70,7 @@ export class V2EditorConfig {
     }
 
   /**
-   * Check if V2 editor is enabled
+   * Check if Templated SQL editor is enabled
    */
   static isEnabled(): boolean {
     return this.get('enabled');
@@ -107,14 +107,14 @@ export class V2EditorConfig {
   /**
    * Get popover placement
    */
-  static getPopoverPlacement(): EditorV2Config['popoverPlacement'] {
+  static getPopoverPlacement(): TemplatedSqlEditorConfig['popoverPlacement'] {
     return this.get('popoverPlacement');
   }
 
   /**
    * Get highlight style
    */
-  static getHighlightStyle(): EditorV2Config['highlightStyle'] {
+  static getHighlightStyle(): TemplatedSqlEditorConfig['highlightStyle'] {
     return this.get('highlightStyle');
   }
 
@@ -129,14 +129,14 @@ export class V2EditorConfig {
    * Reset configuration to defaults
    */
   static resetToDefaults(): void {
-    const instance = V2EditorConfig.getInstance();
+    const instance = TemplatedSqlEditorConfigManager.getInstance();
     instance.config = { ...DEFAULT_CONFIG };
       }
 
   /**
    * Validate configuration values
    */
-  static validateConfig(config: Partial<EditorV2Config>): { valid: boolean; errors: string[] } {
+  static validateConfig(config: Partial<TemplatedSqlEditorConfig>): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
     if (config.popoverPlacement && !['auto', 'top', 'bottom', 'left', 'right'].includes(config.popoverPlacement)) {
@@ -188,16 +188,16 @@ export class V2EditorConfig {
   /**
    * Get configuration description for help/documentation
    */
-  static getConfigDescriptions(): Record<keyof EditorV2Config, string> {
+  static getConfigDescriptions(): Record<keyof TemplatedSqlEditorConfig, string> {
     return {
-      enabled: 'Enable the new V2 Jinja2 Visual Editor with direct template interaction',
-      popoverPlacement: 'Default placement for variable editing popovers in V2 editor',
+      enabled: 'Enable the new Templated SQL Editor with direct template interaction',
+      popoverPlacement: 'Default placement for variable editing popovers in Templated SQL editor',
       highlightStyle: 'Visual style for highlighting variables in the template',
-      autoPreview: 'Automatically preview SQL when variables change in V2 editor',
-      keyboardNavigation: 'Enable keyboard navigation (Tab, Enter, Escape) in V2 editor',
-      animationsEnabled: 'Enable animations and transitions in V2 editor',
+      autoPreview: 'Automatically preview SQL when variables change in Templated SQL editor',
+      keyboardNavigation: 'Enable keyboard navigation (Tab, Enter, Escape) in Templated SQL editor',
+      animationsEnabled: 'Enable animations and transitions in Templated SQL editor',
       showSuggestions: 'Show intelligent value suggestions based on variable names',
-      autoFocusFirst: 'Automatically focus the first variable when opening the V2 editor'
+      autoFocusFirst: 'Automatically focus the first variable when opening the Templated SQL editor'
     };
   }
 }

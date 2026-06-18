@@ -1,5 +1,5 @@
 /**
- * Data Processing Types for V2 Editor
+ * Data Processing Types for Templated SQL Editor
  *
  * Type-safe data processing and context management
  */

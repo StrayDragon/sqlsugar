@@ -1,5 +1,5 @@
 /**
- * Animation Styles and Effects for V2 Editor
+ * Animation Styles and Effects for Templated SQL Editor
  *
  * Centralized animation definitions and utilities
  */

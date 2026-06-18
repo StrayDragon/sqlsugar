@@ -1,5 +1,5 @@
 /**
- * Variable Popover Component for V2 Editor
+ * Variable Popover Component for Templated SQL Editor
  *
  * Provides an inline editor for template variables with smart positioning
  */
@@ -11,8 +11,8 @@ import { styleMap } from 'lit/directives/style-map.js';
 import type {
   EnhancedVariable,
   PopoverPosition,
-  VariableChangeEventV2,
-  EditorV2Config,
+  VariableChangeEvent,
+  TemplatedSqlEditorConfig,
   Jinja2VariableValue,
   Jinja2VariableType
 } from '../types.js';
@@ -40,7 +40,7 @@ const POPOVER_DIMENSIONS = {
 @customElement('variable-popover')
 export class VariablePopover extends LitElement {
   @property({ attribute: false }) accessor variable: EnhancedVariable | null = null;
-  @property({ attribute: false }) accessor config: EditorV2Config = {
+  @property({ attribute: false }) accessor config: TemplatedSqlEditorConfig = {
     enabled: true,
     popoverPlacement: 'auto',
     highlightStyle: 'background',
@@ -674,7 +674,7 @@ export class VariablePopover extends LitElement {
       return;
     }
 
-    const changeEvent: VariableChangeEventV2 = {
+    const changeEvent: VariableChangeEvent = {
       variable: this.variable,
       oldValue: this.currentValue,
       newValue: this.localValue,

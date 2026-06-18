@@ -1,5 +1,5 @@
 /**
- * Jinja2 Editor V2 - Modern visual template editor
+ * Templated SQL Editor - Modern visual template editor
  * Features: template highlighting, variable interaction, left-right split layout
  */
 
@@ -8,15 +8,15 @@ import { customElement, property, state } from 'lit/decorators.js';
 import TemplateHighlighter from '../utils/template-highlighter.js';
 import SqlHighlighter from '../utils/sql-highlighter.js';
 import type { Jinja2Variable, Jinja2VariableValue, EnhancedVariable, Jinja2VariableType } from '../types.js';
-import type { CompleteEditorV2Config } from '../types/config.js';
+import type { CompleteTemplatedSqlEditorConfig } from '../types/config.js';
 import nunjucks from 'nunjucks';
 import { createAlignedNunjucksEnv, buildNestedContext } from '../../../../shared/nunjucks-setup.js';
 
-@customElement('jinja2-editor-v2')
-export class Jinja2EditorV2 extends LitElement {
+@customElement('templated-sql-editor')
+export class TemplatedSqlEditor extends LitElement {
   @property({ type: String }) accessor template: string = '';
   @property({ type: Array }) accessor variables: Jinja2Variable[] = [];
-  @property({ attribute: false }) accessor config: CompleteEditorV2Config = {
+  @property({ attribute: false }) accessor config: CompleteTemplatedSqlEditorConfig = {
     enabled: false,
     popoverPlacement: 'auto',
     highlightStyle: 'background',
@@ -31,7 +31,7 @@ export class Jinja2EditorV2 extends LitElement {
   // @ts-ignore - Lit property decorators don't need override
   @property({ type: Boolean }) accessor showOriginal = true;
   // @ts-ignore - Lit property decorators don't need override
-  @property({ type: String }) accessor title = 'Jinja2 Template Editor V2';
+  @property({ type: String }) accessor title = 'Templated SQL Editor';
 
   @state() accessor values: Record<string, Jinja2VariableValue> = {};
   @state() accessor selectedVariable: string | null = null;
@@ -2605,7 +2605,7 @@ ${rightPanelHTML}`;
       return logEntry + '\n---';
     }).join('\n');
 
-    const header = `Jinja2 V2 Editor Variable Change Logs
+    const header = `Templated SQL Editor Variable Change Logs
 Generated: ${new Date().toISOString()}
 Total Changes: ${this.variableChangeLogs.length}
 Target: Find strange placeholder values (42VAR002) in auto-rendering
@@ -2817,7 +2817,7 @@ Includes: Right panel HTML tracking
         window.vscode.postMessage({
           command: 'log',
           data: {
-            category: `V2_EDITOR_${category}`,
+            category: `TSE_EDITOR_${category}`,
             message,
             timestamp: new Date().toISOString(),
             variableCount: this.variables.length,
@@ -3003,6 +3003,6 @@ Includes: Right panel HTML tracking
 
 declare global {
   interface HTMLElementTagNameMap {
-    'jinja2-editor-v2': Jinja2EditorV2;
+    'templated-sql-editor': TemplatedSqlEditor;
   }
 }

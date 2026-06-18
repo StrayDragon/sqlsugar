@@ -1,11 +1,11 @@
 /**
- * V2 Editor App Initialization
+ * Templated SQL Editor App Initialization
  *
- * This script initializes the V2 editor when the webview loads
+ * This script initializes the Templated SQL editor when the webview loads
  */
 
 
-window.initializeV2Editor = function() {
+window.initializeTemplatedSqlEditor = function() {
 
 
   const loadingElement = document.getElementById('loading');
@@ -14,22 +14,22 @@ window.initializeV2Editor = function() {
   }
 
 
-  document.body.innerHTML += '<div style="padding: 20px; color: var(--vscode-foreground);">V2 Editor Loaded Successfully! ✅</div>';
+  document.body.innerHTML += '<div style="padding: 20px; color: var(--vscode-foreground);">Templated SQL Editor Loaded Successfully! ✅</div>';
 
 
   if (window.vscode) {
     window.vscode.postMessage({
       command: 'ready',
-      data: 'V2 Editor is ready'
+      data: 'Templated SQL Editor is ready'
     });
   }
 };
 
 
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', window.initializeV2Editor);
+  document.addEventListener('DOMContentLoaded', window.initializeTemplatedSqlEditor);
 } else {
-  window.initializeV2Editor();
+  window.initializeTemplatedSqlEditor();
 }
 
 export {};

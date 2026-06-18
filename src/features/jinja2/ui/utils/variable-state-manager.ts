@@ -1,5 +1,5 @@
 /**
- * Variable State Manager for V2 Editor
+ * Variable State Manager for Templated SQL Editor
  *
  * Manages the state of all variables with history tracking and validation
  */

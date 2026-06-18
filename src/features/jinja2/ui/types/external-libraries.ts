@@ -1,7 +1,7 @@
 /**
  * External Library Type Definitions
  *
- * Type definitions for third-party libraries used in V2 editor
+ * Type definitions for third-party libraries used in Templated SQL editor
  */
 
 /**
@@ -122,8 +122,8 @@ declare global {
       setState: (state: unknown) => void;
     };
 
-    /** V2 Editor initialization function */
-    initializeV2Editor: () => void;
+    /** Templated SQL Editor initialization function */
+    initializeTemplatedSqlEditor: () => void;
   }
 
   var hljs: HighlightJs;

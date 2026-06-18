@@ -1,5 +1,5 @@
 /**
- * SQL Preview Component V2
+ * SQL Preview Component
  *
  * Enhanced preview with syntax highlighting, error display, and diff view
  */
@@ -12,11 +12,11 @@ import SqlHighlighter from '../utils/sql-highlighter.js';
 import type {
   EnhancedVariable,
   Jinja2VariableValue,
-  TemplateRenderEventV2
+  TemplateRenderEvent
 } from '../types.js';
 
-@customElement('sql-preview-v2')
-export class SqlPreviewV2 extends LitElement {
+@customElement('templated-sql-preview')
+export class TemplatedSqlPreview extends LitElement {
   @property({ type: String }) accessor template: string = '';
   @property({ attribute: false }) accessor values: Record<string, Jinja2VariableValue> = {};
   @property({ attribute: false }) accessor variables: EnhancedVariable[] = [];
@@ -30,7 +30,7 @@ export class SqlPreviewV2 extends LitElement {
   @state() accessor renderError: string | null = null;
   @state() accessor isRendering: boolean = false;
   @state() accessor lastRenderTime: number = 0;
-  @state() accessor renderMetrics: TemplateRenderEventV2['metrics'] | null = null;
+  @state() accessor renderMetrics: TemplateRenderEvent['metrics'] | null = null;
   @state() accessor viewMode: 'split' | 'rendered' | 'diff' = 'split';
   @state() accessor highlightedRendered: string = '';
   @state() accessor highlightedOriginal: string = '';
@@ -771,7 +771,7 @@ export class SqlPreviewV2 extends LitElement {
       this.highlightedRendered = this.highlightSQL(result);
       this.highlightedOriginal = this.highlightSQL(this.template);
 
-      const renderEvent: TemplateRenderEventV2 = {
+      const renderEvent: TemplateRenderEvent = {
         template: this.template,
         values: this.values,
         result,
@@ -797,7 +797,7 @@ export class SqlPreviewV2 extends LitElement {
         templateLength: this.template.length
       };
 
-      const renderEvent: TemplateRenderEventV2 = {
+      const renderEvent: TemplateRenderEvent = {
         template: this.template,
         values: this.values,
         result: '',
@@ -1352,6 +1352,6 @@ export class SqlPreviewV2 extends LitElement {
 
 declare global {
   interface HTMLElementTagNameMap {
-    'sql-preview-v2': SqlPreviewV2;
+    'templated-sql-preview': TemplatedSqlPreview;
   }
 }

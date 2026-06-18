@@ -1,5 +1,5 @@
 /**
- * Input Component for V2 Editor
+ * Input Component for Templated SQL Editor
  *
  * Simple reusable input component
  */
@@ -8,7 +8,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('v2-input')
-export class V2Input extends LitElement {
+export class TseInput extends LitElement {
   static override styles = css`
     :host {
       display: block;

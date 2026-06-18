@@ -1,5 +1,5 @@
 /**
- * Design System for V2 Editor
+ * Design System for Templated SQL Editor
  *
  * Complete design tokens and CSS custom properties
  */

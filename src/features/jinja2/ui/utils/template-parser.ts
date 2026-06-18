@@ -1,5 +1,5 @@
 /**
- * Template Parser for V2 Editor
+ * Template Parser for Templated SQL Editor
  *
  * Parses Jinja2 templates and extracts variable positions and context.
  * Uses shared JINJA2_REGEX patterns for consistency with processor.ts (Extension host).

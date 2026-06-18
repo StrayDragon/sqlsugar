@@ -1,10 +1,10 @@
 /**
- * V2 Editor Configuration Types
+ * Templated SQL Editor Configuration Types
  *
  * Extended configuration types for better type safety and validation
  */
 
-import type { EditorV2Config } from '../types.js';
+import type { TemplatedSqlEditorConfig } from '../types.js';
 
 /**
  * Log level options for WebView debugging
@@ -22,9 +22,9 @@ export type PopoverPlacement = 'auto' | 'top' | 'bottom' | 'left' | 'right';
 export type HighlightStyle = 'background' | 'border' | 'underline';
 
 /**
- * Complete V2 Editor configuration with all options
+ * Complete Templated SQL Editor configuration with all options
  */
-export interface CompleteEditorV2Config extends EditorV2Config {
+export interface CompleteTemplatedSqlEditorConfig extends TemplatedSqlEditorConfig {
   /** Log level for WebView console output */
   logLevel: LogLevel;
 }
@@ -32,7 +32,7 @@ export interface CompleteEditorV2Config extends EditorV2Config {
 /**
  * Default configuration values
  */
-export const DEFAULT_EDITOR_CONFIG: CompleteEditorV2Config = {
+export const DEFAULT_EDITOR_CONFIG: CompleteTemplatedSqlEditorConfig = {
   enabled: false,
   popoverPlacement: 'auto',
   highlightStyle: 'background',
@@ -51,17 +51,17 @@ export interface ConfigValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
-  normalizedConfig?: CompleteEditorV2Config;
+  normalizedConfig?: CompleteTemplatedSqlEditorConfig;
 }
 
 /**
  * Configuration updater for safe config modifications
  */
 export interface ConfigUpdater {
-  updateConfig<K extends keyof CompleteEditorV2Config>(
+  updateConfig<K extends keyof CompleteTemplatedSqlEditorConfig>(
     key: K,
-    value: CompleteEditorV2Config[K]
+    value: CompleteTemplatedSqlEditorConfig[K]
   ): void;
-  getConfig(): CompleteEditorV2Config;
+  getConfig(): CompleteTemplatedSqlEditorConfig;
   resetToDefaults(): void;
 }

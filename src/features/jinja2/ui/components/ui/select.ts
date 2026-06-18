@@ -1,5 +1,5 @@
 /**
- * Select Component for V2 Editor
+ * Select Component for Templated SQL Editor
  *
  * Simple reusable select component
  */
@@ -8,7 +8,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('v2-select')
-export class V2Select extends LitElement {
+export class TseSelect extends LitElement {
   static override styles = css`
     :host {
       display: block;

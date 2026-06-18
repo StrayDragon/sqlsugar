@@ -1,5 +1,5 @@
 /**
- * Button Component for V2 Editor
+ * Button Component for Templated SQL Editor
  *
  * Simple reusable button component
  */
@@ -8,7 +8,7 @@ import { LitElement, html, css } from 'lit';
 import { customElement, property } from 'lit/decorators.js';
 
 @customElement('v2-button')
-export class V2Button extends LitElement {
+export class TseButton extends LitElement {
   static override styles = css`
     :host {
       display: inline-block;

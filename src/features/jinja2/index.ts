@@ -14,12 +14,12 @@ export function registerJinja2Feature(
 
 
   const disposable = vscode.commands.registerCommand(
-    'sqlsugar.copyJinja2Template',
+    'sqlsugar.copyTemplatedSql',
     async () => {
       try {
-        await Jinja2NunjucksHandler.handleCopyJinja2Template('webviewV2');
+        await Jinja2NunjucksHandler.handleCopyJinja2Template('webview');
       } catch (error) {
-        Logger.error('Failed to execute copyJinja2Template command:', error);
+        Logger.error('Failed to execute copyTemplatedSql command:', error);
         const userMessage = error instanceof Error ? error.message : String(error);
         vscode.window.showErrorMessage(`Failed to process Jinja2 template: ${userMessage}`);
       }

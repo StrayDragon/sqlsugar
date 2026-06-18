@@ -1,5 +1,5 @@
 /**
- * Position Calculator for V2 Editor
+ * Position Calculator for Templated SQL Editor
  *
  * Calculates optimal popover positions with smart placement algorithms
  */
@@ -7,7 +7,7 @@
 import type {
   PopoverPosition,
   EnhancedVariable,
-  EditorV2Config
+  TemplatedSqlEditorConfig
 } from '../types.js';
 
 /**
@@ -31,7 +31,7 @@ export function calculatePopoverPosition(
   variable: EnhancedVariable,
   targetElement: HTMLElement,
   containerElement: HTMLElement,
-  config: EditorV2Config,
+  config: TemplatedSqlEditorConfig,
   customDimensions?: { width: number; height: number; arrowSize: number }
 ): PopoverPosition {
   const dimensions = customDimensions || POPOVER_DIMENSIONS;
@@ -75,7 +75,7 @@ export function calculatePopoverPosition(
 function determineBestPlacement(
   availableSpace: PopoverPosition['availableSpace'],
   dimensions: typeof POPOVER_DIMENSIONS,
-  preferredPlacement: EditorV2Config['popoverPlacement']
+  preferredPlacement: TemplatedSqlEditorConfig['popoverPlacement']
 ): PopoverPosition['placement'] {
 
   if (preferredPlacement === 'auto') {
@@ -216,7 +216,7 @@ export function adjustPositionForScroll(
   currentPosition: PopoverPosition,
   targetElement: HTMLElement,
   containerElement: HTMLElement,
-  config: EditorV2Config,
+  config: TemplatedSqlEditorConfig,
   customDimensions?: { width: number; height: number; arrowSize: number }
 ): PopoverPosition {
 

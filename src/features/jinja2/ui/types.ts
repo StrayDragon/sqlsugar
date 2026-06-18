@@ -1,7 +1,7 @@
 /**
- * Jinja2 Editor V2 Type Definitions
+ * Templated SQL Editor Type Definitions
  *
- * Independent type definitions for V2 editor
+ * Independent type definitions for Templated SQL editor
  */
 
 /**
@@ -65,17 +65,7 @@ export interface Jinja2Variable {
 }
 
 /**
- * Template render event
- */
-export interface TemplateRenderEvent {
-  template: string;
-  values: Record<string, Jinja2VariableValue>;
-  result: string;
-  error?: string;
-}
-
-/**
- * Enhanced variable information for V2 editor
+ * Enhanced variable information for Templated SQL editor
  */
 export interface EnhancedVariable extends Jinja2Variable {
   /** Position information in template */
@@ -195,10 +185,10 @@ export interface TemplateStats {
 }
 
 /**
- * V2 Editor configuration
+ * Templated SQL Editor configuration
  */
-export interface EditorV2Config {
-  /** Enable V2 editor */
+export interface TemplatedSqlEditorConfig {
+  /** Enable Templated SQL editor */
   enabled: boolean;
   /** Popover positioning strategy */
   popoverPlacement: 'auto' | 'top' | 'bottom' | 'left' | 'right';
@@ -217,9 +207,9 @@ export interface EditorV2Config {
 }
 
 /**
- * Variable change event for V2
+ * Variable change event
  */
-export interface VariableChangeEventV2 {
+export interface VariableChangeEvent {
   variable: EnhancedVariable;
   oldValue: Jinja2VariableValue;
   newValue: Jinja2VariableValue;
@@ -228,9 +218,9 @@ export interface VariableChangeEventV2 {
 }
 
 /**
- * Editor state for V2
+ * Editor state
  */
-export interface EditorV2State {
+export interface TemplatedSqlEditorState {
   /** Template content */
   template: string;
   /** All variables with enhanced info */
@@ -259,9 +249,17 @@ export interface KeyboardNavigationEvent {
 }
 
 /**
- * V2 Template render event with enhanced info
+ * Template render event
  */
-export interface TemplateRenderEventV2 extends TemplateRenderEvent {
+export interface TemplateRenderEvent {
+  /** Template content */
+  template: string;
+  /** Variable values used for rendering */
+  values: Record<string, Jinja2VariableValue>;
+  /** Rendered result */
+  result: string;
+  /** Render error if any */
+  error?: string;
   /** Variables that were used */
   usedVariables: string[];
   /** Variables that were missing */

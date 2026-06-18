@@ -1,5 +1,5 @@
 /**
- * Template Highlighter for V2 Editor
+ * Template Highlighter for Templated SQL Editor
  *
  * Provides Jinja2 template syntax highlighting with SQL sub-language support
  * while maintaining clickable variable functionality.

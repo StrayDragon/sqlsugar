@@ -1,5 +1,5 @@
 /**
- * Template Highlighter Component for V2 Editor
+ * Template Highlighter Component for Templated SQL Editor
  *
  * Renders the Jinja2 template with highlighted variables that can be clicked
  */
@@ -9,7 +9,7 @@ import { customElement, property, state } from 'lit/decorators.js';
 import type {
   EnhancedVariable,
   TemplateHighlight,
-  EditorV2Config
+  TemplatedSqlEditorConfig
 } from '../types.js';
 import { parseTemplate } from '../utils/template-parser.js';
 
@@ -21,7 +21,7 @@ type VariableInteractionEvent = MouseEvent | KeyboardEvent;
 @customElement('template-highlighter')
 export class TemplateHighlighter extends LitElement {
   @property({ type: String }) accessor template: string = '';
-  @property({ attribute: false }) accessor config: EditorV2Config = {
+  @property({ attribute: false }) accessor config: TemplatedSqlEditorConfig = {
     enabled: true,
     popoverPlacement: 'auto',
     highlightStyle: 'background',

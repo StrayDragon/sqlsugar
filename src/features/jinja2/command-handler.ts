@@ -4,7 +4,7 @@ import { promisify } from 'util';
 import { Logger } from '../../core/logger';
 
 import { Jinja2NunjucksProcessor, Jinja2Variable } from './processor';
-import { Jinja2WebviewEditorV2 } from './webview';
+import { TemplatedSqlWebviewEditor } from './webview';
 import type { VariableProcessingContext } from './ui/types/data-processing';
 import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy';
 import { AnalyzerPipeline } from './analyzers/analyzer-pipeline';
@@ -47,7 +47,7 @@ export class Jinja2NunjucksHandler {
    * 处理Jinja2模板 - 主要入口点
    */
   public static async handleCopyJinja2Template(
-    mode: 'quick' | 'wizard' | 'webviewV2' | 'defaults' = 'quick'
+    mode: 'quick' | 'wizard' | 'webview' | 'defaults' = 'quick'
   ): Promise<boolean> {
     try {
       const handler = Jinja2NunjucksHandler.getInstance();
@@ -152,8 +152,8 @@ export class Jinja2NunjucksHandler {
         return await this.handleQuickMode(selectedText, allVariables, placeholderDetection);
       case 'wizard':
         return await this.handleWizardMode(selectedText, allVariables, placeholderDetection);
-      case 'webviewV2':
-        return await this.handleWebviewV2Mode(selectedText, allVariables, placeholderDetection);
+      case 'webview':
+        return await this.handleWebviewMode(selectedText, allVariables, placeholderDetection);
       case 'defaults':
         return await this.handleDefaultsMode(selectedText, allVariables, placeholderDetection);
       default:
@@ -256,19 +256,19 @@ export class Jinja2NunjucksHandler {
 
 
   /**
-   * WebView V2模式 - 新一代可视化编辑器
+   * WebView 可视化模式 - 新一代可视化编辑器
    */
-  private async handleWebviewV2Mode(
+  private async handleWebviewMode(
     template: string,
     variables: Jinja2Variable[],
     _placeholderDetection: PlaceholderDetection
   ): Promise<boolean> {
     try {
       const preview = this.processor.getTemplatePreview(template);
-      const title = `V2 Jinja2 Template: ${preview}`;
+      const title = `Templated SQL Editor: ${preview}`;
 
 
-      await Jinja2WebviewEditorV2.showEditor(template, variables, title);
+      await TemplatedSqlWebviewEditor.showEditor(template, variables, title);
 
       return true;
     } catch (error) {

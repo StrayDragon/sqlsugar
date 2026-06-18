@@ -8,7 +8,7 @@ import type { UserPreferences, LegacyConfiguration, MigrationData } from '../typ
 
 export class PreferenceManager {
   private static readonly CONFIG_SECTION = 'sqlsugar';
-  private static readonly V2_CONFIG_SECTION = 'sqlsugar.v2Editor';
+  private static readonly TSE_CONFIG_SECTION = 'sqlsugar.templatedSqlEditor';
   private static readonly PREFERENCES_VERSION = '2.0.0';
 
   private _preferences: UserPreferences | null = null;
@@ -23,7 +23,7 @@ export class PreferenceManager {
     }
 
     const config = vscode.workspace.getConfiguration(PreferenceManager.CONFIG_SECTION);
-    const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+    const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
 
     // Load with migration for backward compatibility
     this._preferences = await this.migrateConfiguration(config, v2Config);
@@ -41,25 +41,25 @@ export class PreferenceManager {
 
     // Save inference preferences
     if (preferences.inference) {
-      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
       await v2Config.update('inference', preferences.inference, vscode.ConfigurationTarget.Global);
     }
 
     // Save scroll sync preferences
     if (preferences.scrollSync) {
-      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
       await v2Config.update('scrollSync', preferences.scrollSync, vscode.ConfigurationTarget.Global);
     }
 
     // Save UI preferences
     if (preferences.ui) {
-      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
       await v2Config.update('ui', preferences.ui, vscode.ConfigurationTarget.Global);
     }
 
     // Save performance preferences
     if (preferences.performance) {
-      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+      const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
       await v2Config.update('performance', preferences.performance, vscode.ConfigurationTarget.Global);
     }
 
@@ -91,7 +91,7 @@ export class PreferenceManager {
    */
   async resetPreferences(): Promise<void> {
     const config = vscode.workspace.getConfiguration(PreferenceManager.CONFIG_SECTION);
-    const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+    const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
 
     // Reset basic settings
     await Promise.all([
@@ -102,7 +102,7 @@ export class PreferenceManager {
       config.update('sqlSyntaxHighlightFontSize', undefined, vscode.ConfigurationTarget.Global),
     ]);
 
-    // Reset V2 settings
+    // Reset editor settings
     await Promise.all([
       v2Config.update('popoverPlacement', undefined, vscode.ConfigurationTarget.Global),
       v2Config.update('highlightStyle', undefined, vscode.ConfigurationTarget.Global),
@@ -219,9 +219,9 @@ export class PreferenceManager {
     };
 
     try {
-      // Migrate basic V2 settings
+      // Migrate basic editor settings
       if (legacy.v2Editor) {
-        const v2Config = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+        const v2Config = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
 
         if (!v2Config.get('popoverPlacement')) {
           await v2Config.update('popoverPlacement', legacy.v2Editor.popoverPlacement, vscode.ConfigurationTarget.Global);
@@ -235,7 +235,7 @@ export class PreferenceManager {
       }
 
       // Set new defaults for enhanced features
-      const enhancedConfig = vscode.workspace.getConfiguration(PreferenceManager.V2_CONFIG_SECTION);
+      const enhancedConfig = vscode.workspace.getConfiguration(PreferenceManager.TSE_CONFIG_SECTION);
 
       // Enable advanced inference by default
       if (!enhancedConfig.get('inference')) {
@@ -340,7 +340,7 @@ export class PreferenceManager {
   onConfigurationChanged(callback: (event: vscode.ConfigurationChangeEvent) => void): vscode.Disposable {
     return vscode.workspace.onDidChangeConfiguration(event => {
       if (event.affectsConfiguration(PreferenceManager.CONFIG_SECTION) ||
-          event.affectsConfiguration(PreferenceManager.V2_CONFIG_SECTION)) {
+          event.affectsConfiguration(PreferenceManager.TSE_CONFIG_SECTION)) {
         callback(event);
       }
     });

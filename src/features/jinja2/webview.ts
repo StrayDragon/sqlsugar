@@ -28,12 +28,12 @@ interface WebViewMessage {
 type WebViewVariableValue = string | number | boolean | null | undefined;
 
 /**
- * Jinja2 WebView编辑器 V2
+ * Templated SQL Editor (WebView)
  * 新一代可视化模板编辑器
  */
-export class Jinja2WebviewEditorV2 {
-  private static readonly viewType = 'sqlsugar.jinja2EditorV2';
-  private static activeInstances: Jinja2WebviewEditorV2[] = [];
+export class TemplatedSqlWebviewEditor {
+  private static readonly viewType = 'sqlsugar.templatedSqlEditor';
+  private static activeInstances: TemplatedSqlWebviewEditor[] = [];
   private panel: vscode.WebviewPanel | undefined;
   private resolvePromise: ((values: Record<string, WebViewVariableValue>) => void) | undefined;
   private rejectPromise: ((reason?: unknown) => void) | undefined;
@@ -53,7 +53,7 @@ export class Jinja2WebviewEditorV2 {
    * 刷新所有活动的WebView实例以应用新的主题
    */
   public static refreshAllInstances(): void {
-    Jinja2WebviewEditorV2.activeInstances.forEach(editor => {
+    TemplatedSqlWebviewEditor.activeInstances.forEach(editor => {
       editor.refreshTheme();
     });
   }
@@ -73,22 +73,22 @@ export class Jinja2WebviewEditorV2 {
         command: 'init',
         template: this.currentTemplate,
         variables: this.currentVariables,
-        config: this.getV2EditorConfig(),
+        config: this.getTemplatedSqlEditorConfig(),
       });
     }
   }
 
   /**
-   * 显示 V2 WebView 编辑器
+   * 显示 Templated SQL Editor
    */
   public static async showEditor(
     template: string,
     _variables: Jinja2Variable[],
-    title: string = 'Jinja2 V2 模板编辑器'
+    title: string = 'Templated SQL Editor'
   ): Promise<Record<string, WebViewVariableValue>> {
     return new Promise((resolve, reject) => {
       void (async () => {
-        const editor = new Jinja2WebviewEditorV2();
+        const editor = new TemplatedSqlWebviewEditor();
 
       try {
         const container = DIContainer.getInstance();
@@ -107,16 +107,16 @@ export class Jinja2WebviewEditorV2 {
         const handler = Jinja2NunjucksHandler.getInstance();
         const extractedVariables = handler.extractVariables(template);
 
-        Logger.info(`V2 Editor: Extracted ${extractedVariables.length} variables from template`);
+        Logger.info(`Templated SQL Editor: Extracted ${extractedVariables.length} variables from template`);
 
 
         extractedVariables.forEach((variable, index) => {
-          Logger.info(`V2 Editor: Variable ${index + 1}: ${variable.name} (${variable.type}) - extracted via ${variable.extractionMethod}`);
+          Logger.info(`Templated SQL Editor: Variable ${index + 1}: ${variable.name} (${variable.type}) - extracted via ${variable.extractionMethod}`);
         });
 
         editor.show(template, extractedVariables, title);
       } catch (_error) {
-        Logger.warn('V2 Editor: Variable extraction failed, using provided variables:', _error);
+        Logger.warn('Templated SQL Editor: Variable extraction failed, using provided variables:', _error);
 
         editor.show(template, _variables, title);
       }
@@ -132,10 +132,10 @@ export class Jinja2WebviewEditorV2 {
       const handler = Jinja2NunjucksHandler.getInstance();
       const variables = handler.extractVariables(template);
 
-      Logger.info(`V2 Editor: Extracted ${variables.length} variables`);
+      Logger.info(`Templated SQL Editor: Extracted ${variables.length} variables`);
       return variables;
     } catch (_error) {
-      Logger.error('V2 Editor: Failed to extract variables:', _error);
+      Logger.error('Templated SQL Editor: Failed to extract variables:', _error);
       return [];
     }
   }
@@ -160,7 +160,7 @@ export class Jinja2WebviewEditorV2 {
 
 
     this.panel = vscode.window.createWebviewPanel(
-      Jinja2WebviewEditorV2.viewType,
+      TemplatedSqlWebviewEditor.viewType,
       title,
       vscode.ViewColumn.Beside,
       {
@@ -170,7 +170,7 @@ export class Jinja2WebviewEditorV2 {
           vscode.Uri.joinPath(this.context.extensionUri, 'resources'),
           vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources'),
           vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview'),
-          vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'jinja2-editor-v2'),
+          vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'templated-sql-editor'),
         ],
         enableCommandUris: false,
         enableForms: false,
@@ -185,7 +185,7 @@ export class Jinja2WebviewEditorV2 {
       command: 'init',
       template,
       variables: variables,
-      config: this.getV2EditorConfig(),
+      config: this.getTemplatedSqlEditorConfig(),
     });
 
 
@@ -193,14 +193,14 @@ export class Jinja2WebviewEditorV2 {
     const logLevel = mainConfig.get<string>('logLevel', 'error');
 
     if (logLevel !== 'error' && logLevel !== 'none') {
-      const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
+      const outputChannel = TemplatedSqlWebviewEditor.getOutputChannel();
       if (outputChannel) {
-        outputChannel.appendLine('[V2 Extension] Editor initialized');
-        outputChannel.appendLine(`[V2 Extension] Variables: ${variables.length}`);
+        outputChannel.appendLine('[Templated SQL Editor] Editor initialized');
+        outputChannel.appendLine(`[Templated SQL Editor] Variables: ${variables.length}`);
 
 
         if (logLevel === 'info' || logLevel === 'debug') {
-          outputChannel.appendLine(`[V2 Extension] Template preview: ${template.substring(0, 50)}...`);
+          outputChannel.appendLine(`[Templated SQL Editor] Template preview: ${template.substring(0, 50)}...`);
         }
 
 
@@ -208,7 +208,7 @@ export class Jinja2WebviewEditorV2 {
     }
 
 
-    Jinja2WebviewEditorV2.activeInstances.push(this);
+    TemplatedSqlWebviewEditor.activeInstances.push(this);
   }
 
   private setupWebviewListeners(): void {
@@ -219,9 +219,9 @@ export class Jinja2WebviewEditorV2 {
     this.panel.onDidDispose(() => {
       this.panel = undefined;
 
-      const index = Jinja2WebviewEditorV2.activeInstances.indexOf(this);
+      const index = TemplatedSqlWebviewEditor.activeInstances.indexOf(this);
       if (index > -1) {
-        Jinja2WebviewEditorV2.activeInstances.splice(index, 1);
+        TemplatedSqlWebviewEditor.activeInstances.splice(index, 1);
       }
       if (this.rejectPromise) {
         this.rejectPromise(new Error('用户关闭了编辑器'));
@@ -289,7 +289,7 @@ export class Jinja2WebviewEditorV2 {
             const logMessage = `[${category}] ${JSON.stringify(message.data, null, 2)}`;
 
 
-            const outputChannel = Jinja2WebviewEditorV2.getOutputChannel();
+            const outputChannel = TemplatedSqlWebviewEditor.getOutputChannel();
             if (outputChannel) {
               outputChannel.appendLine(logMessage);
 
@@ -347,10 +347,10 @@ export class Jinja2WebviewEditorV2 {
   }
 
   /**
-   * 获取V2编辑器配置
+   * 获取 Templated SQL Editor 配置
    */
-  private getV2EditorConfig(): Record<string, unknown> {
-    const config = vscode.workspace.getConfiguration('sqlsugar.v2Editor');
+  private getTemplatedSqlEditorConfig(): Record<string, unknown> {
+    const config = vscode.workspace.getConfiguration('sqlsugar.templatedSqlEditor');
     const mainConfig = vscode.workspace.getConfiguration('sqlsugar');
     return {
       popoverPlacement: config.get<string>('popoverPlacement', 'auto'),
@@ -375,7 +375,7 @@ export class Jinja2WebviewEditorV2 {
 
 
     const errorCategories = [
-      'V2_EDITOR_ERROR',
+      'TSE_EDITOR_ERROR',
       'NUNJUCKS_ERROR',
       'TEMPLATE_RENDER_ERROR',
       'PLACEHOLDER_DETECTED',
@@ -384,7 +384,7 @@ export class Jinja2WebviewEditorV2 {
 
 
     const warnCategories = [
-      'V2_EDITOR_WARN',
+      'TSE_EDITOR_WARN',
       'NUNJUCKS_SUSPICIOUS',
       'SUSPICIOUS_FORMATTING',
       'DEFAULT_PLACEHOLDER',
@@ -393,7 +393,7 @@ export class Jinja2WebviewEditorV2 {
 
 
     const infoCategories = [
-      'V2_EDITOR_INFO',
+      'TSE_EDITOR_INFO',
       'NUNJUCKS_SUCCESS',
       'NUNJUCKS_CLEAN',
       'VARIABLE_CLEANED'
@@ -423,7 +423,7 @@ export class Jinja2WebviewEditorV2 {
   private shouldShowOutputChannel(category: string, logLevel: string): boolean {
 
     const criticalCategories = [
-      'V2_EDITOR_ERROR',
+      'TSE_EDITOR_ERROR',
       'NUNJUCKS_ERROR',
       'TEMPLATE_RENDER_ERROR',
       'PLACEHOLDER_DETECTED',
@@ -461,12 +461,12 @@ export class Jinja2WebviewEditorV2 {
       command: 'init',
       template,
       variables: _variables,
-      config: this.getV2EditorConfig(),
+      config: this.getTemplatedSqlEditorConfig(),
     });
   }
 
   /**
-   * V2 WebView HTML
+   * Templated SQL Editor HTML
    */
   private getAppHtml(
     webview: vscode.Webview,
@@ -476,8 +476,8 @@ export class Jinja2WebviewEditorV2 {
     const nonce = getNonce();
     const templatePreview = template.substring(0, 100) + (template.length > 100 ? '...' : '');
 
-    const jinjaEditorV2Uri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'jinja2-editor-v2', 'jinja2-editor-v2.js')
+    const templatedSqlEditorUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'templated-sql-editor', 'templated-sql-editor.js')
     );
 
     return `<!DOCTYPE html>
@@ -486,7 +486,7 @@ export class Jinja2WebviewEditorV2 {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} https:; script-src ${webview.cspSource} 'nonce-${nonce}' 'unsafe-eval'; style-src ${webview.cspSource} 'unsafe-inline';">
-  <title>Jinja2 V2 Template Editor - ${templatePreview}</title>
+  <title>Templated SQL Editor - ${templatePreview}</title>
   <link href="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'vs2015.min.css'))}" rel="stylesheet">
   <style>
     /* Light theme overrides - applied when VS Code uses a light theme */
@@ -554,7 +554,7 @@ export class Jinja2WebviewEditorV2 {
   </style>
 </head>
 <body>
-  <sqlsugar-webview-v2-app></sqlsugar-webview-v2-app>
+  <sqlsugar-templated-sql-app></sqlsugar-templated-sql-app>
   <script nonce="${nonce}">
     // Initialize VS Code API
     (function() {
@@ -566,7 +566,7 @@ export class Jinja2WebviewEditorV2 {
           }
         }
       } catch (_error) {
-        console.error('[V2 WebView] Error initializing VS Code API:', _error);
+        console.error('[Templated SQL Editor] Error initializing VS Code API:', _error);
       }
     })();
 
@@ -599,7 +599,7 @@ export class Jinja2WebviewEditorV2 {
     })();
   </script>
   <script src="${webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'resources', 'highlight.min.js'))}"></script>
-  <script type="module" src="${jinjaEditorV2Uri}"></script>
+  <script type="module" src="${templatedSqlEditorUri}"></script>
 </body>
 </html>`;
   }

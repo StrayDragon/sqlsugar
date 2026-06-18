@@ -1,5 +1,5 @@
 /**
- * Variable Utilities for V2 Editor
+ * Variable Utilities for Templated SQL Editor
  *
  * Utility functions for variable validation, type checking, and value formatting
  */

@@ -1,5 +1,5 @@
 kind: llman.sdd.spec
-name: "jinja2-visual-editor"
+name: "templated-sql-editor"
 purpose: 提供基于 WebView 的 Jinja2 SQL 模板可视化编辑器，支持变量类型推断、实时 SQL 预览、智能默认值生成，帮助用户快速生成参数化的 SQL 查询。
 valid_scope[2]: src/features/templated-sql/,src/test/
 requirements[18]{req_id,title,statement}:

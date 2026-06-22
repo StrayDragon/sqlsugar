@@ -10,6 +10,47 @@ import type { VariableType as InferenceVariableType } from '../types/inference.j
 export type VariableType = InferenceVariableType;
 
 /**
+ * Build a sample value for a single element property based on its name.
+ * Used to generate meaningful default arrays for for-loop collections.
+ */
+function sampleValueForProperty(prop: string): TemplateVariableValue {
+  const p = prop.toLowerCase();
+  if (p === 'id' || p.endsWith('_id')) return 1;
+  if (p.startsWith('is_') || p.startsWith('has_') || p === 'active' || p === 'enabled') return true;
+  if (p.includes('name') || p === 'label' || p === 'title') return `Sample ${prop}`;
+  if (p.includes('email')) return 'user@example.com';
+  if (p.includes('price') || p.includes('amount') || p.includes('total')) return 99.99;
+  if (p.includes('count') || p.includes('qty') || p === 'quantity') return 10;
+  if (p.includes('date') || p.includes('time')) return '2024-01-01';
+  return `sample_${prop}`;
+}
+
+/**
+ * Build a sample array for a for-loop collection variable.
+ * If `elementProperties` is known (collected from the loop body), produce an
+ * array of objects with those fields so the template renders meaningfully.
+ * Otherwise fall back to a small array of primitives.
+ */
+export function buildSampleArray(elementProperties?: string[]): TemplateVariableValue {
+  if (elementProperties && elementProperties.length > 0) {
+    const makeElement = (seed: number) => {
+      const obj: Record<string, TemplateVariableValue> = {};
+      elementProperties.forEach(prop => {
+        const base = sampleValueForProperty(prop);
+        // vary numeric / string sample values per element so iterations differ
+        if (typeof base === 'number') obj[prop] = base + seed;
+        else if (typeof base === 'string' && !/[:@/-]/.test(base)) obj[prop] = `${base}_${seed + 1}`;
+        else obj[prop] = base;
+      });
+      return obj;
+    };
+    return [makeElement(0), makeElement(1), makeElement(2)];
+  }
+  // Fallback: a couple of primitive items
+  return ['item1', 'item2', 'item3'];
+}
+
+/**
  * Gets a default value for a given variable type
  */
 export function getDefaultValueForType(type: VariableType): TemplateVariableValue {
@@ -224,6 +265,15 @@ export function createTemplateVariable(
  * Gets a contextual default value for a variable based on its name and type
  */
 export function getContextualDefaultValue(variable: EnhancedVariable): TemplateVariableValue {
+  // Special case: variables used as SQL identifiers (e.g. {{ user | identifier }})
+  // should default to the variable name literal itself.
+  const filters = variable.filters ?? [];
+  const isIdentifierFilter = filters.some(f => f === 'identifier' || f === 'sql_identifier');
+  if (isIdentifierFilter) {
+    const lastSegment = variable.name.split('.').pop() ?? variable.name;
+    return lastSegment;
+  }
+
   const name = variable.name.toLowerCase();
   const type = variable.type;
 
@@ -260,7 +310,7 @@ export function getContextualDefaultValue(variable: EnhancedVariable): TemplateV
       return '00000000-0000-0000-0000-000000000000';
 
     case 'array':
-      return [];
+      return buildSampleArray(variable.elementProperties);
 
     case 'object':
       return {};

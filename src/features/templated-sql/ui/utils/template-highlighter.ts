@@ -113,7 +113,11 @@ export class TemplateHighlighter {
   ): string {
     try {
 
-      const { text: tokenizedText, tokenMap } = this.tokenizeParamPlaceholders(template);
+      // Before highlight.js: tokenize Jinja2 {% %} blocks so highlight.js
+      // doesn't split them into multiple spans (it treats % as operator).
+      const j2Result = this.tokenizeJinja2Blocks(template);
+
+      const { text: tokenizedText, tokenMap } = this.tokenizeParamPlaceholders(j2Result.text);
 
 
       const hljsInstance = (globalThis as typeof globalThis & { hljs: HighlightJs }).hljs;
@@ -126,6 +130,9 @@ export class TemplateHighlighter {
 
 
       result = this.restoreParamTokens(result, tokenMap);
+
+      // Restore Jinja2 {% %} blocks (now intact since they were opaque to hljs)
+      result = this.restoreJinja2Tokens(result, j2Result.tokenMap);
 
 
       variables.forEach((variable) => {
@@ -254,6 +261,55 @@ export class TemplateHighlighter {
   }
 
   /**
+   * Tokenize Jinja2 {% %} control blocks before highlight.js processing.
+   * highlight.js treats `%` as an operator and splits {% / %} into multiple
+   * <span> elements, which makes it impossible to match control structure
+   * variables by regex afterwards.
+   *
+   * By replacing each {% ... %} block with an opaque token before
+   * highlight.js runs, and restoring the original text afterwards, the
+   * control blocks remain intact for variable highlighting.
+   */
+  private tokenizeJinja2Blocks(rawText: string): {
+    text: string;
+    tokenMap: Map<string, string>;
+  } {
+    const tokenMap = new Map<string, string>();
+    let tokenCounter = 0;
+    let text = rawText;
+
+    const nextToken = () => {
+      const token = `__JINJA2BLOCK_${tokenCounter}__`;
+      tokenCounter++;
+      return token;
+    };
+
+    // Match {% ... %} blocks (including whitespace control: {%-, -%}, and nested content)
+    text = text.replace(/\{%[\s\S]*?%\}/g, (match: string) => {
+      const token = nextToken();
+      tokenMap.set(token, match);
+      return token;
+    });
+
+    return { text, tokenMap };
+  }
+
+  /**
+   * Restore Jinja2 control block tokens to their original text after
+   * highlight.js processing.
+   */
+  private restoreJinja2Tokens(
+    highlightedHTML: string,
+    tokenMap: Map<string, string>
+  ): string {
+    let result = highlightedHTML;
+    for (const [token, originalText] of tokenMap) {
+      result = result.replace(token, originalText);
+    }
+    return result;
+  }
+
+  /**
    * Highlights variables in Jinja2 control structures within highlighted HTML
    */
   private highlightVariablesInControlStructures(
@@ -262,7 +318,8 @@ export class TemplateHighlighter {
   ): string {
     let result = highlightedHTML;
 
-    result = result.replace(/{%\s*if\s+([^%]+)\s*%}/g, (match: string, condition: string) => {
+    // Support: {% if cond %}, {% if cond -%}, {% if cond if...%} etc.
+    result = result.replace(/{%\s*if\s+([^%]+?)\s*-?%}/g, (match: string, condition: string) => {
       let highlightedCondition = condition;
 
       variables.forEach(variable => {
@@ -274,7 +331,13 @@ export class TemplateHighlighter {
       return `{% if ${highlightedCondition} %}`;
     });
 
-    result = result.replace(/{%\s*for\s+\w+\s+in\s+\w+\s*%}/g, (match: string) => {
+    // Support:
+    //   {% for x in coll %}
+    //   {% for x in coll if cond %}
+    //   {% for x,y in coll %}
+    //   {% for x in coll -%}
+    //   {% for x in coll if cond -%}
+    result = result.replace(/{%\s*for\s+[\w\s,]+\s+in\s+[\w.]+(?:\s+if\s+[^%]*)?\s*-?%}/g, (match: string) => {
       let highlightedMatch = match;
 
       variables.forEach(variable => {

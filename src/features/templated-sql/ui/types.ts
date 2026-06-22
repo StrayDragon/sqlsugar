@@ -74,6 +74,10 @@ export interface EnhancedVariable extends TemplateVariable {
   usage?: VariableUsage;
   /** Context information */
   context?: VariableContext;
+  /** For array variables used as for-loop iterables: property names
+   *  accessed on each element (e.g. for `{% for c in cats %}{{ c.id }}{{ c.name }}{% endfor %}`
+   *  this would be `['id', 'name']`). Used to generate a meaningful sample array. */
+  elementProperties?: string[];
 }
 
 /**

@@ -9,7 +9,7 @@ import type {
   TemplateVariableValue,
   TemplateVariableType
 } from '../types.js';
-import { validateValue } from './variable-utils.js';
+import { validateValue, buildSampleArray } from './variable-utils.js';
 
 /**
  * Variable state with history tracking
@@ -101,6 +101,17 @@ export class VariableStateManager {
     }
 
 
+    // Special case: variables used as SQL identifiers (e.g. {{ user | identifier }})
+    // should default to the variable name literal itself.
+    const filters = variable.filters ?? [];
+    const isIdentifierFilter = filters.some(f => f === 'identifier' || f === 'sql_identifier');
+    if (isIdentifierFilter) {
+      // For dotted names like `user.id`, use the last segment as the identifier.
+      const lastSegment = variable.name.split('.').pop() ?? variable.name;
+      return lastSegment;
+    }
+
+
     const name = variable.name.toLowerCase();
 
     switch (variable.type) {
@@ -140,6 +151,11 @@ export class VariableStateManager {
 
       case 'uuid':
         return '00000000-0000-0000-0000-000000000000';
+
+      case 'array':
+        // For-loop collection variables carry elementProperties describing the
+        // shape of each item; use it to build a meaningful sample array.
+        return buildSampleArray(variable.elementProperties);
 
       case 'json':
         return {};

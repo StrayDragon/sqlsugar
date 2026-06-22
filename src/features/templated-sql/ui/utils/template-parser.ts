@@ -52,36 +52,167 @@ export function parseTemplate(template: string): TemplateHighlight {
 }
 
 /**
+ * Escape regex special characters in a string
+ */
+function escapeRegexString(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Information about a for-loop's iterable collection variable
+ */
+interface CollectionInfo {
+  name: string;
+  startIndex: number;
+  endIndex: number;
+  line: number;
+  column: number;
+  context: VariableContext;
+  /** Property names accessed on each element in the loop body (e.g. ['id', 'is_active']) */
+  properties: string[];
+}
+
+/**
+ * Find the matching {% endfor %} for a {% for %} whose tag ends at `searchFrom`.
+ * Returns the index of the endfor tag, or -1 if not found.
+ */
+function findMatchingEndFor(template: string, searchFrom: number): number {
+  const blockRegex = new RegExp(JINJA2_PATTERNS.BLOCK.source, 'g');
+  blockRegex.lastIndex = searchFrom;
+  let depth = 1;
+  let m;
+  while ((m = blockRegex.exec(template)) !== null) {
+    const tag = m[1];
+    if (tag === 'for') {
+      depth++;
+    } else if (tag === 'endfor') {
+      depth--;
+      if (depth === 0) return m.index;
+    }
+  }
+  return -1;
+}
+
+/**
+ * Scan all for-loop tags and collect:
+ *  - loop variable names (to filter out derived variables like `cat`, `cat.id`)
+ *  - precise position of each collection variable (for accurate highlighting)
+ *  - element property schema (to generate a meaningful sample array)
+ */
+function collectForLoopInfo(template: string): {
+  loopVariables: Set<string>;
+  collections: CollectionInfo[];
+} {
+  const loopVariables = new Set<string>();
+  const collections: CollectionInfo[] = [];
+
+  const regex = new RegExp(JINJA2_PATTERNS.FOR_LOOP.source, 'g');
+  let match;
+  while ((match = regex.exec(template)) !== null) {
+    const fullMatch = match[0];
+    const loopVarStr = match[1].trim();
+    const collectionVar = match[2];
+    const filterCondition = match[3];
+    const matchStart = match.index;
+
+    const vars = loopVarStr.split(',').map(v => v.trim()).filter(Boolean);
+    vars.forEach(v => loopVariables.add(v));
+    const primaryLoopVar = vars[0];
+
+    // Compute the PRECISE position of the collection variable inside the tag.
+    // Tag layout: {%[-\s]*for <loopVars> in <collection> [if ...] %}
+    const inKeyword = ' in ';
+    const inPos = fullMatch.indexOf(inKeyword);
+    const collectionOffset = inPos + inKeyword.length;
+    const collectionStart = matchStart + collectionOffset;
+    const collectionEnd = collectionStart + collectionVar.length;
+
+    const beforeText = template.substring(0, collectionStart);
+    const lines = beforeText.split('\n');
+    const line = lines.length;
+    const column = lines[lines.length - 1].length + 1;
+    const context = extractContext(template, collectionStart, collectionEnd);
+
+    // Collect property names accessed on the loop variable, both in the loop
+    // body and in the optional `if` filter condition.
+    const properties: string[] = [];
+    const collectProps = (text: string) => {
+      if (!primaryLoopVar || !text) return;
+      const propRegex = new RegExp(`\\b${escapeRegexString(primaryLoopVar)}\\.([a-zA-Z_][a-zA-Z0-9_]*)\\b`, 'g');
+      let pm;
+      while ((pm = propRegex.exec(text)) !== null) {
+        if (!properties.includes(pm[1])) properties.push(pm[1]);
+      }
+    };
+
+    const endForPos = findMatchingEndFor(template, matchStart + fullMatch.length);
+    if (endForPos > 0) {
+      const loopBody = template.substring(matchStart + fullMatch.length, endForPos);
+      collectProps(loopBody);
+    }
+    if (filterCondition) collectProps(filterCondition);
+
+    collections.push({
+      name: collectionVar,
+      startIndex: collectionStart,
+      endIndex: collectionEnd,
+      line,
+      column,
+      context: { ...context, semanticContext: 'array' },
+      properties,
+    });
+  }
+
+  return { loopVariables, collections };
+}
+
+/**
+ * Whether a variable name should be skipped (not treated as user-editable).
+ * Skips Jinja2 keywords (loop, range, ...) and for-loop variables together
+ * with their properties (cat, cat.id, cat.is_active) since these are derived
+ * from the iterable collection, not set directly by the user.
+ */
+function shouldSkipVariableName(varName: string, loopVariables: Set<string>): boolean {
+  if (!varName) return true;
+  const firstSegment = varName.split('.')[0];
+  if (JINJA2_KEYWORDS.has(firstSegment.toLowerCase())) return true;
+  if (loopVariables.has(firstSegment)) return true;
+  return false;
+}
+
+/**
  * Extract variables from template with position and context information
  */
 function extractVariables(template: string): EnhancedVariable[] {
   const variables: EnhancedVariable[] = [];
   const variableMap = new Map<string, EnhancedVariable>();
 
+  // First pass: collect for-loop info (loop variable names + precise collection positions)
+  const { loopVariables, collections } = collectForLoopInfo(template);
 
-  JINJA2_PATTERNS.VARIABLE.lastIndex = 0;
+  const shouldSkip = (name: string) => shouldSkipVariableName(name, loopVariables);
 
+  // Pass 2: {{ ... }} expressions — use a fresh regex so we never share lastIndex
+  // with extractContext/findRelatedVariables which also use the VARIABLE pattern.
+  const exprRegex = new RegExp(JINJA2_PATTERNS.VARIABLE.source, 'g');
   let match;
-  while ((match = JINJA2_PATTERNS.VARIABLE.exec(template)) !== null) {
+  while ((match = exprRegex.exec(template)) !== null) {
     const fullMatch = match[0];
-    const { variableName: rawName } = extractVariableFromExpression(match[1]);
+    const { variableName: rawName, filters } = extractVariableFromExpression(match[1]);
     const variableName = rawName.trim();
-    if (!variableName || JINJA2_KEYWORDS.has(variableName.toLowerCase())) continue;
+    if (!variableName || shouldSkip(variableName)) continue;
     const startIndex = match.index;
     const endIndex = startIndex + fullMatch.length;
-
 
     const beforeText = template.substring(0, startIndex);
     const lines = beforeText.split('\n');
     const line = lines.length;
     const column = lines[lines.length - 1].length + 1;
 
-
     const context = extractContext(template, startIndex, endIndex);
 
-
     const enhancedVar: EnhancedVariable = {
-      ...createTemplateVariable(variableName, inferVariableType(variableName, context)),
+      ...createTemplateVariable(variableName, inferVariableType(variableName, context), { filters }),
       position: {
         startIndex,
         endIndex,
@@ -93,18 +224,14 @@ function extractVariables(template: string): EnhancedVariable[] {
       context
     };
 
-
-    if (variableMap.has(variableName)) {
-    } else {
+    if (!variableMap.has(variableName)) {
       variableMap.set(variableName, enhancedVar);
       variables.push(enhancedVar);
     }
   }
 
-
-  const controlStructureVariables = extractVariablesFromControlStructures(template);
-
-
+  // Pass 3: control structures (if conditions, set assignments). Loop variables are filtered out.
+  const controlStructureVariables = extractVariablesFromControlStructures(template, shouldSkip);
   for (const variable of controlStructureVariables) {
     if (!variableMap.has(variable.name)) {
       variableMap.set(variable.name, variable);
@@ -112,115 +239,76 @@ function extractVariables(template: string): EnhancedVariable[] {
     }
   }
 
+  // Pass 4: for-loop collection variables (precise positions, array type)
+  for (const col of collections) {
+    if (variableMap.has(col.name)) continue;
+    const enhancedVar: EnhancedVariable = {
+      ...createTemplateVariable(col.name, 'array'),
+      position: {
+        startIndex: col.startIndex,
+        endIndex: col.endIndex,
+        line: col.line,
+        column: col.column,
+        name: col.name,
+        fullMatch: col.name,
+      },
+      context: col.context,
+      elementProperties: col.properties,
+    };
+    variableMap.set(col.name, enhancedVar);
+    variables.push(enhancedVar);
+  }
+
   return variables;
 }
 
 /**
- * Extract variables from Jinja2 control structures (if, for, set statements)
+ * Extract variables from Jinja2 control structures (if and set statements).
+ * For-loop variables are handled separately by collectForLoopInfo and are
+ * filtered out here via the provided `shouldSkip` predicate.
  */
-function extractVariablesFromControlStructures(template: string): EnhancedVariable[] {
+function extractVariablesFromControlStructures(
+  template: string,
+  shouldSkip: (name: string) => boolean
+): EnhancedVariable[] {
   const variables: EnhancedVariable[] = [];
   const processedVariables = new Set<string>();
 
-
-  JINJA2_PATTERNS.IF_CONDITION.lastIndex = 0;
+  // {% if %} / {% elif %} conditions
+  const ifRegex = new RegExp(JINJA2_PATTERNS.IF_CONDITION.source, 'g');
   let ifMatch;
-  while ((ifMatch = JINJA2_PATTERNS.IF_CONDITION.exec(template)) !== null) {
+  while ((ifMatch = ifRegex.exec(template)) !== null) {
     const fullMatch = ifMatch[0];
     const condition = ifMatch[2];
     const startIndex = ifMatch.index;
     const endIndex = startIndex + fullMatch.length;
 
-
     const conditionVariables = extractVariablesFromExpression(condition, startIndex, endIndex, 'conditional');
-
     for (const variable of conditionVariables) {
-      if (!processedVariables.has(variable.name)) {
+      if (!processedVariables.has(variable.name) && !shouldSkip(variable.name)) {
         processedVariables.add(variable.name);
         variables.push(variable);
       }
     }
   }
 
-
-  JINJA2_PATTERNS.FOR_LOOP.lastIndex = 0;
-  let forMatch;
-  while ((forMatch = JINJA2_PATTERNS.FOR_LOOP.exec(template)) !== null) {
-    const fullMatch = forMatch[0];
-    const loopVar = forMatch[1];
-    const collectionVar = forMatch[2];
-    const startIndex = forMatch.index;
-    const endIndex = startIndex + fullMatch.length;
-
-
-    const beforeText = template.substring(0, startIndex);
-    const lines = beforeText.split('\n');
-    const line = lines.length;
-    const column = lines[lines.length - 1].length + 1;
-
-
-    const context = extractContext(template, startIndex, endIndex);
-
-
-    if (!processedVariables.has(loopVar)) {
-      const loopVariable: EnhancedVariable = {
-        ...createTemplateVariable(loopVar, inferVariableType(loopVar, { ...context, semanticContext: 'loop' })),
-        position: {
-          startIndex,
-          endIndex,
-          line,
-          column,
-          name: loopVar,
-          fullMatch
-        },
-        context: { ...context, semanticContext: 'loop' }
-      };
-
-      processedVariables.add(loopVar);
-      variables.push(loopVariable);
-    }
-
-
-    if (!processedVariables.has(collectionVar)) {
-      const collectionVariable: EnhancedVariable = {
-        ...createTemplateVariable(collectionVar, inferVariableType(collectionVar, { ...context, semanticContext: 'array' })),
-        position: {
-          startIndex,
-          endIndex,
-          line,
-          column,
-          name: collectionVar,
-          fullMatch
-        },
-        context: { ...context, semanticContext: 'array' }
-      };
-
-      processedVariables.add(collectionVar);
-      variables.push(collectionVariable);
-    }
-  }
-
-
-  JINJA2_PATTERNS.SET_ASSIGNMENT.lastIndex = 0;
+  // {% set %} assignments
+  const setRegex = new RegExp(JINJA2_PATTERNS.SET_ASSIGNMENT.source, 'g');
   let setMatch;
-  while ((setMatch = JINJA2_PATTERNS.SET_ASSIGNMENT.exec(template)) !== null) {
+  while ((setMatch = setRegex.exec(template)) !== null) {
     const fullMatch = setMatch[0];
     const varName = setMatch[1];
     const value = setMatch[2];
     const startIndex = setMatch.index;
     const endIndex = startIndex + fullMatch.length;
 
-
     const beforeText = template.substring(0, startIndex);
     const lines = beforeText.split('\n');
     const line = lines.length;
     const column = lines[lines.length - 1].length + 1;
-
-
     const context = extractContext(template, startIndex, endIndex);
 
-
-    if (!processedVariables.has(varName)) {
+    if (!processedVariables.has(varName) && !shouldSkip(varName)) {
       const assignedVariable: EnhancedVariable = {
         ...createTemplateVariable(varName, inferVariableType(varName, { ...context, semanticContext: 'assignment' })),
         position: {
@@ -233,15 +321,13 @@ function extractVariablesFromControlStructures(template: string): EnhancedVariab
         },
         context: { ...context, semanticContext: 'assignment' }
       };
-
       processedVariables.add(varName);
       variables.push(assignedVariable);
     }
 
-
     const valueVariables = extractVariablesFromExpression(value, startIndex, endIndex, 'assignment_value');
     for (const variable of valueVariables) {
-      if (!processedVariables.has(variable.name)) {
+      if (!processedVariables.has(variable.name) && !shouldSkip(variable.name)) {
         processedVariables.add(variable.name);
         variables.push(variable);
       }
@@ -373,9 +459,11 @@ function findRelatedVariables(template: string, startIndex: number, endIndex: nu
   const context = template.substring(contextStart, contextEnd);
 
 
-  JINJA2_PATTERNS.VARIABLE.lastIndex = 0;
+  // Use a fresh regex instance to avoid resetting the shared VARIABLE regex's
+  // lastIndex while the caller (extractVariables) is still iterating over it.
+  const variableRegex = new RegExp(JINJA2_PATTERNS.VARIABLE.source, 'g');
   let match;
-  while ((match = JINJA2_PATTERNS.VARIABLE.exec(context)) !== null) {
+  while ((match = variableRegex.exec(context)) !== null) {
     const varName = match[1];
     if (varName !== match[1]) {
       related.push(varName);

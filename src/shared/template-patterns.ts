@@ -19,8 +19,8 @@ export const JINJA2_REGEX = {
   /** Matches {% if/elif condition %} — captures tag keyword and condition */
   IF_CONDITION: /\{%[-\s]*(if|elif)\s+([^%]+?)\s*[-]?%\}/g,
 
-  /** Matches {% for item in collection %} — captures loop var and iterable */
-  FOR_LOOP: /\{%[-\s]*for\s+(\w+)\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*[-]?%\}/g,
+  /** Matches {% for item in collection %} — captures loop var(s), iterable, and optional filter condition */
+  FOR_LOOP: /\{%[-\s]*for\s+([\w\s,]+)\s+in\s+([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*(?:if\s+([^%]+?))?\s*[-]?%\}/g,
 
   /** Matches {% set var = value %} */
   SET_ASSIGNMENT: /\{%[-\s]*set\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*([^%]+?)\s*[-]?%\}/g,

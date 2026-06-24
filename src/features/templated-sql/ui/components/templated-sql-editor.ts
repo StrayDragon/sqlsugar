@@ -191,6 +191,54 @@ export class TemplatedSqlEditor extends LitElement {
       background: var(--vscode-button-hoverBackground);
     }
 
+    /* Toggle Switch Styles */
+    .toggle-container {
+      display: flex;
+      align-items: center;
+      gap: var(--spacing-sm);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-label {
+      font-size: var(--font-size-xs);
+      font-weight: var(--font-weight-medium);
+      color: var(--vscode-foreground);
+      white-space: nowrap;
+    }
+
+    .toggle-switch {
+      position: relative;
+      width: 36px;
+      height: 20px;
+      background: var(--vscode-input-border);
+      border-radius: 10px;
+      transition: background var(--transition-fast);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .toggle-switch.active {
+      background: var(--vscode-focusBorder);
+    }
+
+    .toggle-switch::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 16px;
+      height: 16px;
+      background: white;
+      border-radius: 50%;
+      transition: transform var(--transition-fast);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    }
+
+    .toggle-switch.active::after {
+      transform: translateX(16px);
+    }
+
     /* Layout Container */
     .layout-container {
       display: flex;
@@ -977,6 +1025,13 @@ export class TemplatedSqlEditor extends LitElement {
 
     // Apply theme colors after initialization
     this.applyThemeColors();
+
+    // Auto-initialize scroll sync if enabled
+    if (this.syncScroll) {
+      setTimeout(() => {
+        this.initializeScrollContainers();
+      }, 200);
+    }
 
     // Listen for resize events
     window.addEventListener('resize', this.handleResize);
@@ -1932,16 +1987,16 @@ export class TemplatedSqlEditor extends LitElement {
 
   private renderTypeSelector() {
     const typeOptions = [
-      { value: 'string', label: '📝 String (文本)' },
-      { value: 'number', label: '🔢 Number (数字)' },
-      { value: 'integer', label: '🔢 Integer (整数)' },
-      { value: 'boolean', label: '✅ Boolean (布尔值)' },
-      { value: 'date', label: '📅 Date (日期)' },
-      { value: 'time', label: '🕐 Time (时间)' },
-      { value: 'datetime', label: '📆 DateTime (日期时间)' },
-      { value: 'json', label: '📄 JSON (JSON数据)' },
-      { value: 'uuid', label: '🔑 UUID (唯一标识符)' },
-      { value: 'null', label: '⭕ NULL (空值)' }
+      { value: 'string', label: 'String (文本)' },
+      { value: 'number', label: 'Number (数字)' },
+      { value: 'integer', label: 'Integer (整数)' },
+      { value: 'boolean', label: 'Boolean (布尔值)' },
+      { value: 'date', label: 'Date (日期)' },
+      { value: 'time', label: 'Time (时间)' },
+      { value: 'datetime', label: 'DateTime (日期时间)' },
+      { value: 'json', label: 'JSON (JSON数据)' },
+      { value: 'uuid', label: 'UUID (唯一标识符)' },
+      { value: 'null', label: 'NULL (空值)' }
     ];
 
     return html`
@@ -2407,19 +2462,15 @@ export class TemplatedSqlEditor extends LitElement {
   }
 
   /**
-   * 导出变量变化追踪日志
+   * 切换联动滚动状态
    */
   private handleToggleSyncScroll() {
     this.syncScroll = !this.syncScroll;
 
     if (this.syncScroll) {
-
       this.setupTemplateToSQLScrollSync();
-      this.showNotification('联动滚动已启用', 'success');
     } else {
-
       this.cleanupScrollSync();
-      this.showNotification('联动滚动已禁用', 'info');
     }
   }
 
@@ -2643,19 +2694,6 @@ Includes: Right panel HTML tracking
     });
   }
 
-  private async handleSubmit() {
-    await this.renderTemplate();
-    this.dispatchEvent(new CustomEvent('template-submit', {
-      detail: {
-        template: this.template,
-        values: this.values,
-        result: this.renderedResult
-      },
-      bubbles: true,
-      composed: true
-    }));
-  }
-
   /**
    * 记录变量变化
    */
@@ -2861,15 +2899,12 @@ Includes: Right panel HTML tracking
             ${this.title}
           </div>
           <div class="header-actions">
-            <button class="header-button" @click=${this.handleToggleSyncScroll} title="${this.syncScroll ? '禁用联动滚动' : '启用联动滚动'}">
-              <span>🔗</span>
-              <span>联动</span>
-            </button>
+            <div class="toggle-container" @click=${this.handleToggleSyncScroll} title="${this.syncScroll ? '点击禁用联动滚动' : '点击启用联动滚动'}">
+              <span class="toggle-label">联动</span>
+              <div class="toggle-switch ${this.syncScroll ? 'active' : ''}"></div>
+            </div>
             <button class="header-button" @click=${this.handleCopyDebugLog} title="复制调试日志（排查高亮问题）">
-              🐛 调试日志
-            </button>
-            <button class="header-button primary" @click=${this.handleSubmit}>
-              ✅ 提交
+              调试日志
             </button>
           </div>
         </header>
@@ -2885,7 +2920,7 @@ Includes: Right panel HTML tracking
               </div>
               <div class="header-actions">
                 <button class="header-button" @click=${this.handleCopyTemplate} title="复制模板">
-                  📄 复制
+                  复制
                 </button>
               </div>
             </div>
@@ -2895,7 +2930,7 @@ Includes: Right panel HTML tracking
                 <div class="template-display" .innerHTML=${this.highlightedTemplate} @click=${this.handleTemplateClick}></div>
               ` : html`
                 <div class="empty-state">
-                  <div class="empty-icon">📝</div>
+                  <div class="empty-icon"></div>
                   <div class="empty-title">没有模板可编辑</div>
                   <div class="empty-description">
                     添加包含变量的 Jinja2 模板（例如：{{ variable_name }}）来开始编辑。
@@ -2916,7 +2951,7 @@ Includes: Right panel HTML tracking
               </div>
               <div class="header-actions">
                 <button class="header-button" @click=${this.handleCopyResult} title="复制SQL结果">
-                  📋 复制
+                  复制
                 </button>
               </div>
             </div>
@@ -2944,7 +2979,7 @@ Includes: Right panel HTML tracking
             @click=${(e: Event) => e.stopPropagation()}
           >
             <div class="variable-popup-header">
-              <div class="variable-popup-title">📝 ${this.activeVariable}</div>
+              <div class="variable-popup-title">${this.activeVariable}</div>
             </div>
             <div class="variable-popup-content">
               ${(() => {

@@ -197,11 +197,6 @@ export class TemplatedSqlHandler {
 
       Logger.warn(`Webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
 
-      vscode.window.showErrorMessage(
-        `Editor encountered an issue: ${error instanceof Error ? error.message : String(error)}`,
-        { modal: false }
-      );
-
       return false;
     }
   }

@@ -58,3 +58,17 @@ bin/**
 
 # Build artifacts that shouldn't be included
 *.vsix
+
+# Development and testing directories
+coverage/**
+.agents/**
+llmanspec/**
+demo/**
+
+# AI assistant files
+AGENTS.md
+CLAUDE.md
+
+# Build configuration
+justfile
+vitest.config.ts

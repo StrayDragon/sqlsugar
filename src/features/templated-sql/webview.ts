@@ -223,10 +223,10 @@ export class TemplatedSqlWebviewEditor {
       if (index > -1) {
         TemplatedSqlWebviewEditor.activeInstances.splice(index, 1);
       }
-      if (this.rejectPromise) {
-        this.rejectPromise(new Error('用户关闭了编辑器'));
-        this.rejectPromise = undefined;
+      if (this.resolvePromise) {
+        this.resolvePromise({} as Record<string, WebViewVariableValue>);
         this.resolvePromise = undefined;
+        this.rejectPromise = undefined;
       }
     });
 

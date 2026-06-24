@@ -66,16 +66,6 @@ export class TemplatedSqlWebviewApp extends LitElement {
     });
   }
 
-  private handleSubmit(ev: CustomEvent) {
-    const g = globalThis as unknown as { vscode?: { postMessage: (msg: unknown) => void } };
-    g.vscode?.postMessage({
-      command: 'submit',
-      values: ev.detail.values,
-      template: ev.detail.template,
-      result: ev.detail.result
-    });
-  }
-
   private handleError(ev: CustomEvent) {
     const g = globalThis as unknown as { vscode?: { postMessage: (msg: unknown) => void } };
     g.vscode?.postMessage({
@@ -94,7 +84,6 @@ export class TemplatedSqlWebviewApp extends LitElement {
           .variables=${this.variables}
           .config=${this.config}
           .title="Templated SQL Editor"
-          @template-submit=${this.handleSubmit}
           @template-error=${this.handleError}
         ></templated-sql-editor>
       </div>

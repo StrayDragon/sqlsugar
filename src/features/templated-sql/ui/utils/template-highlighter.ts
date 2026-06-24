@@ -136,8 +136,13 @@ export class TemplateHighlighter {
 
 
       variables.forEach((variable) => {
+        // 匹配 {{ name }}、{{ name | filter }}、{{ name.attr | filter }} 等任意
+        // 以该变量名开头的表达式。\b 保证不会把 name 当成更长标识符的前缀误匹配
+        // （例如 name='user' 不会命中 {{ user_id }}）；[^}]* 在遇到首个 }} 时停止，
+        // 不会跨表达式贪婪。hljs 输出里 {{ }} 仍是字面量、filter 里的 | 可能被包进
+        // <span class="hljs-operator">，但 span 内不含 }，故该正则仍能整体命中。
         const varPattern = new RegExp(
-          `{{\\s*${this.escapeRegex(variable.name)}\\s*}}`,
+          `{{\\s*${this.escapeRegex(variable.name)}\\b[^}]*}}`,
           'g'
         );
 

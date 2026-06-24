@@ -48,6 +48,13 @@ function registerSQLFilters(env: nunjucks.Environment): void {
     return `"${value.replace(/"/g, '""')}"`;
   });
 
+  // `identifier` 是标识符引用的语义别名：默认值取变量名字面量（见
+  // variable-utils.getContextualDefaultValue），渲染时原样输出值、不做引号包裹，
+  // 以便上层按目标数据库语法自行决定如何引用。
+  env.addFilter('identifier', (value: unknown) => {
+    return value == null ? '' : String(value);
+  });
+
   env.addFilter('sql_date', (value: unknown, format: string = 'YYYY-MM-DD') => {
     const date = new Date(value as string | number | Date);
     return formatSQLDate(date, format);

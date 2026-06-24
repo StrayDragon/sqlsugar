@@ -11,6 +11,7 @@ import type { TemplateVariable, TemplateVariableValue, EnhancedVariable, Templat
 import type { CompleteTemplatedSqlEditorConfig } from '../types/config.js';
 import nunjucks from 'nunjucks';
 import { createAlignedNunjucksEnv, buildNestedContext } from '../../../../shared/nunjucks-setup.js';
+import { getContextualDefaultValue } from '../utils/variable-utils.js';
 
 @customElement('templated-sql-editor')
 export class TemplatedSqlEditor extends LitElement {
@@ -38,6 +39,7 @@ export class TemplatedSqlEditor extends LitElement {
   @state() accessor isProcessing = false;
   @state() accessor processingTime = 0;
   @state() accessor highlightedTemplate: string = '';
+  @state() accessor renderedResult: string = '';
   @state() accessor isWideLayout = false;
   @state() accessor activeVariable: string | null = null;
   @state() accessor popupPosition: { x: number; y: number } = { x: 0, y: 0 };
@@ -918,9 +920,12 @@ export class TemplatedSqlEditor extends LitElement {
     if (changedProperties.has('variables')) {
       this.initializeValues();
       this.highlightTemplate();
+      // 变量集合变化（含类型/默认值变更）后重新渲染预览。
+      void this.renderTemplate();
     }
     if (changedProperties.has('template')) {
       this.highlightTemplate();
+      void this.renderTemplate();
     }
     if (changedProperties.has('theme')) {
       // Update template highlighter theme
@@ -966,6 +971,9 @@ export class TemplatedSqlEditor extends LitElement {
     this.initializeValues();
     this.highlightTemplate();
     this.checkLayout();
+
+    // 进入编辑器即按（智能）默认值渲染一次，避免右侧预览初始为空。
+    void this.renderTemplate();
 
     // Apply theme colors after initialization
     this.applyThemeColors();
@@ -1167,40 +1175,15 @@ export class TemplatedSqlEditor extends LitElement {
         if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
           newValues[variable.name] = variable.defaultValue;
         } else {
-
-          newValues[variable.name] = this.generateDefaultValue(variable.type);
+          // 智能默认值：identifier 过滤器 → 变量名字面量；id → 数字；name → 'Sample Name' 等。
+          // getContextualDefaultValue 仅读取 name/type/filters(/elementProperties)，故可安全转换。
+          newValues[variable.name] = getContextualDefaultValue(variable as unknown as EnhancedVariable);
         }
       }
     });
 
     this.variableValues = newValues;
     this.values = newValues;
-  }
-
-  private generateDefaultValue(type: string): TemplateVariableValue {
-    const defaults: Record<string, TemplateVariableValue> = {
-      string: 'demo_value',
-      number: 42,
-      integer: 42,
-      boolean: true,
-      date: new Date().toISOString().split('T')[0],
-      datetime: new Date().toISOString(),
-      json: {},
-      uuid: '00000000-0000-0000-0000-000000000000',
-      email: 'test@example.com',
-      url: 'https://example.com',
-      null: null
-    };
-
-    const defaultValue = defaults[type] || 'demo_value';
-
-
-    if (typeof defaultValue === 'string' && (/VAR_\d+/.test(defaultValue) || /\d+VAR\d+/.test(defaultValue))) {
-      this.sendLogToOutputChannel('DEFAULT_PLACEHOLDER', `Generated suspicious default value for type ${type}: ${defaultValue}`);
-    }
-
-
-    return defaultValue;
   }
 
   private highlightTemplate() {
@@ -2394,8 +2377,6 @@ export class TemplatedSqlEditor extends LitElement {
 
     return result;
   }
-
-  private renderedResult: string = '';
 
   private formatValue(value: TemplateVariableValue): string {
     let result: string;

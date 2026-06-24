@@ -910,6 +910,7 @@ export class TemplateProcessor {
 
       'sql_quote',
       'sql_identifier',
+      'identifier',
       'sql_date',
       'sql_datetime',
       'sql_in',

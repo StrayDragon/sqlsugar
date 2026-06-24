@@ -1,17 +1,19 @@
 /**
  * Templated SQL Editor bugfix 回归测试
  *
- * 覆盖四类已修复问题：
+ * 覆盖五类已修复问题：
  *   1. {{ var | identifier }} 不再因 filter 缺失而渲染失败
  *   2. 带过滤器的变量可被高亮器识别为可点击元素
  *   3. {% if var %} 控制结构变量不被双重包裹
  *   4. url/link 命名的变量不再被自动推断为 url 类型（避免渲染成页面组件 / 预填 example.com）
+ *   5. date/datetime/time 类型裸输出渲染为带单引号的 SQL 字符串字面量
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createAlignedNunjucksEnv, buildNestedContext } from '../shared/nunjucks-setup';
 import TemplateHighlighter from '../features/templated-sql/ui/utils/template-highlighter';
 import { parseTemplate } from '../features/templated-sql/ui/utils/template-parser';
+import { quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES } from '../features/templated-sql/ui/utils/variable-utils';
 import type { EnhancedVariable } from '../features/templated-sql/ui/types';
 
 const env = createAlignedNunjucksEnv();
@@ -224,5 +226,52 @@ describe('bugfix: url/link 命名变量不再推断为 url 类型 (问题4)', ()
     const result = parseTemplate('{{ url }}');
     const v = result.variables.find(x => x.name === 'url');
     expect(v?.type).toBe('string');
+  });
+});
+
+describe('bugfix: date 类型裸输出渲染为带单引号的 SQL 字面量 (问题5)', () => {
+  it('裸 {{ date }} 被改写为 {{ date | bind }}，渲染成单引号字面量', () => {
+    const rewritten = quoteDateOutputsInTemplate(
+      'WHERE created >= {{ start_date }}',
+      ['start_date']
+    );
+    expect(rewritten).toBe('WHERE created >= {{ start_date | bind }}');
+    const out = env.renderString(rewritten, buildNestedContext({ start_date: '2024-01-01' }));
+    expect(out).toBe("WHERE created >= '2024-01-01'");
+  });
+
+  it('datetime / time 同样被加引号', () => {
+    for (const name of ['updated_at', 'start_time']) {
+      const rewritten = quoteDateOutputsInTemplate(`{{ ${name} }}`, [name]);
+      expect(rewritten).toBe(`{{ ${name} | bind }}`);
+    }
+  });
+
+  it('带过滤器的 {{ date | sql_date }} 不被改写（保留原始值给过滤器）', () => {
+    const t = "{{ start_date | sql_date('%Y%m%d') }}";
+    expect(quoteDateOutputsInTemplate(t, ['start_date'])).toBe(t);
+  });
+
+  it('已带 bind 的裸输出不重复改写', () => {
+    const t = '{{ start_date | bind }}';
+    expect(quoteDateOutputsInTemplate(t, ['start_date'])).toBe(t);
+  });
+
+  it('同名前缀变量不被误改写（start_date 不命中 start_date_extra）', () => {
+    const t = '{{ start_date_extra }}';
+    expect(quoteDateOutputsInTemplate(t, ['start_date'])).toBe(t);
+  });
+
+  it('控制结构 {% if date %} 不受影响（只在 {{ }} 输出处改写）', () => {
+    const t = '{% if start_date %}{{ start_date }}{% endif %}';
+    const rewritten = quoteDateOutputsInTemplate(t, ['start_date']);
+    expect(rewritten).toBe('{% if start_date %}{{ start_date | bind }}{% endif %}');
+  });
+
+  it('TEMPORAL_SQL_QUOTED_TYPES 覆盖 date/datetime/time', () => {
+    expect(TEMPORAL_SQL_QUOTED_TYPES.has('date')).toBe(true);
+    expect(TEMPORAL_SQL_QUOTED_TYPES.has('datetime')).toBe(true);
+    expect(TEMPORAL_SQL_QUOTED_TYPES.has('time')).toBe(true);
+    expect(TEMPORAL_SQL_QUOTED_TYPES.has('string')).toBe(false);
   });
 });

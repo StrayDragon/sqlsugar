@@ -10,6 +10,44 @@ import type { VariableType as InferenceVariableType } from '../types/inference.j
 export type VariableType = InferenceVariableType;
 
 /**
+ * 会被当作「裸值输出即非法 SQL」的时序类型：date / datetime / time。
+ * 这些类型的变量在渲染时需要用单引号包成 SQL 字符串字面量
+ * （如 '2024-01-01'），而不是裸输出 2024-01-01。
+ */
+export const TEMPORAL_SQL_QUOTED_TYPES: ReadonlySet<string> = new Set([
+  'date',
+  'datetime',
+  'time',
+]);
+
+/**
+ * 将模板里「裸输出」的时序类型变量改写为带 bind 过滤器的形式，使其渲染成
+ * 单引号 SQL 字符串字面量（date → '2024-01-01'）。
+ *
+ * 只改写形如 {{ name }} 的裸输出；已经带过滤器的 {{ name | xxx }}、
+ * 带属性访问的 {{ name.attr }}、以及同名前缀变量（如 start_date_extra）
+ * 都不会被误伤。这样既能让裸 {{ date }} 自动加引号，又不会破坏
+ * sql_date / sql_datetime 等需要原始值的过滤器。
+ */
+export function quoteDateOutputsInTemplate(
+  template: string,
+  temporalVarNames: string[]
+): string {
+  if (temporalVarNames.length === 0) return template;
+  let out = template;
+  for (const name of temporalVarNames) {
+    if (!name) continue;
+    const re = new RegExp(`{{\\s*${escapeRegex(name)}\\s*}}`, 'g');
+    out = out.replace(re, `{{ ${name} | bind }}`);
+  }
+  return out;
+}
+
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Build a sample value for a single element property based on its name.
  * Used to generate meaningful default arrays for for-loop collections.
  */

@@ -11,7 +11,7 @@ import type { TemplateVariable, TemplateVariableValue, EnhancedVariable, Templat
 import type { CompleteTemplatedSqlEditorConfig } from '../types/config.js';
 import nunjucks from 'nunjucks';
 import { createAlignedNunjucksEnv, buildNestedContext } from '../../../../shared/nunjucks-setup.js';
-import { getContextualDefaultValue } from '../utils/variable-utils.js';
+import { getContextualDefaultValue, quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES } from '../utils/variable-utils.js';
 
 @customElement('templated-sql-editor')
 export class TemplatedSqlEditor extends LitElement {
@@ -2019,7 +2019,15 @@ export class TemplatedSqlEditor extends LitElement {
     try {
       this.validateAndCleanVariables();
 
-      let result = this.nunjucksEnv.renderString(template, buildNestedContext(this.variableValues));
+      // date/datetime/time 类型的裸输出（{{ start_date }}）需要包成 SQL
+      // 字符串字面量 '2024-01-01'，否则渲染出 WHERE created >= 2024-01-01 是非法
+      // SQL。只改写裸输出，保留 {{ x | sql_date }} 这类需要原始值的过滤器。
+      const temporalVarNames = this.variables
+        .filter(v => TEMPORAL_SQL_QUOTED_TYPES.has(v.type))
+        .map(v => v.name);
+      const renderableTemplate = quoteDateOutputsInTemplate(template, temporalVarNames);
+
+      let result = this.nunjucksEnv.renderString(renderableTemplate, buildNestedContext(this.variableValues));
 
 
 

@@ -65,7 +65,6 @@ export function getDefaultValueForType(type: VariableType): TemplateVariableValu
     email: 'test@example.com',
     json: {},
     sql_identifier: 'column_name',
-    url: 'https://example.com',
     phone: '+1234567890',
     currency: '100.00',
     time: '00:00:00',
@@ -142,12 +141,6 @@ export function validateValue(value: TemplateVariableValue, type: VariableType):
       }
       break;
 
-    case 'url':
-      if (typeof value !== 'string' || !/^https?:\/\/.+/.test(value)) {
-        return 'Value must be a valid URL starting with http:// or https://';
-      }
-      break;
-
     case 'uuid':
       if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
         return 'Value must be a valid UUID';
@@ -211,7 +204,6 @@ export function inferTypeFromValue(value: TemplateVariableValue): VariableType {
   if (typeof value === 'number') return 'number';
   if (typeof value === 'string') {
     if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
-    if (/^https?:\/\/.+/.test(value)) return 'url';
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'date';
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return 'uuid';
     if (/^\+?[0-9\s\-\(\)]{10,}$/.test(value)) return 'phone';
@@ -313,9 +305,6 @@ export function getContextualDefaultValue(variable: EnhancedVariable): TemplateV
 
     case 'email':
       return 'test@example.com';
-
-    case 'url':
-      return 'https://example.com';
 
     case 'uuid':
       return '00000000-0000-0000-0000-000000000000';

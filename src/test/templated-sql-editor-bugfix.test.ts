@@ -1,14 +1,17 @@
 /**
  * Templated SQL Editor bugfix 回归测试
  *
- * 覆盖三类已修复问题：
+ * 覆盖四类已修复问题：
  *   1. {{ var | identifier }} 不再因 filter 缺失而渲染失败
  *   2. 带过滤器的变量可被高亮器识别为可点击元素
+ *   3. {% if var %} 控制结构变量不被双重包裹
+ *   4. url/link 命名的变量不再被自动推断为 url 类型（避免渲染成页面组件 / 预填 example.com）
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
 import { createAlignedNunjucksEnv, buildNestedContext } from '../shared/nunjucks-setup';
 import TemplateHighlighter from '../features/templated-sql/ui/utils/template-highlighter';
+import { parseTemplate } from '../features/templated-sql/ui/utils/template-parser';
 import type { EnhancedVariable } from '../features/templated-sql/ui/types';
 
 const env = createAlignedNunjucksEnv();
@@ -198,5 +201,28 @@ describe('bugfix: {% if var %} 控制结构变量不被双重包裹 (问题3)', 
       m.includes('variable-highlight') || cond.includes('<span') ? m : m
     );
     expect(guarded).toBe(res.html);
+  });
+});
+
+describe('bugfix: url/link 命名变量不再推断为 url 类型 (问题4)', () => {
+  it('xxx_url 变量被推断为 string，而不是 url', () => {
+    const result = parseTemplate('{{ website_url }}');
+    const v = result.variables.find(x => x.name === 'website_url');
+    expect(v, 'website_url should be parsed').toBeDefined();
+    expect(v?.type).toBe('string');
+    expect(v?.type).not.toBe('url');
+  });
+
+  it('xxx_link 变量被推断为 string（子串 link 不再触发 url）', () => {
+    const result = parseTemplate('{{ download_link }}');
+    const v = result.variables.find(x => x.name === 'download_link');
+    expect(v?.type).toBe('string');
+    expect(v?.type).not.toBe('url');
+  });
+
+  it('纯 url 变量同样被当作 string，避免渲染成页面组件', () => {
+    const result = parseTemplate('{{ url }}');
+    const v = result.variables.find(x => x.name === 'url');
+    expect(v?.type).toBe('string');
   });
 });

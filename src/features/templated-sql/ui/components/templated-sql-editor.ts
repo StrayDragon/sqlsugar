@@ -1763,7 +1763,7 @@ export class TemplatedSqlEditor extends LitElement {
   private validateVariableType(type: string): TemplateVariableType | null {
     const validTypes: TemplateVariableType[] = [
       'string', 'number', 'integer', 'boolean', 'date', 'time',
-      'datetime', 'json', 'uuid', 'email', 'url', 'null'
+      'datetime', 'json', 'uuid', 'email', 'null'
     ];
     return validTypes.includes(type as TemplateVariableType)
       ? type as TemplateVariableType
@@ -1796,7 +1796,6 @@ export class TemplatedSqlEditor extends LitElement {
       case 'datetime':
         return value;
       case 'email':
-      case 'url':
         return value;
       case 'json':
         try {
@@ -1924,16 +1923,6 @@ export class TemplatedSqlEditor extends LitElement {
             placeholder="输入邮箱地址..."
           />
         `;
-      case 'url':
-        return html`
-          <input
-            class="variable-value-input"
-            type="url"
-            .value=${this.popupValue}
-            @input=${this.handlePopupValueChange}
-            placeholder="输入URL..."
-          />
-        `;
       default:
 
         return html`
@@ -1960,7 +1949,6 @@ export class TemplatedSqlEditor extends LitElement {
       { value: 'json', label: '📄 JSON (JSON数据)' },
       { value: 'uuid', label: '🔑 UUID (唯一标识符)' },
       { value: 'email', label: '📧 Email (邮箱)' },
-      { value: 'url', label: '🔗 URL (链接)' },
       { value: 'null', label: '⭕ NULL (空值)' }
     ];
 
@@ -2162,8 +2150,6 @@ export class TemplatedSqlEditor extends LitElement {
         return null;
       case 'email':
         return 'test@example.com';
-      case 'url':
-        return 'https://example.com';
       case 'uuid':
         return '00000000-0000-0000-0000-000000000000';
       default:

@@ -119,7 +119,8 @@ export class VariableStateManager {
         if (name.includes('id')) return '1';
         if (name.includes('name')) return 'John Doe';
         if (name.includes('email')) return 'user@example.com';
-        if (name.includes('url') || name.includes('link')) return 'https://example.com';
+        // url/link 子串不再单独预填 https://example.com：这些变量现在被推断为
+        // string，应和其他普通字符串一样给 sample_value，避免无意义的 URL 默认值。
         return 'sample_value';
 
       case 'integer':
@@ -145,9 +146,6 @@ export class VariableStateManager {
 
       case 'email':
         return 'user@example.com';
-
-      case 'url':
-        return 'https://example.com';
 
       case 'uuid':
         return '00000000-0000-0000-0000-000000000000';
@@ -321,10 +319,6 @@ export class VariableStateManager {
         if (typeof value === 'string' && this.isValidEmail(value)) return value;
         return 'user@example.com';
 
-      case 'url':
-        if (typeof value === 'string' && this.isValidUrl(value)) return value;
-        return 'https://example.com';
-
       case 'uuid':
         if (typeof value === 'string' && this.isValidUuid(value)) return value;
         return '00000000-0000-0000-0000-000000000000';
@@ -350,7 +344,6 @@ export class VariableStateManager {
       case 'datetime': return new Date().toISOString();
       case 'json': return {};
       case 'email': return 'user@example.com';
-      case 'url': return 'https://example.com';
       case 'uuid': return '00000000-0000-0000-0000-000000000000';
       case 'null': return null;
       default: return '';
@@ -490,18 +483,6 @@ export class VariableStateManager {
    */
   private isValidEmail(email: string): boolean {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  }
-
-  /**
-   * Check if a string is a valid URL
-   */
-  private isValidUrl(url: string): boolean {
-    try {
-      new URL(url);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   /**

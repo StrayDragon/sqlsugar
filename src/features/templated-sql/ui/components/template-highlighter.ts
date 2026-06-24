@@ -157,7 +157,6 @@ export class TemplateHighlighter extends LitElement {
     .variable-highlight[data-type="date"]::before,
     .variable-highlight[data-type="datetime"]::before { background-color: var(--vscode-charts-purple); }
     .variable-highlight[data-type="email"]::before { background-color: var(--vscode-charts-red); }
-    .variable-highlight[data-type="url"]::before { background-color: var(--vscode-charts-yellow); }
     .variable-highlight[data-type="json"]::before { background-color: var(--vscode-charts-cyan); }
 
     /* Required variable indicator */

@@ -43,7 +43,7 @@ export class TseInput extends LitElement {
     }
   `;
 
-  @property({ type: String }) accessor type: 'text' | 'number' | 'email' | 'url' | 'date' = 'text';
+  @property({ type: String }) accessor type: 'text' | 'number' | 'email' | 'date' = 'text';
   @property({ type: String }) accessor placeholder: string = '';
   @property({ type: String }) accessor value: string = '';
   @property({ type: Boolean }) accessor disabled: boolean = false;

@@ -67,9 +67,9 @@ describe('TemplateProcessor - Coverage Tests', () => {
       expect(vars[0]?.defaultValue).toBe(99.99);
     });
 
-    it('should return email default for email variables', () => {
+    it('should treat email-named variables as plain string (demo_ prefix)', () => {
       const vars = processor.extractVariables('{{ user_email }}');
-      expect(vars[0]?.defaultValue).toMatch(/@example\.com$/);
+      expect(vars[0]?.defaultValue).toBe('demo_user_email');
     });
 
     it('should return name default for name variables', () => {
@@ -97,9 +97,10 @@ describe('TemplateProcessor - Coverage Tests', () => {
       expect(vars[0]?.defaultValue).toBe('1990-01-01');
     });
 
-    it('should return URL default for url variables', () => {
+    it('should return demo_ prefix default for url/email-named variables', () => {
+      // email/url 不再被特殊推断为独立类型，统一当作普通 string，给 demo_ 前缀默认值
       const vars = processor.extractVariables('{{ website_url }}');
-      expect(vars[0]?.defaultValue).toMatch(/^https?:\/\//);
+      expect(vars[0]?.defaultValue).toBe('demo_website_url');
     });
   });
 

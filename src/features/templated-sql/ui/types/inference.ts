@@ -12,7 +12,7 @@ export type VariableType =
 
   | 'string' | 'number' | 'date' | 'boolean'
 
-  | 'array' | 'object' | 'uuid' | 'email' | 'json'
+  | 'array' | 'object' | 'uuid' | 'json'
   | 'sql_identifier' | 'phone' | 'currency'
 
   | 'time' | 'datetime' | 'integer' | 'null'

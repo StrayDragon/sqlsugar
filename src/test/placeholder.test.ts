@@ -79,11 +79,9 @@ WHERE id = {{ user_id }}
 
     it('should provide meaningful string defaults', () => {
       const stringMappings = [
-        ['user_email', 'test@example.com'],
         ['user_name', '示例名称'],
         ['item_title', '示例标题'],
         ['item_description', '示例描述'],
-        ['profile_url', 'https://example.com'],
         ['contact_phone', '+1-555-123-4567'],
         ['home_address', '示例地址'],
         ['item_status', 'active']

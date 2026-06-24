@@ -127,11 +127,12 @@ describe('TemplateProcessor', () => {
   });
 
   describe('Type inference edge cases', () => {
-    it('should infer email type from email-related names', () => {
-      const vars = processor.extractVariables('{{ email_address }}');
-      const emailVar = vars.find(v => v.name === 'email_address');
+    it('should treat email-named variables as plain string', () => {
+      const vars = processor.extractVariables('{{ contact_mail }}');
+      const emailVar = vars.find(v => v.name === 'contact_mail');
       expect(emailVar?.type).toBe('string');
-      expect(emailVar?.defaultValue).toMatch(/@/);
+      // email 不再被特殊推断为独立类型，统一当作普通 string，给 demo_ 前缀默认值
+      expect(emailVar?.defaultValue).toBe('demo_contact_mail');
     });
 
     it('should infer date type with appropriate default', () => {

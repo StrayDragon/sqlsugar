@@ -78,7 +78,7 @@ function forEachChild(node: NunjucksNode, fn: (child: NunjucksNode) => void): vo
  */
 export interface TemplateVariable {
   name: string;
-  type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'email' | 'url' | 'null';
+  type: 'string' | 'number' | 'integer' | 'boolean' | 'date' | 'time' | 'datetime' | 'json' | 'uuid' | 'null';
   defaultValue?: TemplateVariableValue;
   description?: string;
   required?: boolean;
@@ -782,16 +782,12 @@ export class TemplateProcessor {
 
       default:
 
-        if (name.includes(STRING_PATTERNS.EMAIL)) {
-          return DEFAULT_VALUES.EMAIL;
-        } else if (name.includes(STRING_PATTERNS.NAME)) {
+        if (name.includes(STRING_PATTERNS.NAME)) {
           return STRING_DEFAULTS.EXAMPLE_NAME;
         } else if (name.includes(STRING_PATTERNS.TITLE)) {
           return STRING_DEFAULTS.EXAMPLE_TITLE;
         } else if (name.includes(STRING_PATTERNS.DESCRIPTION)) {
           return STRING_DEFAULTS.EXAMPLE_DESCRIPTION;
-        } else if (STRING_PATTERNS.URL_LINK.some(pattern => name.includes(pattern))) {
-          return STRING_DEFAULTS.EXAMPLE_URL;
         } else if (name.includes(STRING_PATTERNS.PHONE)) {
           return DEFAULT_VALUES.PHONE;
         } else if (name.includes(STRING_PATTERNS.ADDRESS)) {

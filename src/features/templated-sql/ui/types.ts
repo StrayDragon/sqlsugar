@@ -20,7 +20,7 @@ export type TemplateVariableValue =
 /**
  * HTML input element types
  */
-export type HTMLInputType = 'number' | 'text' | 'email' | 'password';
+export type HTMLInputType = 'number' | 'text' | 'password';
 
 /**
  * Supported variable types
@@ -35,7 +35,6 @@ export type TemplateVariableType =
   | 'datetime'
   | 'json'
   | 'uuid'
-  | 'email'
   | 'null'
 
   | 'array'

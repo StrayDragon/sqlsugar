@@ -12,7 +12,6 @@ export const DEFAULT_VALUES = {
   SCORE_RATING: 5,
   LEVEL_INDEX: 1,
   GENERIC: 42,
-  EMAIL: 'test@example.com',
   PHONE: '+1-555-123-4567',
   BIRTH_DATE: '1990-01-01',
   TODAY_DATE: new Date().toISOString().split('T')[0],
@@ -60,11 +59,9 @@ export const DATE_PATTERNS = {
 
 
 export const STRING_PATTERNS = {
-  EMAIL: 'email',
   NAME: 'name',
   TITLE: 'title',
   DESCRIPTION: 'description',
-  URL_LINK: ['url', 'link'],
   PHONE: 'phone',
   ADDRESS: 'address',
   CATEGORY_TYPE: ['category', 'type'],
@@ -76,7 +73,6 @@ export const STRING_DEFAULTS = {
   EXAMPLE_NAME: '示例名称',
   EXAMPLE_TITLE: '示例标题',
   EXAMPLE_DESCRIPTION: '示例描述',
-  EXAMPLE_URL: 'https://example.com',
   EXAMPLE_ADDRESS: '示例地址',
   DEFAULT_CATEGORY: 'default',
   DEFAULT_STATUS: 'active',

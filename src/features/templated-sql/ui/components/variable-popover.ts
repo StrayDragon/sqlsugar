@@ -67,7 +67,6 @@ export class VariablePopover extends LitElement {
     string: {
       'id': ['1', '123', 'user_id', 'sample_id'],
       'name': ['John Doe', 'Sample Name', 'Test User'],
-      'email': ['test@example.com', 'user@domain.com', 'admin@test.org'],
       'default': ['sample', 'test', 'demo', 'example']
     },
     number: {
@@ -773,7 +772,6 @@ export class VariablePopover extends LitElement {
                   { value: 'datetime', label: 'DateTime' },
                   { value: 'json', label: 'JSON' },
                   { value: 'uuid', label: 'UUID' },
-                  { value: 'email', label: 'Email' },
                   { value: 'null', label: 'Null' }
                 ]}
                 @change=${this.handleTypeChange}
@@ -861,7 +859,6 @@ export class VariablePopover extends LitElement {
 
   private getInputType(type: string): string {
     const typeMap: Record<string, string> = {
-      email: 'email',
       number: 'number',
       integer: 'number',
       date: 'date',

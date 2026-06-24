@@ -486,11 +486,9 @@ function inferVariableType(variableName: string, context: VariableContext, filte
 
 
   if (name.includes('id') && !name.includes('guid')) return 'integer';
-  if (name.includes('email') || name.includes('mail')) return 'email';
-  // NOTE: 不再按 url/link 子串推断为 `url` 类型。原先会把 xxx_link / xxx_url
-  // 这类变量判成 url，进而渲染成 <input type="url"> 的“页面组件”并预填
-  // https://example.com（webview 里点开会触发跳转）。改为统一当作 string。
-  // 用户仍可在类型选择器里手动选 URL 类型。
+  // NOTE: 不再按 email/mail 或 url/link 子串推断为特殊类型。原先会把这类变量
+  // 判成 email/url，进而渲染成 <input type=email/url> 的“页面组件”并预填
+  // example.com（webview 里点开会触发跳转）。改为统一当作 string。
   if (name.includes('date') || name.includes('time')) {
     return name.includes('time') ? 'datetime' : 'date';
   }

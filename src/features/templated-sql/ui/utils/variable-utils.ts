@@ -56,7 +56,6 @@ function sampleValueForProperty(prop: string): TemplateVariableValue {
   if (p === 'id' || p.endsWith('_id')) return 1;
   if (p.startsWith('is_') || p.startsWith('has_') || p === 'active' || p === 'enabled') return true;
   if (p.includes('name') || p === 'label' || p === 'title') return `Sample ${prop}`;
-  if (p.includes('email')) return 'user@example.com';
   if (p.includes('price') || p.includes('amount') || p.includes('total')) return 99.99;
   if (p.includes('count') || p.includes('qty') || p === 'quantity') return 10;
   if (p.includes('date') || p.includes('time')) return '2024-01-01';
@@ -100,7 +99,6 @@ export function getDefaultValueForType(type: VariableType): TemplateVariableValu
     array: [],
     object: {},
     uuid: '00000000-0000-0000-0000-000000000000',
-    email: 'test@example.com',
     json: {},
     sql_identifier: 'column_name',
     phone: '+1234567890',
@@ -173,12 +171,6 @@ export function validateValue(value: TemplateVariableValue, type: VariableType):
       }
       break;
 
-    case 'email':
-      if (typeof value !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-        return 'Value must be a valid email address';
-      }
-      break;
-
     case 'uuid':
       if (typeof value !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
         return 'Value must be a valid UUID';
@@ -241,7 +233,6 @@ export function inferTypeFromValue(value: TemplateVariableValue): VariableType {
   if (typeof value === 'boolean') return 'boolean';
   if (typeof value === 'number') return 'number';
   if (typeof value === 'string') {
-    if (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) return 'email';
     if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return 'date';
     if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) return 'uuid';
     if (/^\+?[0-9\s\-\(\)]{10,}$/.test(value)) return 'phone';
@@ -338,11 +329,7 @@ export function getContextualDefaultValue(variable: EnhancedVariable): TemplateV
     case 'string':
       if (name.includes('id')) return 'sample_id';
       if (name.includes('name')) return 'Sample Name';
-      if (name.includes('email')) return 'test@example.com';
       return `demo_${name}`;
-
-    case 'email':
-      return 'test@example.com';
 
     case 'uuid':
       return '00000000-0000-0000-0000-000000000000';

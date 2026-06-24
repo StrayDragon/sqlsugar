@@ -118,9 +118,8 @@ export class VariableStateManager {
       case 'string':
         if (name.includes('id')) return '1';
         if (name.includes('name')) return 'John Doe';
-        if (name.includes('email')) return 'user@example.com';
-        // url/link 子串不再单独预填 https://example.com：这些变量现在被推断为
-        // string，应和其他普通字符串一样给 sample_value，避免无意义的 URL 默认值。
+        // email/url/link 子串不再单独预填 example.com：这些变量现在被推断为
+        // string，应和其他普通字符串一样给 sample_value，避免无意义的默认值。
         return 'sample_value';
 
       case 'integer':
@@ -143,9 +142,6 @@ export class VariableStateManager {
 
       case 'datetime':
         return new Date().toISOString();
-
-      case 'email':
-        return 'user@example.com';
 
       case 'uuid':
         return '00000000-0000-0000-0000-000000000000';
@@ -315,10 +311,6 @@ export class VariableStateManager {
         }
         return {};
 
-      case 'email':
-        if (typeof value === 'string' && this.isValidEmail(value)) return value;
-        return 'user@example.com';
-
       case 'uuid':
         if (typeof value === 'string' && this.isValidUuid(value)) return value;
         return '00000000-0000-0000-0000-000000000000';
@@ -343,7 +335,6 @@ export class VariableStateManager {
       case 'date': return new Date().toISOString().split('T')[0];
       case 'datetime': return new Date().toISOString();
       case 'json': return {};
-      case 'email': return 'user@example.com';
       case 'uuid': return '00000000-0000-0000-0000-000000000000';
       case 'null': return null;
       default: return '';
@@ -436,9 +427,6 @@ export class VariableStateManager {
 
     switch (variable.type) {
       case 'string':
-        if (name.includes('email')) {
-          return ['admin@example.com', 'test@domain.com', 'user@company.org'];
-        }
         if (name.includes('name')) {
           return ['John Doe', 'Jane Smith', 'Admin User'];
         }
@@ -476,13 +464,6 @@ export class VariableStateManager {
    */
   private getValidationError(value: TemplateVariableValue, type: string): string | null {
     return validateValue(value, type as TemplateVariableType);
-  }
-
-  /**
-   * Check if a string is a valid email
-   */
-  private isValidEmail(email: string): boolean {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
   }
 
   /**

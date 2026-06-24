@@ -1468,7 +1468,20 @@ export class TemplatedSqlEditor extends LitElement {
   private highlightVariablesInCondition(match: string, condition: string): string {
     let highlightedMatch = match;
 
-
+    // Idempotency guard: TemplateHighlighter (utils) already wraps variables
+    // inside control structures such as `{% if foo %}` with
+    // `<span class="variable-highlight">`. Re-processing an already-highlighted
+    // condition here would match the variable name that already sits inside the
+    // existing span's attributes (e.g. `data-variable="foo"`) and its text
+    // content, producing broken nested markup that browsers render as garbage
+    // (e.g. `foo">foo" data-type="...">foo`).
+    //
+    // Only process plain, un-highlighted conditions. This keeps this pass as a
+    // genuine fallback for forms the utils highlighter does NOT cover (elif/set)
+    // and for the error fallback path (which operates on plain escaped text).
+    if (highlightedMatch.includes('variable-highlight') || condition.includes('<span')) {
+      return highlightedMatch;
+    }
 
     const variableRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\b/g;
     const matches = condition.match(variableRegex) || [];

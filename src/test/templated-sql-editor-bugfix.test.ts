@@ -127,3 +127,76 @@ describe('bugfix: jinja2sql 对齐过滤器 inclause / bind / safe', () => {
     expect(out).toBe("SELECT * FROM user_bill WHERE type IN ('a', 'b') LIMIT 10");
   });
 });
+
+describe('bugfix: {% if var %} 控制结构变量不被双重包裹 (问题3)', () => {
+  beforeAll(() => {
+    // 提供一个恒等 hljs，避免依赖真实 highlight.js 运行时。
+    (globalThis as unknown as { hljs: unknown }).hljs = {
+      highlight: (code: string) => ({ value: code }),
+    };
+  });
+
+  it('控制结构内的变量被高亮且恰好包裹一次', () => {
+    const hl = new TemplateHighlighter();
+    const res = hl.highlightTemplate(
+      '{% if keyword_pattern %}LIKE {{ keyword_pattern }}{% endif %}',
+      [varObj('keyword_pattern', 'string')],
+      { keyword_pattern: 'demo' }
+    );
+    // 条件里的 keyword_pattern 应恰好被一个 span 包裹
+    const condSpan = res.html.match(
+      /{%\s*if\s+<span[^>]*variable-highlight[^>]*data-variable="keyword_pattern"[^>]*>keyword_pattern<\/span>\s*%}/
+    );
+    expect(condSpan, `expected single highlighted span inside {% if %}; got:\n${res.html}`).not.toBeNull();
+  });
+
+  it('多个 {% if var %} 互不串扰，且不出现乱码属性文本', () => {
+    const hl = new TemplateHighlighter();
+    const tmpl = [
+      'WHERE id NOT IN {{ id_list }}',
+      '{% if keyword_pattern %}',
+      'AND des LIKE {{ keyword_pattern }}',
+      '{% endif %}',
+      '{% if lim %}',
+      'LIMIT {{ lim }}',
+      '{% endif %}',
+    ].join('\n');
+    const res = hl.highlightTemplate(
+      tmpl,
+      [varObj('id_list', 'number'), varObj('keyword_pattern', 'string'), varObj('lim', 'string')],
+      { id_list: 123, keyword_pattern: 'kw', lim: '10' }
+    );
+    // 损坏的嵌套标记特征：属性值里出现 <span（如 data-variable="<span ..."）。
+    // 合法 HTML 里属性值绝不会以 <span 开头，所以这是可靠的乱码探测器。
+    expect(res.html, 'attribute value must not contain a nested <span').not.toMatch(/=\s*"<span/);
+    // 每个控制结构里应恰好各有一个被包裹的变量
+    const ifSpans =
+      res.html.match(/{%\s*if\s+<span[^>]*variable-highlight[^>]*>\w+<\/span>\s*%}/g) || [];
+    expect(ifSpans.length).toBe(2);
+  });
+
+  it('已高亮的 {% if %} 对二次遍历保持幂等（编辑器二次 pass 不得损坏）', () => {
+    // 复现编辑器在 utils 输出之上再次执行 {% if %} 遍历的场景。
+    const hl = new TemplateHighlighter();
+    const res = hl.highlightTemplate(
+      '{% if keyword_pattern %}{{ keyword_pattern }}{% endif %}',
+      [varObj('keyword_pattern', 'string')],
+      { keyword_pattern: 'kw' }
+    );
+
+    // 未加守卫：对 condition 内的 \bkeyword_pattern\b 再包裹必然产生嵌套/乱码
+    const unguarded = res.html.replace(/{%\s*if\s+([^%]+)\s*%}/g, (m) =>
+      m.replace(
+        /\bkeyword_pattern\b/g,
+        '<span class="variable-highlight" data-variable="keyword_pattern">keyword_pattern</span>'
+      )
+    );
+    expect(unguarded, 'unguarded re-pass must corrupt the output').toMatch(/=\s*"<span/);
+
+    // 加守卫：condition 已含 span 时跳过，保持幂等
+    const guarded = res.html.replace(/{%\s*if\s+([^%]+)\s*%}/g, (m, cond) =>
+      m.includes('variable-highlight') || cond.includes('<span') ? m : m
+    );
+    expect(guarded).toBe(res.html);
+  });
+});

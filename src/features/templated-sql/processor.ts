@@ -439,14 +439,16 @@ export class TemplateProcessor {
 
       node.args.children.forEach((arg) => {
         if (isNunjucksNode(arg)) {
-          if (arg.typename === 'Symbol' && arg.value) {
-            const varName = arg.value as string;
+          // 解析出被过滤的变量名（Symbol → 'user'；LookupVal → 'user.id'），
+          // 这样点号名也能拿到 identifier 过滤器的默认值（取最后一段）。
+          const varName = this.resolveVariableName(arg);
+          if (varName) {
             if (!processedNames.has(varName)) {
 
               variables.push({
                 name: varName,
                 type: this.inferVariableType(varName),
-                defaultValue: this.getDefaultValue(varName) as TemplateVariableValue,
+                defaultValue: this.getDefaultValue(varName, filterName ? [filterName] : undefined) as TemplateVariableValue,
                 required: this.isRequiredVariable(varName),
                 filters: filterName ? [filterName] : ([] as string[]),
                 extractionMethod: 'nunjucks',
@@ -470,6 +472,25 @@ export class TemplateProcessor {
   }
 
   /**
+   * 将节点解析为点号全名：Symbol → 'user'；LookupVal → 'user.id'（递归支持 a.b.c）。
+   * 不是变量名节点时返回 null。
+   */
+  private resolveVariableName(node: NunjucksNode): string | null {
+    if (!isNunjucksNode(node)) return null;
+    if (node.typename === 'Symbol' && typeof node.value === 'string') {
+      return node.value;
+    }
+    if (node.typename === 'LookupVal') {
+      const target = this.resolveVariableName(node.target as NunjucksNode);
+      const val = node.val?.value;
+      if (target && typeof val === 'string') {
+        return `${target}.${val}`;
+      }
+    }
+    return null;
+  }
+
+  /**
    * 使用正则表达式进行变量提取 (备选方法)
    */
   private extractVariablesWithRegex(_template: string): TemplateVariable[] {
@@ -487,7 +508,7 @@ export class TemplateProcessor {
         variables.push({
           name: parsed.variableName,
           type: this.inferVariableType(parsed.variableName),
-          defaultValue: this.getDefaultValue(parsed.variableName) as TemplateVariableValue,
+          defaultValue: this.getDefaultValue(parsed.variableName, parsed.filters) as TemplateVariableValue,
           required: this.isRequiredVariable(parsed.variableName),
           filters: parsed.filters,
           extractionMethod: 'regex',
@@ -715,7 +736,14 @@ export class TemplateProcessor {
   /**
    * 获取变量的默认值 - 智能默认值生成
    */
-  private getDefaultValue(varName: string): unknown {
+  private getDefaultValue(varName: string, filters?: string[]): unknown {
+    // identifier / sql_identifier 过滤器：变量被用作表名/列名，默认值取变量名
+    // 字面量（如 {{ user | identifier }} → 'user'），而不是 demo_<name>。
+    // 对点号名（如 user.id）取最后一段作为标识符。
+    if (filters?.some(f => f === 'identifier' || f === 'sql_identifier')) {
+      return varName.split('.').pop() ?? varName;
+    }
+
     const type = this.inferVariableType(varName);
     const name = varName.toLowerCase();
 

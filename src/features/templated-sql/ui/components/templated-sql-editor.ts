@@ -1171,12 +1171,17 @@ export class TemplatedSqlEditor extends LitElement {
       } else if (this.values[variable.name] !== undefined) {
         newValues[variable.name] = this.values[variable.name];
       } else {
-
-        if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
+        const filters = variable.filters ?? [];
+        const isIdentifierFilter = filters.some(f => f === 'identifier' || f === 'sql_identifier');
+        // identifier 过滤器：默认值取变量名字面量（如 {{ user | identifier }} → 'user'）。
+        // 必须优先于 host 传入的 defaultValue：host 的 getDefaultValue 不感知过滤器，
+        // 会把 `user` 错误地默认成 demo_user。
+        // getContextualDefaultValue 仅读取 name/type/filters(/elementProperties)，故可安全转换。
+        if (isIdentifierFilter) {
+          newValues[variable.name] = getContextualDefaultValue(variable as unknown as EnhancedVariable);
+        } else if (variable.defaultValue !== undefined && variable.defaultValue !== null) {
           newValues[variable.name] = variable.defaultValue;
         } else {
-          // 智能默认值：identifier 过滤器 → 变量名字面量；id → 数字；name → 'Sample Name' 等。
-          // getContextualDefaultValue 仅读取 name/type/filters(/elementProperties)，故可安全转换。
           newValues[variable.name] = getContextualDefaultValue(variable as unknown as EnhancedVariable);
         }
       }

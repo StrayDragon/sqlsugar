@@ -8,6 +8,7 @@ import { describe, it, expect } from 'vitest';
 import { parseTemplate } from '../features/templated-sql/ui/utils/template-parser';
 import { getContextualDefaultValue } from '../features/templated-sql/ui/utils/variable-utils';
 import { VariableStateManager } from '../features/templated-sql/ui/utils/variable-state-manager';
+import { TemplateProcessor } from '../features/templated-sql/processor';
 
 describe('Identifier Filter Default Value', () => {
   describe('parseTemplate captures filters', () => {
@@ -116,5 +117,40 @@ WHERE o.status = {{ status | sql_quote }}`;
       expect(Array.isArray(value)).toBe(true);
       expect((value as unknown[]).length).toBeGreaterThan(0);
     });
+  });
+});
+
+describe('Host (TemplateProcessor) identifier filter default value', () => {
+  // Host 端 extractVariables 计算的 defaultValue 必须感知 identifier 过滤器，
+  // 否则编辑器会直接采用 host 传入的 demo_user，生成器也会把 demo_user 写进演示 SQL。
+  it('{{ user | identifier }} 的 defaultValue 为变量名字面量 user，而非 demo_user', () => {
+    const processor = TemplateProcessor.getInstance();
+    const vars = processor.extractVariables('LEFT JOIN {{ user | identifier }} AS u ON u.id = {{ user_id }}');
+    const user = vars.find(v => v.name === 'user');
+    expect(user, 'user variable should be extracted').toBeDefined();
+    expect(user?.filters).toContain('identifier');
+    expect(user?.defaultValue).toBe('user');
+    expect(user?.defaultValue).not.toBe('demo_user');
+  });
+
+  it('{{ table | sql_identifier }} 的 defaultValue 为 table', () => {
+    const processor = TemplateProcessor.getInstance();
+    const vars = processor.extractVariables('FROM {{ table | sql_identifier }}');
+    const table = vars.find(v => v.name === 'table');
+    expect(table?.defaultValue).toBe('table');
+  });
+
+  it('点号名 {{ user.id | identifier }} 的 defaultValue 取最后一段 id', () => {
+    const processor = TemplateProcessor.getInstance();
+    const vars = processor.extractVariables('JOIN {{ user.id | identifier }} AS x');
+    const userId = vars.find(v => v.name === 'user.id');
+    expect(userId?.defaultValue).toBe('id');
+  });
+
+  it('普通字符串变量（无 identifier 过滤器）仍走 demo_<name> 默认', () => {
+    const processor = TemplateProcessor.getInstance();
+    const vars = processor.extractVariables('SELECT {{ keyword }}');
+    const kw = vars.find(v => v.name === 'keyword');
+    expect(kw?.defaultValue).toBe('demo_keyword');
   });
 });

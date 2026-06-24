@@ -136,17 +136,16 @@ export class TemplateHighlighter {
 
 
       variables.forEach((variable) => {
-        // 匹配 {{ name }}、{{ name | filter }}、{{ name.attr | filter }} 等任意
-        // 以该变量名开头的表达式。\b 保证不会把 name 当成更长标识符的前缀误匹配
-        // （例如 name='user' 不会命中 {{ user_id }}）；[^}]* 在遇到首个 }} 时停止，
-        // 不会跨表达式贪婪。hljs 输出里 {{ }} 仍是字面量、filter 里的 | 可能被包进
-        // <span class="hljs-operator">，但 span 内不含 }，故该正则仍能整体命中。
-        const varPattern = new RegExp(
-          `{{\\s*${this.escapeRegex(variable.name)}\\b[^}]*}}`,
-          'g'
-        );
-
-        result = result.replace(varPattern, (match: string) => {
+        // 匹配整个 {{ ... }} 表达式（容忍 hljs 在其间插入的 <span> 标签），再判断
+        // 表达式的首标识符是否等于该变量名。hljs 会把 SQL 关键字变量名本身包成
+        // <span class="hljs-keyword">user</span>（user 是关键字），旧的 `{{\s*name\b`
+        // 正则会因 {{ 后紧跟 <span 而漏匹配；改为按首标识符精确比较，同时天然区分
+        // user 与 user_id / user_crm 这类前缀变量。
+        const exprPattern = /\{\{([\s\S]*?)\}\}/g;
+        result = result.replace(exprPattern, (match: string, inner: string) => {
+          if (this.leadingIdentifier(inner) !== variable.name) {
+            return match;
+          }
           const valueDisplay = this.formatValueForDisplay(
             values[variable.name]
           );
@@ -387,6 +386,17 @@ export class TemplateHighlighter {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  /**
+   * 提取 {{ ... }} 表达式内（可能已被 hljs 插入 <span> 标签）的首标识符。
+   * 例如 inner = ' <span class="hljs-keyword">user</span> | identifier ' → 'user'。
+   * 用于判断该 {{ }} 表达式是否属于某个具名变量，避免把 user 误匹配成 user_id。
+   */
+  private leadingIdentifier(innerHtml: string): string | null {
+    const text = innerHtml.replace(/<[^>]+>/g, '').trim();
+    const m = text.match(/^([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)/);
+    return m ? m[1] : null;
   }
 
   /**

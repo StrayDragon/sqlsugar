@@ -911,6 +911,10 @@ export class TemplateProcessor {
       'sql_quote',
       'sql_identifier',
       'identifier',
+      // jinja2sql 对齐：标识符 / 参数绑定 / IN 子句 / 原样输出
+      'bind',
+      'inclause',
+      'safe',
       'sql_date',
       'sql_datetime',
       'sql_in',

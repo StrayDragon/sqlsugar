@@ -212,7 +212,7 @@ function extractVariables(template: string): EnhancedVariable[] {
     const context = extractContext(template, startIndex, endIndex);
 
     const enhancedVar: EnhancedVariable = {
-      ...createTemplateVariable(variableName, inferVariableType(variableName, context), { filters }),
+      ...createTemplateVariable(variableName, inferVariableType(variableName, context, filters), { filters }),
       position: {
         startIndex,
         endIndex,
@@ -477,7 +477,10 @@ function findRelatedVariables(template: string, startIndex: number, endIndex: nu
 /**
  * Infer variable type from name and context
  */
-function inferVariableType(variableName: string, context: VariableContext): TemplateVariable['type'] {
+function inferVariableType(variableName: string, context: VariableContext, filters: string[] = []): TemplateVariable['type'] {
+  // IN 子句过滤器（jinja2sql inclause / 本地 sql_in）要求集合类型。
+  if (filters.some(f => f === 'inclause' || f === 'sql_in')) return 'array';
+
   const name = variableName.toLowerCase();
   const semanticContext = context.semanticContext.toLowerCase();
 

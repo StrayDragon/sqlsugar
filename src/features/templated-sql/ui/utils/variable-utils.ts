@@ -268,13 +268,24 @@ export function getContextualDefaultValue(variable: EnhancedVariable): TemplateV
   // Special case: variables used as SQL identifiers (e.g. {{ user | identifier }})
   // should default to the variable name literal itself.
   const filters = variable.filters ?? [];
+  const name = variable.name.toLowerCase();
   const isIdentifierFilter = filters.some(f => f === 'identifier' || f === 'sql_identifier');
   if (isIdentifierFilter) {
     const lastSegment = variable.name.split('.').pop() ?? variable.name;
     return lastSegment;
   }
 
-  const name = variable.name.toLowerCase();
+  // IN 子句（jinja2sql inclause / 本地 sql_in）需要数组样本：
+  // id 类 → 数字数组；status/type/state/kind → 枚举字符串；其余给通用字符串样本。
+  const isInclauseFilter = filters.some(f => f === 'inclause' || f === 'sql_in');
+  if (isInclauseFilter) {
+    if (name.includes('id')) return [1, 2, 3];
+    if (name.includes('status') || name.includes('type') || name.includes('state') || name.includes('kind')) {
+      return ['active', 'pending'];
+    }
+    return ['value1', 'value2'];
+  }
+
   const type = variable.type;
 
   switch (type) {

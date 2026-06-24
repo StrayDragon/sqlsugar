@@ -76,3 +76,54 @@ describe('bugfix: 带过滤器的变量高亮 (问题1)', () => {
     expect(res.html).not.toContain('data-variable="user"');
   });
 });
+
+describe('bugfix: jinja2sql 对齐过滤器 inclause / bind / safe', () => {
+  it('{{ xs | inclause }} 渲染为带括号的 IN 字面量列表', () => {
+    const out = env.renderString('{{ xs | inclause }}', buildNestedContext({ xs: ['active', 'pending'] }));
+    expect(out).toBe("('active', 'pending')");
+  });
+
+  it('inclause 对数字数组渲染为裸数字列表', () => {
+    const out = env.renderString('{{ ids | inclause }}', buildNestedContext({ ids: [1, 2, 3] }));
+    expect(out).toBe('(1, 2, 3)');
+  });
+
+  it('inclause 对单个非数组值也能渲染（容错）', () => {
+    const out = env.renderString('{{ x | inclause }}', buildNestedContext({ x: 'only' }));
+    expect(out).toBe("('only')");
+  });
+
+  it('inclause 对空数组渲染为 (NULL)，不报错抹掉整段预览', () => {
+    const out = env.renderString('IN {{ xs | inclause }}', buildNestedContext({ xs: [] }));
+    expect(out).toBe('IN (NULL)');
+  });
+
+  it('字符串内部单引号在 inclause/bind 中被转义', () => {
+    const out = env.renderString("{{ s | bind }}", buildNestedContext({ s: "O'Reilly" }));
+    expect(out).toBe("'O''Reilly'");
+  });
+
+  it('{{ x | bind }} 按字面量内联（null→NULL, 数字裸输出）', () => {
+    expect(env.renderString('{{ a | bind }}', buildNestedContext({ a: null }))).toBe('NULL');
+    expect(env.renderString('{{ a | bind }}', buildNestedContext({ a: 12 }))).toBe('12');
+  });
+
+  it('{{ x | safe }} 原样输出值（nunjucks 内置）', () => {
+    expect(env.renderString('{{ d | safe }}', buildNestedContext({ d: 'DESC' }))).toBe('DESC');
+  });
+
+  it('identifier 对可迭代值以 . 连接（schema.table 风格）', () => {
+    const out = env.renderString('{{ t | identifier }}', buildNestedContext({ t: ['schema', 'users'] }));
+    expect(out).toBe('schema.users');
+  });
+
+  it('用户真实模板：inclause + 普通变量混用都能被替换', () => {
+    const tmpl =
+      'SELECT * FROM {{ base | identifier }} WHERE type IN {{ attachment_types | inclause }} LIMIT {{ limit }}';
+    const out = env.renderString(
+      tmpl,
+      buildNestedContext({ base: 'user_bill', attachment_types: ['a', 'b'], limit: 10 })
+    );
+    expect(out).toBe("SELECT * FROM user_bill WHERE type IN ('a', 'b') LIMIT 10");
+  });
+});

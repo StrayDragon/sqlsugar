@@ -20,6 +20,22 @@ function generateUUID(): string {
   });
 }
 
+/**
+ * 将单个值格式化为 SQL 字面量（与编辑器右侧预览的内联风格一致）。
+ * - null/undefined → NULL
+ * - boolean → TRUE/FALSE
+ * - number → 原样
+ * - string → 单引号包裹，内部 ' 转义为 ''
+ * - 数组/对象 → 单引号包裹的 JSON（预览兜底）
+ */
+function sqlLiteral(value: unknown): string {
+  if (value === null || value === undefined) return 'NULL';
+  if (typeof value === 'boolean') return value ? 'TRUE' : 'FALSE';
+  if (typeof value === 'number') return String(value);
+  if (typeof value === 'string') return `'${value.replace(/'/g, "''")}'`;
+  return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
+}
+
 function formatSQLDate(date: Date, format: string): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -48,11 +64,33 @@ function registerSQLFilters(env: nunjucks.Environment): void {
     return `"${value.replace(/"/g, '""')}"`;
   });
 
-  // `identifier` 是标识符引用的语义别名：默认值取变量名字面量（见
-  // variable-utils.getContextualDefaultValue），渲染时原样输出值、不做引号包裹，
-  // 以便上层按目标数据库语法自行决定如何引用。
+  // `identifier` 对齐 jinja2sql 的 identifier 过滤器：字符串原样输出；
+  // 可迭代值（如 ['schema', 'table']）以 '.' 连接（schema.table 风格）。
+  // 默认不加引用字符（对齐 jinja2sql DEFAULT_IDENTIFIER_QUOTE_CHAR=''），
+  // 由上层按目标数据库语法自行决定如何引用。
+  // 默认值取变量名字面量（见 variable-utils.getContextualDefaultValue）。
   env.addFilter('identifier', (value: unknown) => {
-    return value == null ? '' : String(value);
+    if (value === null || value === undefined) return '';
+    if (Array.isArray(value)) {
+      return value.map(item => (item === null || item === undefined ? '' : String(item))).join('.');
+    }
+    return String(value);
+  });
+
+  // `bind` 对齐 jinja2sql：真实运行时产出占位符（:name / ? / %s 等）。
+  // 本编辑器是「样本值内联预览」，故 bind 在此退化为按 SQL 字面量内联，
+  // 与裸变量 {{ x }} 行为一致——避免预览在 bind 处突然变成占位符而与其余
+  // 内联渲染不一致。name 参数仅用于占位符命名，此处忽略。
+  env.addFilter('bind', (value: unknown, _name?: unknown) => sqlLiteral(value));
+
+  // `inclause` 对齐 jinja2sql：真实运行时产出 (:_in__1, :_in__2)。
+  // 预览中以样本值内联，输出 ('a', 'b') / (1, 2, 3)。
+  // 空数组渲染为 (NULL)——jinja2sql 会抛 ValueError，但预览不应因单个空 IN
+  // 抹掉整段渲染。name 参数仅用于占位符命名，此处忽略。
+  env.addFilter('inclause', (value: unknown, _name?: unknown) => {
+    const items = Array.isArray(value) ? value : [value];
+    if (items.length === 0) return '(NULL)';
+    return `(${items.map(item => sqlLiteral(item)).join(', ')})`;
   });
 
   env.addFilter('sql_date', (value: unknown, format: string = 'YYYY-MM-DD') => {

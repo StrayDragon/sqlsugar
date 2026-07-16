@@ -1,20 +1,53 @@
 ---
-name: "llman-sdd-validate"
-description: "校验 llmanspec 变更与 specs 并提供修复提示。"
+name: "llman-sdd-quick"
+description: "快速路径：处理不改行为合约的小改动——重构、修错字、性能优化。不涉及 MUST/SHALL 变更。如发现需要改合约，立即切换到 propose 完整路径。"
 metadata:
   version: "0.0.61"
 ---
 
-# LLMAN SDD 校验
+# LLMAN SDD Quick Path
 
-使用此 skill 校验变更/spec 格式与过期状态。
+对于不涉及行为合约变更的小改动使用此路径。
+
+## Pipeline 位置
+
+```mermaid
+flowchart LR
+    explore["llman-sdd-explore<br/>探索"] --> quick
+
+    quick["★ llman-sdd-quick ★<br/>快速路径（你现在在这里）"]
+    quick --> commit["git commit<br/>完成"]
+
+    explore --> propose["完整路径:<br/>propose → apply → verify → archive"]
+    propose --> apply["..."]
+    apply --> verify["..."]
+    verify --> archive["..."]
+
+    style quick fill:#d4edda,stroke:#28a745,stroke-width:3px
+```
+
+> 📍 快速路径：不改行为合约，直接改代码 commit。如果发现需要改合约 → STOP，改走完整路径 `llman-sdd-propose`
+
+## 使用条件（所有条件必须满足）
+- 不改变任何 spec 中 MUST/SHALL 定义的外部可观测行为
+- 不涉及跨 capability 的修改
+- 不涉及迁移/兼容性
+- 不是 SDD 元规范变更
 
 ## 步骤
-1. 校验单个条目：`llman sdd validate <id>`。
-2. 批量校验：`llman sdd validate --all`（或 `--changes` / `--specs`）。
-3. 在 CI 或自动化场景中使用 `--strict` 与 `--no-interactive`。
-4. 若校验失败，汇总错误并给出最小、可执行的修复建议。
+1. 用 `llman sdd context --task "..." --paths "..."` 确认无相关 spec 变更需要。
+   - 如果 context 返回 `quality: "unavailable"`，运行 `llman sdd index rebuild`（默认 `pageindex`，无需模型）。
+   - 可以用 `llman sdd list --specs --json` 查看 specs 元数据。
+2. 直接修改代码。
+3. 如果涉及 spec 的维护性调整（修错字、收紧 scope），直接编辑 spec 文件并用 `llman sdd validate --specs` 校验。
+4. git commit（message 写明 why）。
+5. 无需 change 目录，无需 archive。
 
+## 边界处理
+- 如果在修改中发现需要改变行为合约 → STOP，改走 `llman-sdd-propose`（完整路径）。
+- 如果涉及到多个文件且不确定 scope → 先用 `llman sdd context` 确认。
+
+> 💡 快速路径完成 → git commit 即可。若需要走完整路径 → `llman-sdd-propose` → `llman-sdd-apply` → `llman-sdd-verify` → `llman-sdd-archive`
 
 在执行之前，请先阅读 `llmanspec/config.yaml`，若其中包含 `context` 与 `rules` 请遵循。
 
@@ -31,50 +64,6 @@ metadata:
 - `llman sdd archive freeze [--before YYYY-MM-DD] [--keep-recent N] [--dry-run]`（冻结归档目录）
 - `llman sdd archive thaw [--change <id> ...] [--dest <path>]`（解冻归档）
 - `llman sdd graph [CHANGE] [--format mermaid] [--scope active|archived|all] [--depth N]`（生成变更依赖图）
-
-
-常见校验修复（TOON 独立文件 spec）：
-
-1) 缺少校验作用域（`Spec valid_scope must not be empty`）：
-Main spec 必须在 `.toon` 文档内携带非空的 `valid_scope`。
-`llmanspec/specs/<feature-id>/spec.toon`：
-```toon
-kind: llman.sdd.spec
-name: sample
-purpose: "One-line overview."
-valid_scope[1]: src
-requirements[1]{req_id,title,statement}:
-  r1,Title,System MUST do something.
-scenarios[1]{req_id,id,given,when,then}:
-  r1,happy,"",a trigger happens,the outcome is observed
-```
-
-2) Change 缺少 delta ops：至少补一个 op + scenario（`llmanspec/changes/<change-id>/specs/<feature-id>/spec.toon`）：
-```toon
-kind: llman.sdd.delta
-ops[1]{op,req_id,title,statement,from,to,name}:
-  add_requirement,r1,Title,System MUST do something.,null,null,null
-op_scenarios[1]{req_id,id,given,when,then}:
-  r1,happy,"",a trigger happens,the outcome is observed
-```
-
-3) 表格化行引号错误（"Expected N tabular row values, but got M"）：
-值包含**空格**、逗号、冒号或方括号时，必须用双引号包裹。
-```toon
-# 错误：未加引号的空格值会被拆成多个值
-r1,happy,"",a trigger happens,the outcome is observed
-
-# 正确：多词值加引号
-r1,happy,"","a trigger happens","the outcome is observed"
-```
-
-4) BDD spec 护栏（`BDD is enabled but this spec declares no requirements and has no .feature files`）：
-当 `config.yaml` 含 `bdd` 块时，行为规格在 `spec.toon` 的 `scenarios` 中（TOON 是唯一真源）。`.feature` 文件由 `llman sdd solidify` 衍生生成。`requirements` 和 `scenarios` 均为空的 spec 是 ERROR。
-
-备注：
-- 每个 spec 是一个独立的 `.toon` 文件；没有 Markdown 外壳，也没有 ```toon fence。
-- `null` 表示可选字段缺失。
-- 从旧版 `.md`+fence 迁移请使用 `llman sdd migrate`。
 
 
 ## Context

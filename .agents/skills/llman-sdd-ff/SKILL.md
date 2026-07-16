@@ -1,6 +1,8 @@
 ---
 name: "llman-sdd-ff"
 description: "Fast-forward：一次性创建 proposal/specs/design/tasks。"
+metadata:
+  version: "0.0.61"
 ---
 
 # LLMAN SDD Fast-Forward (FF)
@@ -33,17 +35,18 @@ description: "Fast-forward：一次性创建 proposal/specs/design/tasks。"
 在执行之前，请先阅读 `llmanspec/config.yaml`，若其中包含 `context` 与 `rules` 请遵循。
 
 常用命令：
+- `llman sdd context --task "<description>" --paths "<files>"`（获取相关 specs）。使用 pageindex agentic 树检索后端（需配置 `LLMAN_SDD_INDEX_CHAT_MODEL`）。可用 `LLMAN_SDD_INDEX_BACKEND` 预设。
 - `llman sdd list`（列出变更）
-- `llman sdd list --specs`（列出 specs）
+- `llman sdd list --specs`（列出 specs，含 purpose/scope 元数据）
 - `llman sdd show <id>`（查看 change/spec）
 - `llman sdd validate <id>`（校验变更或 spec）
 - `llman sdd validate --all`（批量校验）
-- `llman sdd migrate`（将旧版 `.md`+fence spec 一次性迁移为独立 `.toon`；幂等）
+- `llman sdd index rebuild`（重建 pageindex 树索引——无需模型）
+- `llman sdd index check`（检查索引新鲜度）
 - `llman sdd archive run <id>`（归档变更）
-- `llman sdd archive <id>`（`archive run` 的兼容别名）
-- `llman sdd archive freeze [--before YYYY-MM-DD] [--keep-recent N] [--dry-run]`（将已归档目录冻结到单一冷备文件）
-- `llman sdd archive thaw [--change <id> ...] [--dest <path>]`（从冷备文件恢复目录）
-- `llman sdd graph [CHANGE] [--format mermaid] [--scope active|archived|all] [--depth N]`（生成变更依赖图并输出到标准输出）
+- `llman sdd archive freeze [--before YYYY-MM-DD] [--keep-recent N] [--dry-run]`（冻结归档目录）
+- `llman sdd archive thaw [--change <id> ...] [--dest <path>]`（解冻归档）
+- `llman sdd graph [CHANGE] [--format mermaid] [--scope active|archived|all] [--depth N]`（生成变更依赖图）
 
 常见校验修复（TOON 独立文件 spec）：
 
@@ -80,8 +83,8 @@ r1,happy,"",a trigger happens,the outcome is observed
 r1,happy,"","a trigger happens","the outcome is observed"
 ```
 
-4) BDD 空 spec 护栏（`BDD is enabled but this spec declares no requirements and no feature_refs`）：
-当 `config.yaml` 含 `bdd` 块时，spec 必须要么声明 `requirements`，要么通过 `feature_refs` 指向 `.feature`（point-only 模式）。
+4) BDD spec 护栏（`BDD is enabled but this spec declares no requirements and has no .feature files`）：
+当 `config.yaml` 含 `bdd` 块时，行为规格在 `spec.toon` 的 `scenarios` 中（TOON 是唯一真源）。`.feature` 文件由 `llman sdd solidify` 衍生生成。`requirements` 和 `scenarios` 均为空的 spec 是 ERROR。
 
 备注：
 - 每个 spec 是一个独立的 `.toon` 文件；没有 Markdown 外壳，也没有 ```toon fence。
@@ -91,6 +94,7 @@ r1,happy,"","a trigger happens","the outcome is observed"
 
 ## Context
 - 执行前先确认当前 change/spec 状态。
+- 优先使用 `llman sdd context --task --paths` 获取相关 specs，而非全量读取或猜测。
 
 ## Goal
 - 明确本次命令/skill 要达成的可验证结果。
@@ -98,10 +102,14 @@ r1,happy,"","a trigger happens","the outcome is observed"
 ## Constraints
 - 变更保持最小化且范围明确。
 - 标识符或意图不明确时禁止猜测。
+- 在读取 spec 全文前，先使用 `llman sdd context --task --paths` 获取相关 specs。
+- 判断变更规模后选择路径：行为合约变更走完整 SDD 流程，实现变更走快速路径。
 
 ## Workflow
 - 以 `llman sdd` 命令结果为事实来源。
 - 涉及文件/规范变更时执行校验。
+- 首选 `llman sdd context` 获取相关 specs，而非全量读取或猜测。
+- 当 context 不可用时，按错误提示处理（重建 index 或降级到 `list --specs --json`）。
 
 ## Decision Policy
 - 高影响歧义必须先澄清。
@@ -117,16 +125,3 @@ r1,happy,"","a trigger happens","the outcome is observed"
 - `ethics.required_evidence`：列出高影响输出前必须具备的证据。
 - `ethics.refusal_contract`：定义何时拒答以及安全替代响应方式。
 - `ethics.escalation_policy`：定义何时必须升级为用户确认/人工复核。
-
-## Future 到执行的规划
-- 将 `llmanspec/changes/<id>/future.md` 视为候选待办池，而不是静态备注。
-- 审查 `Deferred Items`、`Branch Options`、`Triggers to Reopen`，并把每项归类为：
-  - `now`（需要立即转化为可执行工作）
-  - `later`（保留在 future.md，补充明确触发信号）
-  - `drop`（移除或标记拒绝并说明原因）
-- 对每个 `now` 项，产出明确落地路径：
-  - 后续 change id（`add-...`、`update-...`、`refactor-...`）
-  - 受影响 capability/spec 路径
-  - 第一条可执行动作（`llman-sdd-propose`、`llman-sdd-new-change`、`llman-sdd-continue`、`llman-sdd-ff` 或 `llman-sdd-apply`）
-- 保持可追溯性：在新 proposal/design/tasks 中引用来源 future 条目。
-- 若存在高不确定性，先暂停并提问，再创建新变更工件。

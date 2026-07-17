@@ -1,68 +1,67 @@
 ---
-name: "llman-sdd-explore"
-description: "进入 llman SDD 探索模式：理清思路、调查需求、分析问题。仅思考，禁止写代码。用于意图不明确或需要分析后再行动的场景。"
+name: "llman-sdd-verify"
+description: "验证已实施的 llman SDD 变更是否与 specs/design/tasks 一致。产出分级报告（CRITICAL / WARNING / SUGGESTION），对比代码与工件。在 apply 完成后运行；全绿则可归档。"
 metadata:
   version: "0.0.64"
 ---
 
-# LLMAN SDD Explore
+# LLMAN SDD Verify
 
-当用户希望在开始实现之前先理清思路、调查问题或澄清需求时，使用此 skill。
-
-**重要：探索模式只用于思考，不用于实现。**
-- 你可以阅读文件、搜索代码、调查代码库。
-- 如果用户需要，你可以创建/更新 llman SDD artifacts（proposal/specs/design/tasks）。
-- 你绝对不能在探索模式下写应用代码或实现功能。
+使用此 skill 验证实现是否与该 change 的 artifacts 一致。
 
 ## Pipeline 位置
 
 ```mermaid
 flowchart LR
-    explore["★ llman-sdd-explore ★<br/>探索（你现在在这里）"]
-    explore --> propose["llman-sdd-propose<br/>提案"]
-    propose --> apply["llman-sdd-apply<br/>实施"]
-    apply --> verify["llman-sdd-verify<br/>验证"]
+    apply["llman-sdd-apply<br/>实施"] --> verify
+    verify["★ llman-sdd-verify ★<br/>验证（你现在在这里）"]
     verify --> archive["llman-sdd-archive<br/>归档"]
     archive --> commit["git commit<br/>完成闭环"]
 
-    style explore fill:#fff3cd,stroke:#ffc107,stroke-width:3px
+    style verify fill:#fff3cd,stroke:#ffc107,stroke-width:3px
 ```
 
-> 📍 你现在在探索阶段（仅思考）→ 常规路径下一步 `llman-sdd-propose`（提案）
-> 📎 如果是小改动（不改行为合约），可直接走 `llman-sdd-quick`（快速路径）
+> 📍 你现在在验证阶段 → 通过后下一步 `llman-sdd-archive`（归档）；失败则回到 `llman-sdd-apply`（修复）
 
-## 探索姿态
-- 好奇而不教条
-- 以真实代码为依据
-- 需要时用 ASCII 图可视化
-- 同时保留多个选项与权衡
+## 硬约束
 
-## 建议动作
-1. 使用 `llman sdd context --task "<任务>" --paths "<文件>"` 快速定位相关 specs。
-   - 阅读 context 的 `direct` 列出的 spec 全文（这些是必须理解的合约）。
-   - 如果 context 不可用，运行 `llman sdd index rebuild`（默认 `pageindex`，无需模型）后重试。
-2. 澄清目标与约束（问 1–3 个问题）。
-3. 如果某个 change id 相关，阅读 `llmanspec/changes/<id>/` 下的 artifacts。
-4. 探索 2–3 个选项与权衡。
-5. 判断变更规模（triage），确定是否需要走完整 SDD 流程。
-6. 当结论逐渐清晰时，建议用户把它记录下来（不要自动写入）：
-   - 范围变化 → `proposal.md`
-   - BDD-off 约束/场景 → `llmanspec/changes/<id>/specs/<capability>/spec.toon`（TOON delta）
-   - BDD-on 约束 → feature 分支上的 live `llmanspec/specs/<capability>/spec.toon`
-   - BDD-on 可执行 harness → live `llmanspec/specs/<capability>/*.feature`（`@req`）；禁止 `*.feature.delta.toon`
-   - 设计决策 → `design.md`
-   - 新工作项 → `tasks.md`
+- **必须先通过 apply 阶段全绿**：未完成实现的 change 跳过验证。
+- **CRITICAL 必须修复**：标记为 CRITICAL 的问题归档前必须修复。
+- **不要问「要不要继续」**：跑完整个验证流程，输出完整报告。
 
-> BDD-on（Git-native Partitioned）：feature 分支 + live `.feature`/`spec.toon` 为 SSOT；用 `change attach` 绑定；无 solidify / feature_delta。
+## 步骤
+1. 确定 change id（不明确时让用户从 `llman sdd list --json` 选择）。
+2. 检查阶段守卫（权威）：
+   ```bash
+   stage=$(llman sdd show <id> --json --type change | jq -r .stage)
+   ```
+   （若无 `jq`，可用任意工具从 JSON 中解析 `stage` 值。）
+   - 若 `stage` 不为 `full`，变更尚未实现、无可验证内容 → 必须停止并给出守卫提示：
+     - `draft`："变更 <id> 是 draft 提案（仅 proposal.md），尚无可验证的实现。请先用 llman-sdd-propose 生成完整工件，再用 llman-sdd-apply <id> 实现。"
+     - 其他非 full 阶段（`specified`/`designed`）："变更 <id> 处于 <stage> 阶段，尚未准备好被验证。请先用 llman-sdd-apply 实现。"
+3. 先跑一个快速校验门禁：
+   - `llman sdd validate <id> --strict --no-interactive`
+4. 阅读：
+   - `llmanspec/changes/<id>/specs/` 下的 delta specs
+   - `proposal.md` 与 `design.md`（如存在）
+   - `tasks.md`（理解实现范围）
+5. 对比 artifacts 与代码：
+   - 标出不一致（缺失行为、错误行为、缺测试/文档）
+   - 给出最小修复建议或建议更新 artifacts
+6. **BDD-on 验证（Git-native Partitioned SSOT）**——仅当 `config.yaml` 含 `bdd:` 段时：
+   - 确认 change 已 attach，且当前在对应 feature 分支上。
+   - `llman sdd validate --specs`：Gherkin + `@req`/双写门禁；默认跑 `bdd.run_command`（可用 `--no-check` 跳过）。
+   - 可选只读审查：`llman sdd change diff <id>`（或 `--export-patch <path>`）。diff 仅作审查/导出——绝不当作 apply 步骤。
+   - 归档前：工作区干净后运行 `llman sdd change checkpoint <id>`。
+   - 检查：可执行 GWT 只在 live `.feature`；`morphology.dualWriteCount` 应为 0；若已有活跃 `*.feature.delta.toon` 则先迁移（不要自创 solidify/找补步骤）。
 
-## 退出探索模式
-当用户准备开始实现时，根据变更规模选择路径：
-- 行为合约变更 → `llman-sdd-propose`（创建提案工件）
-- 小改动 / 不改合约 → `llman-sdd-quick`（快速路径）
-- 已有完整 change 工件 → `llman-sdd-apply`（按 tasks 实施）
-若用户在探索模式中要求你开始实现，STOP 并提醒其先退出探索模式。
+7. 输出简短报告：
+   - **CRITICAL**（归档前必须修复）
+   - **WARNING**（建议修复）
+   - **SUGGESTION**（可选优化）
+8. 若存在 CRITICAL，建议用 `llman-sdd-apply` 修复；若通过（BDD-on：且已 checkpoint）则建议归档：`llman sdd change archive <id>`。
 
-> 💡 探索完成 → 下一步 `llman-sdd-propose`（保单）或 `llman-sdd-quick`（快速路径）
+> 💡 验证通过 → 下一步 `llman-sdd-archive`（归档）；有 CRITICAL → 回到 `llman-sdd-apply`（修复）
 
 行动前先阅读 `llmanspec/config.yaml`，并遵循其中的 `context` 与 `rules`（若有）。
 

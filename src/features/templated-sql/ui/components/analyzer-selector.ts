@@ -44,6 +44,17 @@ export interface AnalyzerSelectorEvents {
   };
 }
 
+/**
+ * localStorage key for persisting analyzer selection across editor sessions.
+ * Satisfies R-J2E-031: 用户的选择在下次打开编辑器时恢复。
+ */
+const ANALYZER_STATE_STORAGE_KEY = 'sqlsugar.templatedSqlEditor.analyzerState';
+
+interface PersistedAnalyzerState {
+  mode: 'auto' | 'manual';
+  selectedAnalyzers: string[];
+}
+
 @customElement('analyzer-selector')
 export class AnalyzerSelector extends LitElement {
   static override styles = css`
@@ -207,9 +218,64 @@ export class AnalyzerSelector extends LitElement {
     }
   };
 
+  /**
+   * Read persisted analyzer selection from localStorage.
+   * Returns null when storage is empty, disabled, or holds invalid data.
+   * Guards every storage access in try/catch so private-mode or quota errors
+   * never break the component.
+   */
+  private loadPersistedState(): PersistedAnalyzerState | null {
+    try {
+      const raw = localStorage.getItem(ANALYZER_STATE_STORAGE_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as Partial<PersistedAnalyzerState>;
+      if (parsed.mode !== 'auto' && parsed.mode !== 'manual') return null;
+      if (
+        !Array.isArray(parsed.selectedAnalyzers) ||
+        !parsed.selectedAnalyzers.every((n) => typeof n === 'string')
+      ) {
+        return null;
+      }
+      return {
+        mode: parsed.mode,
+        selectedAnalyzers: parsed.selectedAnalyzers,
+      };
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Persist current analyzer selection so it can be restored when the editor
+   * is reopened. Failures are swallowed to avoid crashing on storage errors.
+   */
+  private persistState(): void {
+    try {
+      const state: PersistedAnalyzerState = {
+        mode: this.mode,
+        selectedAnalyzers: this.selectedAnalyzers,
+      };
+      localStorage.setItem(ANALYZER_STATE_STORAGE_KEY, JSON.stringify(state));
+    } catch {
+      // ignore storage failures (disabled, quota, private mode)
+    }
+  }
+
   override connectedCallback() {
     super.connectedCallback();
     document.addEventListener('click', this.handleClickOutside);
+
+    // Restore persisted selection (R-J2E-031). Only apply when storage holds
+    // analyzers we actually know about, so stale/unknown names are ignored.
+    const persisted = this.loadPersistedState();
+    if (persisted) {
+      const known = new Set(this.options.map((o) => o.name));
+      const valid = persisted.selectedAnalyzers.filter((n) => known.has(n));
+      if (valid.length > 0) {
+        this.mode = persisted.mode;
+        this.selectedAnalyzers = valid;
+      }
+    }
   }
 
   override disconnectedCallback() {
@@ -242,6 +308,8 @@ export class AnalyzerSelector extends LitElement {
   }
 
   private emitChange() {
+    // Keep persisted state in sync with the emitted selection (R-J2E-031).
+    this.persistState();
     this.dispatchEvent(
       new CustomEvent('analyzer-selection-change', {
         detail: {

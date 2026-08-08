@@ -1,11 +1,9 @@
 import * as vscode from 'vscode';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import { Logger } from '../../core/logger';
 
 import { TemplateProcessor, TemplateVariable } from './processor';
 import { TemplatedSqlWebviewEditor } from './webview';
-import { SQLAlchemyPlaceholderProcessor, SQLAlchemyValue, SQLAlchemyContext } from './sqlalchemy';
+import { SQLAlchemyPlaceholderProcessor } from './sqlalchemy';
 import { AnalyzerPipeline } from './analyzers/analyzer-pipeline';
 import { TemplateExpressionAnalyzer } from './analyzers/jinja2-analyzer';
 import { NamedParamAnalyzer } from './analyzers/named-param-analyzer';
@@ -14,6 +12,7 @@ import { PyformatParamAnalyzer } from './analyzers/pyformat-param-analyzer';
 import { AsyncpgParamAnalyzer } from './analyzers/asyncpg-param-analyzer';
 import { LanguageHandler } from '../inline-sql/language-handler';
 import { readSqlSelectionConfig, resolveSqlSelection } from '../inline-sql/sql-selection';
+import { buildNamedParamVariables } from './workflow-actions';
 
 /**
  * 占位符检测结果
@@ -100,7 +99,14 @@ export class TemplatedSqlHandler {
 
 
     if (!placeholderDetection.hasJinja2 && placeholderDetection.hasSQLAlchemy) {
-      return await this.handleSQLAlchemyOnly(selectedText, placeholderDetection.sqlalchemyVars);
+      const namedVars = buildNamedParamVariables(placeholderDetection.sqlalchemyVars);
+      return await this.handleWebviewMode(
+        selectedText,
+        namedVars,
+        placeholderDetection,
+        editor,
+        resolved
+      );
     }
 
 
@@ -165,37 +171,13 @@ export class TemplatedSqlHandler {
 
     const allVariables = [...variables, ...paramVariables];
 
-    return await this.handleWebviewMode(selectedText, allVariables, placeholderDetection);
-  }
-
-  /**
-   * 处理纯SQLAlchemy占位符
-   */
-  private async handleSQLAlchemyOnly(template: string, sqlalchemyVars: string[]): Promise<boolean> {
-    try {
-      const context: SQLAlchemyContext = {};
-
-
-      for (const varName of sqlalchemyVars) {
-        const value = await this.promptForSQLAlchemyVariable(varName);
-        if (value === undefined) {
-          return false;
-        }
-        context[varName] = value;
-      }
-
-
-      const result = SQLAlchemyPlaceholderProcessor.convertMixedPlaceholders(template, context);
-      const sql = result.convertedSQL;
-
-      await this.copyToClipboard(sql, template, [], context);
-      return true;
-    } catch (error) {
-      vscode.window.showErrorMessage(
-        `SQLAlchemy mode failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-      return false;
-    }
+    return await this.handleWebviewMode(
+      selectedText,
+      allVariables,
+      placeholderDetection,
+      editor,
+      resolved
+    );
   }
 
   /**
@@ -204,60 +186,29 @@ export class TemplatedSqlHandler {
   private async handleWebviewMode(
     template: string,
     variables: TemplateVariable[],
-    _placeholderDetection: PlaceholderDetection
+    _placeholderDetection: PlaceholderDetection,
+    editor: vscode.TextEditor,
+    resolved: { selection: vscode.Selection; text: string }
   ): Promise<boolean> {
     try {
       const preview = this.processor.getTemplatePreview(template);
       const title = `Templated SQL Editor: ${preview}`;
+      const language = this.languageHandler.detectLanguage(editor.document);
 
-
-      await TemplatedSqlWebviewEditor.showEditor(template, variables, title);
+      await TemplatedSqlWebviewEditor.showEditor(template, variables, title, {
+        uri: editor.document.uri,
+        selection: resolved.selection,
+        originalQuoted: resolved.text,
+        language,
+      });
 
       return true;
     } catch (error) {
-
       Logger.warn(`Webview mode failed: ${error instanceof Error ? error.message : String(error)}`);
-
-      return false;
-    }
-  }
-
-  /**
-   * 复制到剪贴板
-   */
-  private async copyToClipboard(
-    sql: string,
-    template: string,
-    variables: TemplateVariable[],
-    userValues?: Record<string, unknown>
-  ): Promise<void> {
-    try {
-      await this.copyToClipboardWithFallback(sql);
-
-
-      const variableCount = variables.length;
-      const usedDefaults = userValues ? Object.keys(userValues).length : 0;
-      const message = `Generated SQL copied to clipboard!\n• Found ${variableCount} variable${variableCount > 1 ? 's' : ''}`;
-
-      if (userValues && usedDefaults > 0) {
-        const customValues = Object.keys(userValues).filter(
-          key =>
-            JSON.stringify(userValues[key]) !==
-            JSON.stringify(variables.find(v => v.name === key)?.defaultValue)
-        );
-        if (customValues.length > 0) {
-          vscode.window.showInformationMessage(
-            `${message}\n• Used ${customValues.length} custom value${customValues.length > 1 ? 's' : ''}`,
-            { modal: false }
-          );
-        }
-      }
-
-      vscode.window.showInformationMessage(message, { modal: false });
-    } catch (error) {
-      throw new Error(
-        `Failed to copy to clipboard: ${error instanceof Error ? error.message : String(error)}`
+      vscode.window.showErrorMessage(
+        `Failed to open Templated SQL Editor: ${error instanceof Error ? error.message : String(error)}`
       );
+      return false;
     }
   }
 
@@ -328,129 +279,5 @@ export class TemplatedSqlHandler {
    */
   public getSupportedFilters(): string[] {
     return this.processor.getSupportedFilters();
-  }
-
-  /**
-   * 提示输入SQLAlchemy变量值
-   */
-  private async promptForSQLAlchemyVariable(varName: string): Promise<SQLAlchemyValue | undefined> {
-    const result = await vscode.window.showQuickPick(
-      [
-        { label: 'String', value: 'string', description: 'Text value' },
-        { label: 'Number', value: 'number', description: 'Numeric value' },
-        { label: 'Boolean', value: 'boolean', description: 'True/False' },
-        { label: 'Null', value: 'null', description: 'NULL value' },
-        { label: 'Date', value: 'date', description: 'Date value (YYYY-MM-DD)' },
-      ],
-      {
-        placeHolder: `Select type for "${varName}"`,
-        title: `SQLAlchemy Variable: ${varName}`,
-      }
-    );
-
-    if (!result) {
-      return undefined;
-    }
-
-    switch (result.value) {
-      case 'string':
-        return await vscode.window.showInputBox({
-          title: `Enter string value for "${varName}"`,
-          placeHolder: 'Enter text value',
-        });
-
-      case 'number':
-        const numberResult = await vscode.window.showInputBox({
-          title: `Enter number value for "${varName}"`,
-          placeHolder: 'Enter number',
-          validateInput: value => {
-            if (!value) {
-              return 'Please enter a number';
-            }
-            if (isNaN(Number(value))) {
-              return 'Please enter a valid number';
-            }
-            return null;
-          },
-        });
-        return numberResult ? Number(numberResult) : undefined;
-
-      case 'boolean':
-        const boolResult = await vscode.window.showQuickPick(
-          [
-            { label: 'True', value: true },
-            { label: 'False', value: false },
-          ],
-          {
-            placeHolder: `Select boolean value for "${varName}"`,
-            title: `Boolean: ${varName}`,
-          }
-        );
-        return boolResult?.value;
-
-      case 'null':
-        return null;
-
-      case 'date':
-        const dateResult = await vscode.window.showInputBox({
-          title: `Enter date value for "${varName}"`,
-          placeHolder: 'Enter date in YYYY-MM-DD format',
-          validateInput: value => {
-            if (!value) {
-              return 'Please enter a date';
-            }
-            if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-              return 'Please enter date in YYYY-MM-DD format';
-            }
-            if (isNaN(Date.parse(value))) {
-              return 'Please enter a valid date';
-            }
-            return null;
-          },
-        });
-        return dateResult;
-
-      default:
-        return undefined;
-    }
-  }
-
-  /**
-   * 复制文本到剪贴板，支持 wl-copy fallback
-   */
-  private async copyToClipboardWithFallback(text: string): Promise<void> {
-    try {
-
-      await vscode.env.clipboard.writeText(text);
-    } catch (error) {
-      Logger.warn('VS Code clipboard failed, trying fallback:', error);
-
-
-      const config = vscode.workspace.getConfiguration('sqlsugar');
-      const enableWlCopyFallback = config.get<boolean>('enableWlCopyFallback', false);
-
-      if (enableWlCopyFallback && process.platform === 'linux') {
-        await this.copyWithWlCopy(text);
-      } else {
-
-        throw new Error('剪贴板操作失败，请检查系统权限或启用 wl-copy fallback');
-      }
-    }
-  }
-
-  /**
-   * 使用 wl-copy 命令复制文本到剪贴板（Linux Wayland）
-   */
-  private async copyWithWlCopy(text: string): Promise<void> {
-    const execAsync = promisify(exec);
-
-    try {
-
-      await execAsync(`echo '${text.replace(/'/g, "'\\''")}' | wl-copy`);
-      Logger.info('Text copied to clipboard using wl-copy');
-    } catch (error) {
-      Logger.error('wl-copy failed:', error);
-      throw new Error('wl-copy 命令执行失败，请确保已安装 wl-clipboard');
-    }
   }
 }

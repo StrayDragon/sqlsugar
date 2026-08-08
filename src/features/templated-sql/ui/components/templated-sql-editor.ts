@@ -2491,9 +2491,41 @@ export class TemplatedSqlEditor extends LitElement {
   }
 
   private handleCopyTemplate() {
+    const vscodeApi = (globalThis as unknown as { vscode?: { postMessage: (m: unknown) => void } })
+      .vscode;
+    if (vscodeApi?.postMessage) {
+      vscodeApi.postMessage({ command: 'copyToClipboard', text: this.template, isTemplate: true });
+      this.showNotification('模板已复制到剪贴板');
+      return;
+    }
     void navigator.clipboard.writeText(this.template).then(() => {
       this.showNotification('模板已复制到剪贴板');
     });
+  }
+
+  private handleWriteBackTemplate() {
+    const vscodeApi = (globalThis as unknown as { vscode?: { postMessage: (m: unknown) => void } })
+      .vscode;
+    if (!vscodeApi?.postMessage) {
+      this.showNotification('当前环境不支持写回源选区', 'error');
+      return;
+    }
+    vscodeApi.postMessage({ command: 'writeBackTemplate', text: this.template });
+    this.showNotification('已请求写回模板');
+  }
+
+  private handleReplaceWithRendered() {
+    const vscodeApi = (globalThis as unknown as { vscode?: { postMessage: (m: unknown) => void } })
+      .vscode;
+    if (!vscodeApi?.postMessage) {
+      this.showNotification('当前环境不支持替换源选区', 'error');
+      return;
+    }
+    if (!this.renderedResult || this.renderedResult.includes('-- [渲染错误]')) {
+      this.showNotification('没有可用的渲染 SQL', 'error');
+      return;
+    }
+    vscodeApi.postMessage({ command: 'replaceWithRendered', text: this.renderedResult });
   }
 
   /**
@@ -2724,8 +2756,19 @@ Includes: Right panel HTML tracking
   }
 
   private handleCopyResult() {
+    const vscodeApi = (globalThis as unknown as { vscode?: { postMessage: (m: unknown) => void } })
+      .vscode;
+    if (vscodeApi?.postMessage) {
+      vscodeApi.postMessage({
+        command: 'copyToClipboard',
+        text: this.renderedResult,
+        isTemplate: false,
+      });
+      this.showNotification('渲染 SQL 已复制到剪贴板');
+      return;
+    }
     void navigator.clipboard.writeText(this.renderedResult).then(() => {
-      this.showNotification('SQL已复制到剪贴板');
+      this.showNotification('渲染 SQL 已复制到剪贴板');
     });
   }
 
@@ -2954,8 +2997,11 @@ Includes: Right panel HTML tracking
                 <span class="panel-subtitle">发现 ${this.variables.length} 个变量</span>
               </div>
               <div class="header-actions">
-                <button class="header-button" @click=${this.handleCopyTemplate} title="复制模板">
-                  复制
+                <button class="header-button" @click=${this.handleCopyTemplate} title="复制模板原文">
+                  复制模板
+                </button>
+                <button class="header-button" @click=${this.handleWriteBackTemplate} title="将当前模板写回源选区">
+                  写回模板
                 </button>
               </div>
             </div>
@@ -2985,8 +3031,11 @@ Includes: Right panel HTML tracking
                 ` : ''}
               </div>
               <div class="header-actions">
-                <button class="header-button" @click=${this.handleCopyResult} title="复制SQL结果">
-                  复制
+                <button class="header-button" @click=${this.handleCopyResult} title="复制渲染 SQL">
+                  复制渲染 SQL
+                </button>
+                <button class="header-button" @click=${this.handleReplaceWithRendered} title="用渲染 SQL 替换源选区（需确认）">
+                  替换为渲染 SQL
                 </button>
               </div>
             </div>

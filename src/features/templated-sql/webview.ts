@@ -7,6 +7,8 @@ import { getOutputChannel } from '../../core/extension';
 import { DIContainer } from '../../core/di-container';
 import { TemplateVariable } from './processor';
 import { TemplatedSqlHandler } from './command-handler';
+import { LanguageHandler, LanguageType } from '../inline-sql/language-handler';
+import { wrapForSourceWriteBack } from './workflow-actions';
 
 /**
  * WebView 消息类型
@@ -28,6 +30,16 @@ interface WebViewMessage {
 type WebViewVariableValue = string | number | boolean | null | undefined;
 
 /**
+ * Source document context for write-back / replace actions.
+ */
+export interface SourceEditContext {
+  uri: vscode.Uri;
+  selection: vscode.Selection;
+  originalQuoted: string;
+  language: LanguageType;
+}
+
+/**
  * Templated SQL Editor (WebView)
  * 新一代可视化模板编辑器
  */
@@ -41,6 +53,8 @@ export class TemplatedSqlWebviewEditor {
   private context: vscode.ExtensionContext;
   private currentTemplate: string = '';
   private currentVariables: TemplateVariable[] = [];
+  private sourceContext: SourceEditContext | undefined;
+  private languageHandler = new LanguageHandler();
 
   /**
    * 获取全局输出频道
@@ -84,11 +98,13 @@ export class TemplatedSqlWebviewEditor {
   public static async showEditor(
     template: string,
     _variables: TemplateVariable[],
-    title: string = 'Templated SQL Editor'
+    title: string = 'Templated SQL Editor',
+    sourceContext?: SourceEditContext
   ): Promise<Record<string, WebViewVariableValue>> {
     return new Promise((resolve, reject) => {
       void (async () => {
         const editor = new TemplatedSqlWebviewEditor();
+        editor.sourceContext = sourceContext;
 
       try {
         const container = DIContainer.getInstance();
@@ -261,9 +277,34 @@ export class TemplatedSqlWebviewEditor {
 
       case 'copyToClipboard':
         if (message.text) {
-          await this.copyToClipboardWithFallback(message.text);
-          const messageText = message.isTemplate ? '模板已复制到剪贴板' : 'SQL已复制到剪贴板';
-          vscode.window.showInformationMessage(messageText);
+          try {
+            await this.copyToClipboardWithFallback(message.text);
+            const messageText = message.isTemplate ? '模板已复制到剪贴板' : '渲染 SQL 已复制到剪贴板';
+            vscode.window.showInformationMessage(messageText);
+          } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            vscode.window.showErrorMessage(`复制失败: ${detail}`);
+          }
+        }
+        break;
+
+      case 'writeBackTemplate':
+        if (typeof message.text === 'string') {
+          await this.writeBackToSource(message.text, 'template');
+        }
+        break;
+
+      case 'replaceWithRendered':
+        if (typeof message.text === 'string') {
+          const confirm = await vscode.window.showWarningMessage(
+            '用渲染后的 SQL 替换源选区会丢失模板。确定继续？',
+            { modal: true },
+            '替换',
+            '取消'
+          );
+          if (confirm === '替换') {
+            await this.writeBackToSource(message.text, 'rendered');
+          }
         }
         break;
 
@@ -308,6 +349,45 @@ export class TemplatedSqlWebviewEditor {
       default:
 
         break;
+    }
+  }
+
+  /**
+   * Write template or rendered SQL back into the source string literal.
+   */
+  private async writeBackToSource(content: string, kind: 'template' | 'rendered'): Promise<void> {
+    if (!this.sourceContext) {
+      vscode.window.showWarningMessage('无法写回：未记录源选区（请从编辑器命令重新打开）。');
+      return;
+    }
+
+    try {
+      const wrapped = wrapForSourceWriteBack(
+        this.sourceContext.originalQuoted,
+        content,
+        this.sourceContext.language,
+        this.languageHandler
+      );
+      const edit = new vscode.WorkspaceEdit();
+      edit.replace(this.sourceContext.uri, this.sourceContext.selection, wrapped);
+      const ok = await vscode.workspace.applyEdit(edit);
+      if (!ok) {
+        throw new Error('WorkspaceEdit 未被接受');
+      }
+      const doc = await vscode.workspace.openTextDocument(this.sourceContext.uri);
+      const startOffset = doc.offsetAt(this.sourceContext.selection.start);
+      const endPos = doc.positionAt(startOffset + wrapped.length);
+      this.sourceContext = {
+        ...this.sourceContext,
+        originalQuoted: wrapped,
+        selection: new vscode.Selection(this.sourceContext.selection.start, endPos),
+      };
+      vscode.window.showInformationMessage(
+        kind === 'template' ? '模板已写回源选区' : '渲染 SQL 已替换源选区'
+      );
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`写回失败: ${detail}`);
     }
   }
 

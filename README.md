@@ -37,6 +37,7 @@
     - `%(param)s` (Pyformat/psycopg2)
     - `$1`, `$2` (Asyncpg/PostgreSQL)
   - 工具栏提供分析器选择器，支持自动检测或手动选择要识别的参数风格
+  - **工作流闭环**：复制模板 / 复制渲染 SQL；可将模板写回源选区，或在确认后用渲染 SQL 替换选区；纯 `:param` 模板也直接打开可视化编辑器
 
 首次上手可在命令面板运行 **Welcome: Open Walkthrough...**，选择 **Get Started with SQLSugar**。
 

@@ -168,25 +168,26 @@ export class LanguageHandler {
    */
   public detectQuoteType(originalQuoted: string): QuoteType {
     const trimmed = originalQuoted.trim();
+    const prefix = this.extractPrefix(trimmed);
+    const body = prefix ? trimmed.slice(prefix.length) : trimmed;
 
-    if (trimmed.startsWith('"""') && trimmed.endsWith('"""')) {
+    if (body.startsWith('"""') && body.endsWith('"""')) {
       return 'triple-double';
     }
-    if (trimmed.startsWith("'''") && trimmed.endsWith("'''")) {
+    if (body.startsWith("'''") && body.endsWith("'''")) {
       return 'triple-single';
     }
-    if (trimmed.startsWith('`') && trimmed.endsWith('`')) {
+    if (body.startsWith('`') && body.endsWith('`')) {
       return 'backtick';
     }
-    if (trimmed.startsWith('"') && trimmed.endsWith('"')) {
+    if (body.startsWith('"') && body.endsWith('"')) {
       return 'double';
     }
-    if (trimmed.startsWith("'") && trimmed.endsWith("'")) {
+    if (body.startsWith("'") && body.endsWith("'")) {
       return 'single';
     }
 
-
-    if (trimmed.startsWith('`') && trimmed.endsWith('`') && trimmed.includes('${')) {
+    if (body.startsWith('`') && body.endsWith('`') && body.includes('${')) {
       return 'template';
     }
 

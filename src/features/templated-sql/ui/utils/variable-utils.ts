@@ -251,6 +251,58 @@ export function inferTypeFromValue(value: TemplateVariableValue): VariableType {
 }
 
 /**
+ * Parse a value typed in the variable editor popup.
+ *
+ * String-like types MUST keep the input literally (including quotes like `""`,
+ * `''`, `"1,2,3"`). Only structured types (array/json/object) use JSON.parse.
+ */
+export function parseEditedVariableValue(
+  value: string,
+  type: string
+): TemplateVariableValue {
+  if (!value || value.trim() === '') {
+    if (type === 'null') return null;
+    if (type === 'boolean') return false;
+    if (type === 'number' || type === 'integer') return 0;
+    if (type === 'array') return [];
+    return '';
+  }
+
+  switch (type) {
+    case 'boolean':
+      return value.toLowerCase() === 'true' || value === '1';
+    case 'number': {
+      const numValue = parseFloat(value);
+      return isNaN(numValue) ? 0 : numValue;
+    }
+    case 'integer': {
+      const intValue = parseInt(value, 10);
+      return isNaN(intValue) ? 0 : intValue;
+    }
+    case 'null':
+      return value.toLowerCase() === 'null' ? null : value;
+    case 'array':
+      try {
+        const parsed = JSON.parse(value);
+        return Array.isArray(parsed) ? parsed : value;
+      } catch {
+        return value;
+      }
+    case 'json':
+    case 'object':
+      try {
+        return JSON.parse(value);
+      } catch {
+        return value;
+      }
+    // string / uuid / date / datetime / time / sql_identifier / …
+    // Keep quotes and other characters exactly as typed.
+    default:
+      return value;
+  }
+}
+
+/**
  * Formats a value for display based on its type
  */
 export function formatValueForDisplay(value: TemplateVariableValue, type: VariableType): string {

@@ -11,7 +11,7 @@ import type { TemplateVariable, TemplateVariableValue, EnhancedVariable, Templat
 import type { CompleteTemplatedSqlEditorConfig } from '../types/config.js';
 import nunjucks from 'nunjucks';
 import { createAlignedNunjucksEnv, buildNestedContext } from '../../../../shared/nunjucks-setup.js';
-import { getContextualDefaultValue, quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES } from '../utils/variable-utils.js';
+import { getContextualDefaultValue, quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES, parseEditedVariableValue } from '../utils/variable-utils.js';
 
 @customElement('templated-sql-editor')
 export class TemplatedSqlEditor extends LitElement {
@@ -1837,50 +1837,7 @@ export class TemplatedSqlEditor extends LitElement {
 
   private parseValueFromEdit(value: string, variableType?: string): TemplateVariableValue {
     const type = variableType || this.getVariableType(this.activeVariable!);
-
-
-    if (!value || value.trim() === '') {
-      if (type === 'null') return null;
-      if (type === 'boolean') return false;
-      if (type === 'number' || type === 'integer') return 0;
-      if (type === 'array') return [];
-      return '';
-    }
-
-    switch (type) {
-      case 'boolean':
-        return value.toLowerCase() === 'true' || value === '1';
-      case 'number':
-        const numValue = parseFloat(value);
-        return isNaN(numValue) ? 0 : numValue;
-      case 'integer':
-        const intValue = parseInt(value, 10);
-        return isNaN(intValue) ? 0 : intValue;
-      case 'null':
-        return value.toLowerCase() === 'null' ? null : value;
-      case 'date':
-      case 'datetime':
-        return value;
-      case 'array':
-        try {
-          const parsed = JSON.parse(value);
-          return Array.isArray(parsed) ? parsed : value;
-        } catch {
-          return value;
-        }
-      case 'json':
-        try {
-          return JSON.parse(value);
-        } catch {
-          return value;
-        }
-      default:
-        try {
-          return JSON.parse(value);
-        } catch {
-          return value;
-        }
-    }
+    return parseEditedVariableValue(value, type);
   }
 
   private handleDocumentClick(event: Event) {

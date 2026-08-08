@@ -14,7 +14,7 @@ import { createAlignedNunjucksEnv, buildNestedContext } from '../shared/nunjucks
 import hljs from 'highlight.js';
 import TemplateHighlighter from '../features/templated-sql/ui/utils/template-highlighter';
 import { parseTemplate } from '../features/templated-sql/ui/utils/template-parser';
-import { quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES } from '../features/templated-sql/ui/utils/variable-utils';
+import { quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES, parseEditedVariableValue } from '../features/templated-sql/ui/utils/variable-utils';
 import type { EnhancedVariable } from '../features/templated-sql/ui/types';
 
 const env = createAlignedNunjucksEnv();
@@ -355,5 +355,43 @@ describe('bugfix: sql_in 数字/字符串元组字面量 (R-J2E-021/022)', () =>
     expect(env.renderString('{{ names | inclause }}', buildNestedContext({ names }))).toBe(
       "('a', 'O''Brien')"
     );
+  });
+});
+
+describe('bugfix: string 编辑保留字面引号 (parseEditedVariableValue)', () => {
+  it('string 类型保留双引号包裹内容', () => {
+    expect(parseEditedVariableValue('"1,2,3"', 'string')).toBe('"1,2,3"');
+  });
+
+  it('string 类型保留空双引号 / 空单引号', () => {
+    expect(parseEditedVariableValue('""', 'string')).toBe('""');
+    expect(parseEditedVariableValue("''", 'string')).toBe("''");
+  });
+
+  it('string 类型不把数字形文本 JSON 化成 number', () => {
+    expect(parseEditedVariableValue('123', 'string')).toBe('123');
+    expect(parseEditedVariableValue('true', 'string')).toBe('true');
+  });
+
+  it('array / json 仍走 JSON.parse', () => {
+    expect(parseEditedVariableValue('[1,2,3]', 'array')).toEqual([1, 2, 3]);
+    expect(parseEditedVariableValue('{"a":1}', 'json')).toEqual({ a: 1 });
+  });
+
+  it('保留引号后渲染进 SQL 预览', () => {
+    const value = parseEditedVariableValue('"1,2,3"', 'string');
+    const out = env.renderString('AND total_amount >= {{ min_amount }}', buildNestedContext({
+      min_amount: value,
+    }));
+    expect(out).toBe('AND total_amount >= "1,2,3"');
+  });
+
+  it('array 类型：JSON 字符串元素保留内容引号，空串元素不丢', () => {
+    expect(parseEditedVariableValue('["", "\'\'"]', 'array')).toEqual(['', "''"]);
+    expect(parseEditedVariableValue('["\\"x\\""]', 'array')).toEqual(['"x"']);
+  });
+
+  it('array 非法 JSON（单引号数组）回退为原文字符串，不静默剥引号', () => {
+    expect(parseEditedVariableValue("['a','b']", 'array')).toBe("['a','b']");
   });
 });

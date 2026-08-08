@@ -2,9 +2,3 @@
 schema: spec-driven
 locale: zh-Hans
 
-extra_skills:
-  - llman-sdd-new-change
-  - llman-sdd-continue
-  - llman-sdd-ff
-  - llman-sdd-sync
-  - llman-sdd-validate

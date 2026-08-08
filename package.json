@@ -1,7 +1,7 @@
 {
   "name": "sqlsugar",
-  "displayName": "sqlsugar",
-  "description": "SQLSugar enables inline SQL editing across multiple programming languages with advanced features like Jinja2 template processing and precise SQL synchronization.",
+  "displayName": "SQLSugar",
+  "description": "Edit embedded SQL strings inline and preview Jinja2/templated SQL with typed variables.",
   "version": "0.2.0",
   "publisher": "l8ng",
   "engines": {
@@ -11,6 +11,7 @@
   "type": "module",
   "enabledApiProposals": [],
   "categories": [
+    "Programming Languages",
     "Other"
   ],
   "main": "./dist/extension.cjs",
@@ -23,7 +24,7 @@
       },
       {
         "command": "sqlsugar.copyTemplatedSql",
-        "title": "SQLSugar: Copy To Templated SQL (Editor)"
+        "title": "SQLSugar: Open Templated SQL Editor"
       }
     ],
     "menus": {
@@ -233,7 +234,46 @@
           "description": "Default analyzer selection mode. 'auto' detects analyzers from SQL content."
         }
       }
-    }
+    },
+    "keybindings": [
+      {
+        "command": "sqlsugar.editInlineSQL",
+        "key": "ctrl+alt+s",
+        "mac": "cmd+alt+s",
+        "when": "editorTextFocus"
+      },
+      {
+        "command": "sqlsugar.copyTemplatedSql",
+        "key": "ctrl+alt+j",
+        "mac": "cmd+alt+j",
+        "when": "editorTextFocus"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "sqlsugar.getStarted",
+        "title": "Get Started with SQLSugar",
+        "description": "Learn the two main workflows for embedded SQL.",
+        "steps": [
+          {
+            "id": "editInlineSql",
+            "title": "Edit Inline SQL",
+            "description": "Select an embedded SQL string (or place the cursor inside it after selection improvements), then run **SQLSugar: Edit Inline SQL** or press the default shortcut to open a temporary `.sql` file beside your code.\n\n[Open Command Palette](command:workbench.action.showCommands)",
+            "media": {
+              "markdown": "media/walkthrough-inline.md"
+            }
+          },
+          {
+            "id": "templatedSqlEditor",
+            "title": "Open Templated SQL Editor",
+            "description": "Select a Jinja2 / parameterized SQL template and run **SQLSugar: Open Templated SQL Editor** to fill variables and preview rendered SQL.\n\n[Open Command Palette](command:workbench.action.showCommands)",
+            "media": {
+              "markdown": "media/walkthrough-templated.md"
+            }
+          }
+        ]
+      }
+    ]
   },
   "scripts": {
     "preinstall": "npx only-allow pnpm",

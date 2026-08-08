@@ -20,13 +20,13 @@
 
 这是一个VSCode插件, 提供了一些额外处理在代码中内嵌 SQL 字符串的功能:
 
-- 同步编辑内联SQL (`SQLSugar: Edit Inline SQL`) : 编辑区选中文本右键菜单选择触发
+- 同步编辑内联SQL (`SQLSugar: Edit Inline SQL`) : 编辑区选中文本右键菜单、命令面板或默认快捷键 `Ctrl+Alt+S`（macOS: `Cmd+Alt+S`）触发
   - 在编辑器中选中 SQL 字符串，右键或命令面板执行“Edit Inline SQL”，在侧边打开临时 .sql 文件进行专注编辑。
   - 支持与任何 SQL 语言服务器插件协同工作（如 sqls、SQLTools 等）
   - ORM 风格占位符支持：临时把 `:name` 转换为可编辑的字符串字面量，保存时还原为 `:name`，避免误把时间如 `12:34` 或 Postgres `::type` 当作占位符。
   - 临时文件自动清理：支持保存时或关闭编辑器时删除临时文件(可选)。
 
-- 编辑 `Jinja2 SQL` 内嵌字符串模板 (`SQLSugar: Copy To Templated SQL (Editor)`) : 编辑区选中文本右键菜单选择触发
+- 编辑 Templated / Jinja2 SQL (`SQLSugar: Open Templated SQL Editor`) : 右键菜单、命令面板或默认快捷键 `Ctrl+Alt+J`（macOS: `Cmd+Alt+J`）打开可视化编辑器
   - 识别并解析Jinja2模板, 并自动获取推断字段默认值, 用户可以在可视化编辑器中自由配置字段值和类型, 模板实时渲染, 方便复制并使用渲染后的SQL
   - **多参数风格支持**: 除 Jinja2 变量外，还支持多种 SQL 参数占位符风格：
     - `:param` (Named/SQLAlchemy)
@@ -34,6 +34,8 @@
     - `%(param)s` (Pyformat/psycopg2)
     - `$1`, `$2` (Asyncpg/PostgreSQL)
   - 工具栏提供分析器选择器，支持自动检测或手动选择要识别的参数风格
+
+首次上手可在命令面板运行 **Welcome: Open Walkthrough...**，选择 **Get Started with SQLSugar**。
 
 # 插件设置
 

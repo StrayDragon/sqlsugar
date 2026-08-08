@@ -269,7 +269,7 @@ describe('AnalyzerSelector', () => {
       );
       element.remove();
 
-      const fresh = document.createElement('analyzer-selector') as AnalyzerSelector;
+      const fresh = document.createElement('analyzer-selector');
       fresh.template = 'SELECT * FROM t WHERE id = :user_id AND n = $1';
       document.body.appendChild(fresh);
       await fresh.updateComplete;

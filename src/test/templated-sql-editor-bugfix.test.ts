@@ -14,7 +14,7 @@ import { createAlignedNunjucksEnv, buildNestedContext } from '../shared/nunjucks
 import hljs from 'highlight.js';
 import TemplateHighlighter from '../features/templated-sql/ui/utils/template-highlighter';
 import { parseTemplate } from '../features/templated-sql/ui/utils/template-parser';
-import { quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES, parseEditedVariableValue } from '../features/templated-sql/ui/utils/variable-utils';
+import { quoteDateOutputsInTemplate, TEMPORAL_SQL_QUOTED_TYPES, parseEditedVariableValue, parseFriendlyArrayInput } from '../features/templated-sql/ui/utils/variable-utils';
 import type { EnhancedVariable } from '../features/templated-sql/ui/types';
 
 const env = createAlignedNunjucksEnv();
@@ -391,7 +391,20 @@ describe('bugfix: string 编辑保留字面引号 (parseEditedVariableValue)', (
     expect(parseEditedVariableValue('["\\"x\\""]', 'array')).toEqual(['"x"']);
   });
 
-  it('array 非法 JSON（单引号数组）回退为原文字符串，不静默剥引号', () => {
-    expect(parseEditedVariableValue("['a','b']", 'array')).toBe("['a','b']");
+  it('array 支持单引号列表与空串元素', () => {
+    expect(parseFriendlyArrayInput("['a','b']")).toEqual(['a', 'b']);
+    expect(parseFriendlyArrayInput("['','']")).toEqual(['', '']);
+    expect(parseFriendlyArrayInput("['O''Brien']")).toEqual(["O'Brien"]);
+    expect(parseEditedVariableValue("['x','']", 'array')).toEqual(['x', '']);
+  });
+
+  it('array 支持无括号 CSV 与裸标识符', () => {
+    expect(parseFriendlyArrayInput('1,2,3')).toEqual([1, 2, 3]);
+    expect(parseFriendlyArrayInput('a,b,c')).toEqual(['a', 'b', 'c']);
+    expect(parseFriendlyArrayInput("'a','b'")).toEqual(['a', 'b']);
+  });
+
+  it('array 非法输入仍回退为原文字符串', () => {
+    expect(parseEditedVariableValue('[unclosed', 'array')).toBe('[unclosed');
   });
 });

@@ -1925,7 +1925,7 @@ export class TemplatedSqlEditor extends LitElement {
             class="variable-value-input"
             .value=${this.popupValue}
             @input=${this.handlePopupValueChange}
-            placeholder='JSON 数组，如 [1,2,3] 或 ["a","b"]'
+            placeholder='数组：[1,2,3] / ["a","b"] / [\'a\',\'\'] / 1,2,3'
             rows="3"
             style="font-family: monospace; resize: vertical;"
           ></textarea>

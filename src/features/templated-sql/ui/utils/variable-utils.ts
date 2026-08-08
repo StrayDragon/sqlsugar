@@ -254,7 +254,8 @@ export function inferTypeFromValue(value: TemplateVariableValue): VariableType {
  * Parse a value typed in the variable editor popup.
  *
  * String-like types MUST keep the input literally (including quotes like `""`,
- * `''`, `"1,2,3"`). Only structured types (array/json/object) use JSON.parse.
+ * `''`, `"1,2,3"`). Array accepts JSON plus friendlier single-quoted / bare CSV.
+ * json/object still use JSON.parse.
  */
 export function parseEditedVariableValue(
   value: string,
@@ -281,13 +282,10 @@ export function parseEditedVariableValue(
     }
     case 'null':
       return value.toLowerCase() === 'null' ? null : value;
-    case 'array':
-      try {
-        const parsed = JSON.parse(value);
-        return Array.isArray(parsed) ? parsed : value;
-      } catch {
-        return value;
-      }
+    case 'array': {
+      const parsed = parseFriendlyArrayInput(value);
+      return parsed !== null ? parsed : value;
+    }
     case 'json':
     case 'object':
       try {
@@ -300,6 +298,125 @@ export function parseEditedVariableValue(
     default:
       return value;
   }
+}
+
+/**
+ * Parse array editor input.
+ * Supports JSON (`[1,"a"]`), single-quoted lists (`['a','']`), and bare CSV (`1,2,a`).
+ * Returns null when the text cannot be interpreted as a list.
+ */
+export function parseFriendlyArrayInput(raw: string): unknown[] | null {
+  const trimmed = raw.trim();
+  if (!trimmed) return [];
+
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (Array.isArray(parsed)) return parsed;
+  } catch {
+    // fall through to tolerant parser
+  }
+
+  const bracketed = trimmed.startsWith('[') ? trimmed : `[${trimmed}]`;
+  if (!bracketed.endsWith(']')) return null;
+
+  const inner = bracketed.slice(1, -1);
+  if (inner.trim() === '') return [];
+
+  const items: unknown[] = [];
+  let i = 0;
+  const n = inner.length;
+  const at = (idx: number) => inner.charAt(idx);
+
+  const skipWs = () => {
+    while (i < n && /\s/.test(at(i))) i += 1;
+  };
+
+  const readQuoted = (quote: "'" | '"'): string | null => {
+    i += 1; // opening quote
+    let out = '';
+    while (i < n) {
+      const ch = at(i);
+      if (ch === '\\' && i + 1 < n) {
+        const next = at(i + 1);
+        if (next === quote || next === '\\') {
+          out += next;
+          i += 2;
+          continue;
+        }
+        out += ch;
+        i += 1;
+        continue;
+      }
+      // SQL-style doubled quote inside single-quoted strings: ''
+      if (quote === "'" && ch === "'" && at(i + 1) === "'") {
+        out += "'";
+        i += 2;
+        continue;
+      }
+      if (ch === quote) {
+        i += 1;
+        return out;
+      }
+      out += ch;
+      i += 1;
+    }
+    return null;
+  };
+
+  const readAtom = (): { ok: true; value: unknown } | { ok: false } => {
+    skipWs();
+    if (i >= n) return { ok: false };
+
+    const ch = at(i);
+    if (ch === '"' || ch === "'") {
+      const quoted = readQuoted(ch);
+      if (quoted === null) return { ok: false };
+      return { ok: true, value: quoted };
+    }
+
+    const start = i;
+    while (i < n && at(i) !== ',') {
+      i += 1;
+    }
+    const token = inner.slice(start, i).trim();
+    if (token === '') return { ok: false };
+
+    if (token === 'true') return { ok: true, value: true };
+    if (token === 'false') return { ok: true, value: false };
+    if (token === 'null') return { ok: true, value: null };
+
+    if (/^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?$/.test(token)) {
+      return { ok: true, value: Number(token) };
+    }
+
+    return { ok: true, value: token };
+  };
+
+  skipWs();
+  while (i < n) {
+    skipWs();
+    if (i >= n) break;
+
+    if (at(i) === ',') {
+      // Leading/consecutive comma → empty string element
+      items.push('');
+      i += 1;
+      continue;
+    }
+
+    const atom = readAtom();
+    if (!atom.ok) return null;
+    items.push(atom.value);
+    skipWs();
+    if (i >= n) break;
+    if (at(i) === ',') {
+      i += 1; // separator; next iteration reads next atom or empty
+      continue;
+    }
+    return null;
+  }
+
+  return items;
 }
 
 /**

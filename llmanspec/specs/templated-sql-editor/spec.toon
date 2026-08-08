@@ -2,7 +2,7 @@ kind: llman.sdd.spec
 name: "templated-sql-editor"
 purpose: 提供基于 WebView 的 Jinja2 SQL 模板可视化编辑器，支持变量类型推断、实时 SQL 预览、智能默认值生成，帮助用户快速生成参数化的 SQL 查询。
 valid_scope[4]: src/features/templated-sql/,src/shared/,src/test/,package.json
-requirements[21]{req_id,title,statement}:
+requirements[22]{req_id,title,statement}:
   "R-J2E-001",AST 变量提取,系统 MUST 通过 Nunjucks AST 解析提取模板变量并回退到正则匹配
   "R-J2E-002",类型推断,系统 MUST 基于变量名称模式推断类型(string/number/boolean/date)
   "R-J2E-003",可视化编辑器,系统 MUST 提供 Lit 组件实现的可视化编辑器支持点击变量弹出编辑框
@@ -24,7 +24,8 @@ requirements[21]{req_id,title,statement}:
   "R-J2E-021",数组元素级 SQL 字面量,"系统 MUST 将数组渲染为 SQL IN 列表时对 number/boolean/null 使用无误引号字面量并对 string 使用正确转义的引号字面量"
   "R-J2E-022",列表过滤器引号一致,"系统 MUST 使 sql_in 与 inclause 在元素级引号规则上与共享 sqlLiteral 行为一致"
   "R-J2E-030",Templated 入口可发现,"系统 MUST 为 sqlsugar.copyTemplatedSql 提供默认可覆盖快捷键且命令标题不得暗示仅复制到剪贴板"
-scenarios[24]{req_id,id,given,when,then}:
+  "R-J2E-031",Templated 空选区扩选,"当选区为空且光标位于受支持的宿主语言字符串字面量内时，系统 MUST 在打开 Templated SQL 编辑器前自动扩选到该字面量内容"
+scenarios[25]{req_id,id,given,when,then}:
   "R-J2E-001",baseline,"模板含 {{ user_id }} 和 {% if is_active %}",用户打开可视化编辑器,变量列表显示 user_id 和 is_active
   "R-J2E-002",baseline,变量名为 user_id 和 is_active,编辑器推断变量类型,user_id 推断为 number 且 is_active 推断为 boolean
   "R-J2E-003",baseline,编辑器已打开含多个变量的模板,用户点击模板中高亮的变量,弹出编辑框且可修改变量值
@@ -49,3 +50,4 @@ scenarios[24]{req_id,id,given,when,then}:
   "R-J2E-021",string-tuple,"模板使用 sql_in 且变量为字符串数组",系统渲染预览,输出为带单引号并正确转义的字符串列表
   "R-J2E-022",filter-parity,同一数组分别经 sql_in 与 inclause 渲染,比较元素级引号规则,两者对 number 与 string 的引号策略一致
   "R-J2E-030",discover,扩展已安装,用户在命令面板搜索 Templated SQL,命令标题表明打开编辑器而非仅复制
+  "R-J2E-031",cursor-expand,"光标位于含 Jinja2 的字符串字面量内且选区为空",用户触发 Open Templated SQL Editor,系统扩选字面量内容并打开可视化编辑器

@@ -14,7 +14,7 @@ For each example:
 4. **对拍**: normalize rendered SQL and compare to preprocessed goldens under `goldens/`.
 
 Additionally, **multi-field suites** override arrays / mappings / booleans /
-numbers / strings on selected examples (`05`, `06`, `10`) and 对拍 each branch.
+numbers / strings on selected examples (`03`, `05`, `06`, `10`, `15`) and 对拍 each branch.
 
 ## Commands
 

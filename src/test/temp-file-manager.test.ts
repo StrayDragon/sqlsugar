@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import * as os from 'os';
+import * as path from 'path';
 import { mockVSCode, MockUri, MockPosition, MockSelection } from './mocks/vscode';
 import { TempFileManager } from '../features/inline-sql/temp-file-manager';
 import { LanguageHandler } from '../features/inline-sql/language-handler';
@@ -28,6 +30,17 @@ function createMockEditor(content: string, lang = 'python', filePath = '/workspa
   } as unknown as import('vscode').TextEditor;
 }
 
+function mockSqlsugarConfig(values: Record<string, unknown>) {
+  mockVSCode.workspace.getConfiguration = vi.fn(() => ({
+    get: vi.fn((key: string, defaultValue?: unknown) =>
+      Object.prototype.hasOwnProperty.call(values, key) ? values[key] : defaultValue
+    ),
+    update: vi.fn(),
+    has: vi.fn(() => false),
+    inspect: vi.fn(() => undefined),
+  })) as unknown as typeof mockVSCode.workspace.getConfiguration;
+}
+
 describe('TempFileManager', () => {
   let manager: TempFileManager;
   let languageHandler: LanguageHandler;
@@ -36,6 +49,11 @@ describe('TempFileManager', () => {
     vi.clearAllMocks();
     languageHandler = new LanguageHandler();
     manager = new TempFileManager(languageHandler);
+    mockSqlsugarConfig({
+      tempFileLocation: 'osTemp',
+      tempFileCleanup: true,
+      cleanupOnClose: true,
+    });
   });
 
   describe('createTempSQLFile', () => {
@@ -51,6 +69,41 @@ describe('TempFileManager', () => {
 
       expect(result.ok).toBe(true);
       expect(manager.getActiveTempFilesCount()).toBe(1);
+    });
+
+    it('defaults temp files under OS temp outside the workspace', async () => {
+      const editor = createMockEditor('"SELECT 1"');
+      const selection = new MockSelection(new MockPosition(0, 0), new MockPosition(0, 10));
+      const result = await manager.createTempSQLFile(
+        editor,
+        selection as unknown as import('vscode').Selection,
+        '"SELECT 1"'
+      );
+      expect(result.ok).toBe(true);
+      const tempPath = result.value!.fsPath;
+      expect(tempPath.startsWith(path.join(os.tmpdir(), 'sqlsugar', 'temp'))).toBe(true);
+      expect(tempPath.includes(`${path.sep}.vscode${path.sep}sqlsugar`)).toBe(false);
+    });
+
+    it('can place temp files in workspace when configured', async () => {
+      mockSqlsugarConfig({
+        tempFileLocation: 'workspace',
+        tempFileCleanup: true,
+        cleanupOnClose: true,
+      });
+      mockVSCode.workspace.workspaceFolders = [
+        { uri: MockUri.file('/workspace'), name: 'workspace', index: 0 },
+      ];
+
+      const editor = createMockEditor('"SELECT 1"');
+      const selection = new MockSelection(new MockPosition(0, 0), new MockPosition(0, 10));
+      const result = await manager.createTempSQLFile(
+        editor,
+        selection as unknown as import('vscode').Selection,
+        '"SELECT 1"'
+      );
+      expect(result.ok).toBe(true);
+      expect(result.value!.fsPath).toContain(`${path.sep}.vscode${path.sep}sqlsugar${path.sep}temp`);
     });
   });
 
@@ -94,16 +147,11 @@ describe('TempFileManager', () => {
 
   describe('cleanupOnClose=false mode', () => {
     it('should cleanup after successful save sync when cleanupOnClose is false', async () => {
-      mockVSCode.workspace.getConfiguration = vi.fn(() => ({
-        get: vi.fn((key: string, defaultValue?: unknown) => {
-          if (key === 'cleanupOnClose') return false;
-          if (key === 'tempFileCleanup') return true;
-          return defaultValue;
-        }),
-        update: vi.fn(),
-        has: vi.fn(() => false),
-        inspect: vi.fn(() => undefined),
-      })) as unknown as typeof mockVSCode.workspace.getConfiguration;
+      mockSqlsugarConfig({
+        cleanupOnClose: false,
+        tempFileCleanup: true,
+        tempFileLocation: 'osTemp',
+      });
 
       const editor = createMockEditor('"SELECT 1"');
       const selection = new MockSelection(new MockPosition(0, 0), new MockPosition(0, 10));

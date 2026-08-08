@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { Logger } from '../../core/logger';
@@ -6,6 +7,8 @@ import { Logger } from '../../core/logger';
 import { Result } from '../../core/result';
 import { LanguageHandler, LanguageType, QuoteType } from './language-handler';
 import { PreciseIndentSyncManager } from './indent-sync';
+
+export type TempFileLocation = 'osTemp' | 'workspace';
 
 /**
  * 临时文件信息接口
@@ -88,35 +91,20 @@ export class TempFileManager {
   }
 
   /**
-   * 确保临时目录存在
+   * 确保临时目录存在。
+   * 默认写到 OS temp（工作区外）；可配置为工作区 `.vscode/sqlsugar/temp/`。
    */
   private async ensureTempDirectory(originalEditor: vscode.TextEditor): Promise<string> {
-    let workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    Logger.debug('Initial workspacePath:', workspacePath);
+    const location = vscode.workspace
+      .getConfiguration('sqlsugar')
+      .get<TempFileLocation>('tempFileLocation', 'osTemp');
 
+    const tempDir =
+      location === 'workspace'
+        ? this.resolveWorkspaceTempDirectory(originalEditor)
+        : path.join(os.tmpdir(), 'sqlsugar', 'temp');
 
-    if (!workspacePath && originalEditor.document.uri.scheme === 'file') {
-      workspacePath = path.dirname(originalEditor.document.uri.fsPath);
-      Logger.debug('Using document directory:', workspacePath);
-    }
-
-
-    if (!workspacePath) {
-      workspacePath = process.cwd();
-      Logger.debug('Using cwd as fallback:', workspacePath);
-    }
-
-
-    if (process.env.VSCODE_TEST) {
-      const docDir = path.dirname(originalEditor.document.uri.fsPath);
-      if (docDir.includes('test-workspace')) {
-        workspacePath = docDir;
-        Logger.debug('Test environment detected, using test workspace:', workspacePath);
-      }
-    }
-
-    const tempDir = path.join(workspacePath, '.vscode/sqlsugar/temp');
-    Logger.debug('Temp directory will be:', tempDir);
+    Logger.debug('Temp directory will be:', tempDir, '(location=', location, ')');
 
     if (!fs.existsSync(tempDir)) {
       Logger.debug('Temp directory does not exist, creating it...');
@@ -127,6 +115,31 @@ export class TempFileManager {
     }
 
     return tempDir;
+  }
+
+  private resolveWorkspaceTempDirectory(originalEditor: vscode.TextEditor): string {
+    let workspacePath = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    Logger.debug('Initial workspacePath:', workspacePath);
+
+    if (!workspacePath && originalEditor.document.uri.scheme === 'file') {
+      workspacePath = path.dirname(originalEditor.document.uri.fsPath);
+      Logger.debug('Using document directory:', workspacePath);
+    }
+
+    if (!workspacePath) {
+      workspacePath = process.cwd();
+      Logger.debug('Using cwd as fallback:', workspacePath);
+    }
+
+    if (process.env.VSCODE_TEST) {
+      const docDir = path.dirname(originalEditor.document.uri.fsPath);
+      if (docDir.includes('test-workspace')) {
+        workspacePath = docDir;
+        Logger.debug('Test environment detected, using test workspace:', workspacePath);
+      }
+    }
+
+    return path.join(workspacePath, '.vscode/sqlsugar/temp');
   }
 
   /**

@@ -47,12 +47,12 @@
         "sqlsugar.tempFileCleanup": {
           "type": "boolean",
           "default": true,
-          "description": "Auto cleanup temporary files"
+          "description": "When enabled, SQLSugar deletes temporary Inline SQL files automatically according to cleanupOnClose."
         },
         "sqlsugar.cleanupOnClose": {
           "type": "boolean",
           "default": true,
-          "description": "If true, delete temp SQL file on editor close; if false, delete on save when tempFileCleanup is enabled"
+          "description": "Delete the temporary SQL file when its editor tab is closed. If false (and tempFileCleanup is true), delete on save instead after syncing back to the source."
         },
         "sqlsugar.showSQLPreview": {
           "type": "boolean",
@@ -70,14 +70,14 @@
             "solarized-light"
           ],
           "default": "vscode-dark",
-          "description": "SQL syntax highlighting theme for WebView"
+          "description": "[Advanced] SQL syntax highlighting theme for WebView"
         },
         "sqlsugar.sqlSyntaxHighlightFontSize": {
           "type": "number",
           "default": 14,
           "minimum": 10,
           "maximum": 20,
-          "description": "Font size for SQL syntax highlighting"
+          "description": "[Advanced] Font size for SQL syntax highlighting"
         },
         "sqlsugar.jinja2TypeInference.customRules": {
           "type": "array",
@@ -165,7 +165,7 @@
             "right"
           ],
           "default": "auto",
-          "description": "Default placement for variable editing popovers in Templated SQL editor"
+          "description": "[Advanced] Default placement for variable editing popovers in Templated SQL editor"
         },
         "sqlsugar.templatedSqlEditor.highlightStyle": {
           "type": "string",
@@ -175,7 +175,7 @@
             "underline"
           ],
           "default": "background",
-          "description": "Visual style for highlighting variables in the template"
+          "description": "[Advanced] Visual style for highlighting variables in the template"
         },
         "sqlsugar.templatedSqlEditor.autoPreview": {
           "type": "boolean",
@@ -190,7 +190,7 @@
         "sqlsugar.templatedSqlEditor.animationsEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable animations and transitions in Templated SQL editor"
+          "description": "[Advanced] Enable animations and transitions in Templated SQL editor"
         },
         "sqlsugar.templatedSqlEditor.showSuggestions": {
           "type": "boolean",
@@ -205,7 +205,7 @@
         "sqlsugar.templatedSqlEditor.scrollSyncEnabled": {
           "type": "boolean",
           "default": true,
-          "description": "Enable bidirectional scroll synchronization between template and SQL preview"
+          "description": "[Advanced] Enable bidirectional scroll synchronization between template and SQL preview"
         },
         "sqlsugar.paramStyle.enabledAnalyzers": {
           "type": "array",
@@ -232,6 +232,19 @@
           ],
           "default": "auto",
           "description": "Default analyzer selection mode. 'auto' detects analyzers from SQL content."
+        },
+        "sqlsugar.tempFileLocation": {
+          "type": "string",
+          "enum": [
+            "osTemp",
+            "workspace"
+          ],
+          "default": "osTemp",
+          "enumDescriptions": [
+            "Use the OS temporary directory (outside the workspace; recommended)",
+            "Use .vscode/sqlsugar/temp/ inside the workspace"
+          ],
+          "description": "Where to store temporary Inline SQL files. Default osTemp keeps temp files out of your repo."
         }
       }
     },

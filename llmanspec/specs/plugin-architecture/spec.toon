@@ -33,3 +33,4 @@ scenarios[15]{req_id,id,given,when,then}:
   "R-PLG-012",S001,"SQL 文件顶部有 -- dialect: mysql 注释",系统读取文件,自动切换到 MySQL DialectProvider
   "R-PLG-013",S001,项目同时包含 SQLAlchemy 和 Django model,扩展激活扫描工作区,两个 Provider 分别识别各自的 model 并合并到统一 schema
   "R-PLG-014",S001,多个 ORMProvider 返回同名表的 schema,ORMDiscoveryService 合并结果,优先使用有更多列信息的 Provider 结果
+  "R-PLG-015",walkthrough,用户首次安装扩展,打开 Get Started Walkthrough,可见 Inline SQL 与 Templated SQL 两步介绍且 displayName 可读

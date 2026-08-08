@@ -1,77 +1,217 @@
 {
-  "description": "Multi-field 对拍 cases for one advanced example covering array / mapping / boolean / number / string branches",
-  "exampleId": "06-advanced-tests.sql",
-  "cases": [
+  "description": "Multi-field 对拍 suites — each suite targets one example with typed field overrides",
+  "suites": [
     {
-      "id": "default",
-      "label": "prepare defaults (arrays, mapping, numbers)",
-      "overrides": null,
-      "expected": "cases/06-default.expected.sql"
-    },
-    {
-      "id": "array-in-collections",
-      "label": "categories/tags arrays without electronics/premium",
-      "overrides": {
-        "categories": ["books", "toys"],
-        "tags": ["clearance"]
-      },
-      "expected": "cases/06-array-in-collections.expected.sql"
-    },
-    {
-      "id": "filters-falsy",
-      "label": "filters falsy → else branch (1=1)",
-      "overrides": {
-        "filters": false
-      },
-      "expected": "cases/06-filters-falsy.expected.sql"
-    },
-    {
-      "id": "filters-mapping-user-ids",
-      "label": "filters mapping with status + user_ids join",
-      "overrides": {
-        "filters": {
-          "status": "processing",
-          "min_amount": 25,
-          "max_amount": 500,
-          "user_ids": [101, 202, 303]
+      "exampleId": "06-advanced-tests.sql",
+      "description": "array / mapping / boolean / number / string branches",
+      "cases": [
+        {
+          "id": "default",
+          "label": "prepare defaults (arrays, mapping, numbers)",
+          "overrides": null,
+          "expected": "cases/06-default.expected.sql"
+        },
+        {
+          "id": "array-in-collections",
+          "label": "categories/tags arrays without electronics/premium",
+          "overrides": {
+            "categories": ["books", "toys"],
+            "tags": ["clearance"]
+          },
+          "expected": "cases/06-array-in-collections.expected.sql"
+        },
+        {
+          "id": "filters-falsy",
+          "label": "filters falsy → else branch (1=1)",
+          "overrides": {
+            "filters": false
+          },
+          "expected": "cases/06-filters-falsy.expected.sql"
+        },
+        {
+          "id": "filters-mapping-user-ids",
+          "label": "filters mapping with status + user_ids join",
+          "overrides": {
+            "filters": {
+              "status": "processing",
+              "min_amount": 25,
+              "max_amount": 500,
+              "user_ids": [101, 202, 303]
+            }
+          },
+          "expected": "cases/06-filters-mapping-user-ids.expected.sql"
+        },
+        {
+          "id": "batch-divisible-by-10",
+          "label": "batch_size number → Large Batch (divisibleby 10)",
+          "overrides": {
+            "batch_size": 100
+          },
+          "expected": "cases/06-batch-divisible-by-10.expected.sql"
+        },
+        {
+          "id": "batch-divisible-by-5",
+          "label": "batch_size number → Medium Batch (divisibleby 5 only)",
+          "overrides": {
+            "batch_size": 15
+          },
+          "expected": "cases/06-batch-divisible-by-5.expected.sql"
+        },
+        {
+          "id": "is-active-boolean-false",
+          "label": "is_active boolean false → sameas(false) branch",
+          "overrides": {
+            "is_active": false
+          },
+          "expected": "cases/06-is-active-boolean-false.expected.sql"
+        },
+        {
+          "id": "selected-status-string",
+          "label": "selected_status string in list + age number",
+          "overrides": {
+            "selected_status": "pending",
+            "age": 42,
+            "username": "alice",
+            "email": "alice@example.com"
+          },
+          "expected": "cases/06-selected-status-string.expected.sql"
         }
-      },
-      "expected": "cases/06-filters-mapping-user-ids.expected.sql"
+      ]
     },
     {
-      "id": "batch-divisible-by-10",
-      "label": "batch_size number → Large Batch (divisibleby 10)",
-      "overrides": {
-        "batch_size": 100
-      },
-      "expected": "cases/06-batch-divisible-by-10.expected.sql"
+      "exampleId": "05-complex-filters.sql",
+      "description": "join/for arrays, defaults, featured bool, string filters",
+      "cases": [
+        {
+          "id": "default",
+          "label": "prepare defaults",
+          "overrides": null,
+          "expected": "cases/05-default.expected.sql"
+        },
+        {
+          "id": "empty-collections",
+          "label": "empty category_names / user_ids / roles → else branches",
+          "overrides": {
+            "category_names": [],
+            "user_ids": [],
+            "excluded_ids": [],
+            "roles": [],
+            "tags": []
+          },
+          "expected": "cases/05-empty-collections.expected.sql"
+        },
+        {
+          "id": "pricing-pagination-numbers",
+          "label": "discount/min/max/page numbers + featured true",
+          "overrides": {
+            "discount_rate": 0.85,
+            "min_price": 12.5,
+            "max_price": 199.9,
+            "min_stock": 3,
+            "is_featured": true,
+            "page": 3,
+            "page_size": 15,
+            "sort_order": "DESC"
+          },
+          "expected": "cases/05-pricing-pagination-numbers.expected.sql"
+        },
+        {
+          "id": "string-and-list-filters",
+          "label": "string search + tags/roles/user_ids arrays + table/sort strings",
+          "overrides": {
+            "product_name": "  wireless_mouse  ",
+            "description": "  A compact Bluetooth mouse for travel  ",
+            "search_keyword": "  Mouse  ",
+            "tags": ["sale", "accessory"],
+            "category_names": ["peripherals", "office"],
+            "user_ids": [7, 8, 9],
+            "excluded_ids": [1],
+            "roles": [" Admin ", "Editor"],
+            "table_name": "customers",
+            "custom_where_clause": "status = 'active'",
+            "sort_column": "created_at",
+            "sort_direction": "DESC",
+            "limit": 50
+          },
+          "expected": "cases/05-string-and-list-filters.expected.sql"
+        },
+        {
+          "id": "featured-false",
+          "label": "is_featured false → int 0 branch",
+          "overrides": {
+            "is_featured": false
+          },
+          "expected": "cases/05-featured-false.expected.sql"
+        }
+      ]
     },
     {
-      "id": "batch-divisible-by-5",
-      "label": "batch_size number → Medium Batch (divisibleby 5 only)",
-      "overrides": {
-        "batch_size": 15
-      },
-      "expected": "cases/06-batch-divisible-by-5.expected.sql"
-    },
-    {
-      "id": "is-active-boolean-false",
-      "label": "is_active boolean false → sameas(false) branch",
-      "overrides": {
-        "is_active": false
-      },
-      "expected": "cases/06-is-active-boolean-false.expected.sql"
-    },
-    {
-      "id": "selected-status-string",
-      "label": "selected_status string in list + age number",
-      "overrides": {
-        "selected_status": "pending",
-        "age": 42,
-        "username": "alice",
-        "email": "alice@example.com"
-      },
-      "expected": "cases/06-selected-status-string.expected.sql"
+      "exampleId": "10-comprehensive-example.sql",
+      "description": "ecommerce filters: arrays, dates, amounts, bools, sort/page",
+      "cases": [
+        {
+          "id": "default",
+          "label": "prepare defaults",
+          "overrides": null,
+          "expected": "cases/10-default.expected.sql"
+        },
+        {
+          "id": "status-user-date-arrays",
+          "label": "order_statuses/user_ids arrays + date range strings",
+          "overrides": {
+            "order_statuses": ["paid", "shipped"],
+            "user_ids": [11, 22],
+            "start_date": "2024-01-01",
+            "end_date": "2024-12-31",
+            "include_time": false
+          },
+          "expected": "cases/10-status-user-date-arrays.expected.sql"
+        },
+        {
+          "id": "amount-coupon-bool",
+          "label": "min/max_amount numbers + has_coupon true",
+          "overrides": {
+            "min_amount": 50,
+            "max_amount": 800,
+            "has_coupon": true,
+            "payment_methods": ["alipay", "wechat"],
+            "shipping_method": "express"
+          },
+          "expected": "cases/10-amount-coupon-bool.expected.sql"
+        },
+        {
+          "id": "sort-pagination",
+          "label": "sort_by/sort_order strings + page/page_size numbers",
+          "overrides": {
+            "sort_by": "total_amount",
+            "sort_order": "desc",
+            "page": 2,
+            "page_size": 25,
+            "min_items": 2,
+            "max_items": 20
+          },
+          "expected": "cases/10-sort-pagination.expected.sql"
+        },
+        {
+          "id": "stats-and-discount-flags",
+          "label": "include_statistics + calculate_discount booleans + user_level",
+          "overrides": {
+            "include_statistics": true,
+            "calculate_discount": true,
+            "user_level": "vip",
+            "min_total_spent": 1000
+          },
+          "expected": "cases/10-stats-and-discount-flags.expected.sql"
+        },
+        {
+          "id": "no-coupon-branch",
+          "label": "has_coupon false → coupon_id IS NULL",
+          "overrides": {
+            "has_coupon": false
+          },
+          "expected": "cases/10-no-coupon-branch.expected.sql"
+        }
+      ]
     }
   ]
 }

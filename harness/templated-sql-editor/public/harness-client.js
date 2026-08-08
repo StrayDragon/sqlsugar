@@ -237,50 +237,85 @@ async function verifyExample(id) {
 }
 
 async function verifyMultiFieldCases() {
-  const multi = state.goldens?.multiField;
-  if (!multi?.exampleId || !Array.isArray(multi.cases) || multi.cases.length === 0) {
-    return { ok: true, passed: 0, failed: 0, results: {} };
+  const suites = (() => {
+    if (Array.isArray(state.goldens?.multiFieldSuites)) {
+      return state.goldens.multiFieldSuites;
+    }
+    // Back-compat with older single-suite manifests.
+    if (state.goldens?.multiField?.exampleId) {
+      return [state.goldens.multiField];
+    }
+    return [];
+  })();
+
+  if (suites.length === 0) {
+    return { ok: true, passed: 0, failed: 0, results: {}, suites: [] };
   }
 
   const results = {};
+  const suiteSummaries = [];
   let passed = 0;
   let failed = 0;
 
-  log(`\n→ multi-field cases on ${multi.exampleId}`);
-  for (const c of multi.cases) {
-    const caseKey = `${multi.exampleId}::${c.id}`;
-    log(`  · ${c.id} — ${c.label}`);
-    try {
-      await loadExample(multi.exampleId);
-      if (c.overrides) {
-        await applyOverrides(c.overrides);
-      }
-      const app = await waitForApp();
-      const editor = getEditor(app);
-      const { rendered, issues } = inspectEditor(editor);
-      issues.push(...(await compareToGolden(rendered, c.expected, caseKey)));
-      const ok = issues.length === 0;
-      results[caseKey] = { ok, issues, renderedLength: rendered.length, label: c.label };
-      if (ok) {
-        passed += 1;
-        log(`    PASS`);
-      } else {
-        failed += 1;
-        log(`    FAIL`);
-        for (const issue of issues) {
-          log(`      - ${issue}`);
+  for (const suite of suites) {
+    let suitePassed = 0;
+    let suiteFailed = 0;
+    log(`\n→ multi-field suite ${suite.exampleId}${suite.description ? ` — ${suite.description}` : ''}`);
+    for (const c of suite.cases || []) {
+      const caseKey = `${suite.exampleId}::${c.id}`;
+      log(`  · ${c.id} — ${c.label}`);
+      try {
+        await loadExample(suite.exampleId);
+        if (c.overrides) {
+          await applyOverrides(c.overrides);
         }
+        const app = await waitForApp();
+        const editor = getEditor(app);
+        const { rendered, issues } = inspectEditor(editor);
+        issues.push(...(await compareToGolden(rendered, c.expected, caseKey)));
+        const ok = issues.length === 0;
+        results[caseKey] = {
+          ok,
+          issues,
+          renderedLength: rendered.length,
+          label: c.label,
+          suite: suite.exampleId,
+        };
+        if (ok) {
+          passed += 1;
+          suitePassed += 1;
+          log(`    PASS`);
+        } else {
+          failed += 1;
+          suiteFailed += 1;
+          log(`    FAIL`);
+          for (const issue of issues) {
+            log(`      - ${issue}`);
+          }
+        }
+      } catch (error) {
+        failed += 1;
+        suiteFailed += 1;
+        const message = error instanceof Error ? error.message : String(error);
+        results[caseKey] = {
+          ok: false,
+          issues: [message],
+          renderedLength: 0,
+          label: c.label,
+          suite: suite.exampleId,
+        };
+        log(`    FAIL`);
+        log(`      - ${message}`);
       }
-    } catch (error) {
-      failed += 1;
-      const message = error instanceof Error ? error.message : String(error);
-      results[caseKey] = { ok: false, issues: [message], renderedLength: 0, label: c.label };
-      log(`    FAIL`);
-      log(`      - ${message}`);
     }
+    suiteSummaries.push({
+      exampleId: suite.exampleId,
+      passed: suitePassed,
+      failed: suiteFailed,
+    });
   }
 
-  return { ok: failed === 0, passed, failed, results };
+  return { ok: failed === 0, passed, failed, results, suites: suiteSummaries };
 }
 
 async function runAll() {
@@ -344,7 +379,7 @@ async function runAll() {
     failed,
     total,
     multiField: {
-      exampleId: state.goldens?.multiField?.exampleId,
+      suites: multi.suites,
       passed: multi.passed,
       failed: multi.failed,
     },
@@ -409,13 +444,21 @@ async function bootstrap() {
   };
 
   await waitForApp();
+  const suiteCount = Array.isArray(state.goldens?.multiFieldSuites)
+    ? state.goldens.multiFieldSuites.length
+    : state.goldens?.multiField
+      ? 1
+      : 0;
+  const caseCount = Array.isArray(state.goldens?.multiFieldSuites)
+    ? state.goldens.multiFieldSuites.reduce((n, s) => n + (s.cases?.length || 0), 0)
+    : state.goldens?.multiField?.cases?.length || 0;
   if (!state.goldens) {
     log(
       `Ready. ${state.examples.length} examples. WARNING: goldens missing — run pnpm run harness:templated-sql:goldens`
     );
   } else {
     log(
-      `Ready. ${state.examples.length} examples + ${state.goldens?.multiField?.cases?.length || 0} multi-field cases.`
+      `Ready. ${state.examples.length} examples + ${caseCount} multi-field cases across ${suiteCount} suites.`
     );
   }
 

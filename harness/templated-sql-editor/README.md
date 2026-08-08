@@ -13,8 +13,8 @@ For each example:
 3. Fail if preview contains `-- [渲染错误]`, preview is empty, critical webview logs fire, or page errors occur.
 4. **对拍**: normalize rendered SQL and compare to preprocessed goldens under `goldens/`.
 
-Additionally, **multi-field cases** on `06-advanced-tests.sql` override arrays / mappings /
-booleans / numbers / strings and 对拍 each branch independently.
+Additionally, **multi-field suites** override arrays / mappings / booleans /
+numbers / strings on selected examples (`05`, `06`, `10`) and 对拍 each branch.
 
 ## Commands
 
@@ -23,7 +23,7 @@ booleans / numbers / strings and 对拍 each branch independently.
 pnpm run harness:templated-sql:goldens
 # or: just harness-templated-sql-goldens
 
-# one-shot headless self-verify (CI-friendly)
+# one-shot headless self-verify (CI-friendly; also part of `just qa` / CI)
 just harness-templated-sql
 # or: pnpm run harness:templated-sql
 

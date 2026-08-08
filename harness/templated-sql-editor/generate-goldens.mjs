@@ -113,14 +113,16 @@ async function main() {
     });
 
     const examples = await page.evaluate(() => window.__SQLSUGAR_HARNESS__.listExamples());
+    const suites = Array.isArray(casesMeta.suites)
+      ? casesMeta.suites
+      : casesMeta.exampleId
+        ? [{ exampleId: casesMeta.exampleId, description: casesMeta.description, cases: casesMeta.cases || [] }]
+        : [];
+
     const manifest = {
       generatedAt: new Date().toISOString(),
       examples: [],
-      multiField: {
-        exampleId: casesMeta.exampleId,
-        description: casesMeta.description,
-        cases: [],
-      },
+      multiFieldSuites: [],
     };
 
     for (const ex of examples) {
@@ -134,27 +136,37 @@ async function main() {
       manifest.examples.push({ id: ex.id, expected: rel });
     }
 
-    for (const c of casesMeta.cases) {
-      console.log(`[goldens] case ${casesMeta.exampleId}::${c.id}`);
-      const rendered = await captureRendered(page, casesMeta.exampleId, c.overrides);
-      if (rendered.includes('-- [渲染错误]')) {
-        throw new Error(
-          `cannot golden case ${c.id}: render error\n${rendered.slice(0, 400)}`
-        );
+    let multiCaseCount = 0;
+    for (const suite of suites) {
+      const suiteOut = {
+        exampleId: suite.exampleId,
+        description: suite.description || '',
+        cases: [],
+      };
+      for (const c of suite.cases || []) {
+        console.log(`[goldens] case ${suite.exampleId}::${c.id}`);
+        const rendered = await captureRendered(page, suite.exampleId, c.overrides);
+        if (rendered.includes('-- [渲染错误]')) {
+          throw new Error(
+            `cannot golden case ${suite.exampleId}::${c.id}: render error\n${rendered.slice(0, 400)}`
+          );
+        }
+        writeSql(c.expected, rendered);
+        suiteOut.cases.push({
+          id: c.id,
+          label: c.label,
+          overrides: c.overrides,
+          expected: c.expected,
+        });
+        multiCaseCount += 1;
       }
-      writeSql(c.expected, rendered);
-      manifest.multiField.cases.push({
-        id: c.id,
-        label: c.label,
-        overrides: c.overrides,
-        expected: c.expected,
-      });
+      manifest.multiFieldSuites.push(suiteOut);
     }
 
     fs.writeFileSync(path.join(GOLDENS, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
     await browser.close();
     console.log(
-      `[goldens] wrote ${manifest.examples.length} example goldens + ${manifest.multiField.cases.length} multi-field cases`
+      `[goldens] wrote ${manifest.examples.length} example goldens + ${multiCaseCount} multi-field cases across ${manifest.multiFieldSuites.length} suites`
     );
   } finally {
     shutdown();

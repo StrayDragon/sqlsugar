@@ -70,7 +70,7 @@ spec-check:
     fi
 
 # Full QA pipeline (local equivalent of CI)
-qa: lint test-coverage spec-validate
+qa: lint test-coverage spec-validate harness-templated-sql
     @echo "✅ All QA checks passed"
 
 # Quick pre-commit check (fast feedback)
@@ -78,7 +78,7 @@ pre-commit: type-check test
     @echo "✅ Ready to commit"
 
 # Simulate full CI locally
-ci-local: lint test-coverage spec-validate build
+ci-local: lint test-coverage spec-validate build harness-templated-sql
     @echo "✅ CI simulation complete"
 
 # =============================================================================

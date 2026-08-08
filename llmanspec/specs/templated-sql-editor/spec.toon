@@ -1,15 +1,15 @@
 kind: llman.sdd.spec
 name: "templated-sql-editor"
 purpose: 提供基于 WebView 的 Jinja2 SQL 模板可视化编辑器，支持变量类型推断、实时 SQL 预览、智能默认值生成，帮助用户快速生成参数化的 SQL 查询。
-valid_scope[2]: src/features/templated-sql/,src/test/
-requirements[18]{req_id,title,statement}:
+valid_scope[3]: src/features/templated-sql/,src/shared/,src/test/
+requirements[20]{req_id,title,statement}:
   "R-J2E-001",AST 变量提取,系统 MUST 通过 Nunjucks AST 解析提取模板变量并回退到正则匹配
   "R-J2E-002",类型推断,系统 MUST 基于变量名称模式推断类型(string/number/boolean/date)
   "R-J2E-003",可视化编辑器,系统 MUST 提供 Lit 组件实现的可视化编辑器支持点击变量弹出编辑框
   "R-J2E-004",实时预览,系统 MUST 提供实时 SQL 预览并使用 highlight.js 语法高亮
   "R-J2E-005",滚动同步,系统 SHALL 支持模板面板与预览面板双向滚动同步
   "R-J2E-006",混合模板,"系统 MUST 支持 SQLAlchemy :param 占位符与 Jinja2 {{ var }} 混合模板"
-  "R-J2E-007",SQL 过滤器,系统 MUST 提供自定义 SQL 过滤器(sql_quote/sql_identifier/sql_date 等)
+  "R-J2E-007",SQL 过滤器,系统 MUST 提供自定义 SQL 过滤器(sql_quote/sql_identifier/sql_date/sql_in/inclause 等)
   "R-J2E-008",剪贴板复制,"系统 MUST 支持复制渲染结果到剪贴板含 Linux Wayland wl-copy 回退"
   "R-J2E-009",WebView 渲染对齐,系统 MUST 确保 WebView 端 Nunjucks 环境与 Extension 端完全一致(含 installJinjaCompat 和自定义 filter)
   "R-J2E-010",UI 组件拆分,系统 MUST 将编辑器单体组件拆分为 TemplatePanel/VariableEditor/SQLPreview/Toolbar 独立组件
@@ -21,7 +21,9 @@ requirements[18]{req_id,title,statement}:
   "R-J2E-018",编辑器实体命名扩展到结构层,"系统 MUST 将 feature 目录、引擎类名、共享工具文件名与产品实体命名统一，使 src/features/templated-sql/ 成为唯一 feature 目录且不再残留 jinja2 目录或 Jinja2Nunjucks 前缀类名"
   "R-J2E-019",单一可视化入口(移除遗留模式),系统 MUST 仅以可视化编辑器(webview)作为模板处理入口，且不得保留 quick/wizard/defaults 等遗留非可视化模式分支
   "R-J2E-020",目录与类名一致性,"系统 MUST 确保 feature 目录 src/features/templated-sql/ 下所有引擎层类名不包含 Jinja2 或 Nunjucks 技术栈前缀"
-scenarios[19]{req_id,id,given,when,then}:
+  "R-J2E-021",数组元素级 SQL 字面量,"系统 MUST 将数组渲染为 SQL IN 列表时对 number/boolean/null 使用无误引号字面量并对 string 使用正确转义的引号字面量"
+  "R-J2E-022",列表过滤器引号一致,"系统 MUST 使 sql_in 与 inclause 在元素级引号规则上与共享 sqlLiteral 行为一致"
+scenarios[23]{req_id,id,given,when,then}:
   "R-J2E-001",baseline,"模板含 {{ user_id }} 和 {% if is_active %}",用户打开可视化编辑器,变量列表显示 user_id 和 is_active
   "R-J2E-002",baseline,变量名为 user_id 和 is_active,编辑器推断变量类型,user_id 推断为 number 且 is_active 推断为 boolean
   "R-J2E-003",baseline,编辑器已打开含多个变量的模板,用户点击模板中高亮的变量,弹出编辑框且可修改变量值
@@ -37,7 +39,11 @@ scenarios[19]{req_id,id,given,when,then}:
   "R-J2E-013",S001,用户在变量值输入框中输入,schema 中有匹配的列名,输入框展示补全建议列表
   "R-J2E-016",S001,用户点击编辑器中的模板库按钮,系统展示模板列表,用户选择模板后插入到当前编辑区域
   "R-J2E-017",S001,模板参数定义为 enum 类型(排序方向),可视化编辑器渲染参数,展示下拉选择而非普通文本输入框
+  "R-J2E-017",array-edit,变量类型为 array 且值为 JSON 数组,用户在可视化编辑器中编辑该变量,值按数组解析并可触发预览更新
   "R-J2E-018","dir-migration",代码库存在 src/features/jinja2/ 目录,审查 feature 目录结构,"src/features/jinja2/ 已不存在且 src/features/templated-sql/ 包含全部原文件，所有外部 import 路径已更新"
   "R-J2E-018","class-rename",代码库存在 Jinja2NunjucksHandler/Jinja2NunjucksProcessor 等类名,审查引擎层类名,"command-handler.ts 导出 TemplatedSqlHandler、processor.ts 导出 TemplateProcessor、analyzers/ 导出 TemplateExpressionAnalyzer"
-  "R-J2E-019","single-entry",命令 sqlsugar.copyTemplatedSql 的处理流程,"审查 src/features/jinja2/command-handler.ts",不再存在 quick/wizard/defaults 模式分支及其处理方法 handleQuickMode/handleWizardMode/handleDefaultsMode
+  "R-J2E-019","single-entry",命令 sqlsugar.copyTemplatedSql 的处理流程,"审查 command-handler 处理流程",不再存在 quick/wizard/defaults 模式分支及其处理方法 handleQuickMode/handleWizardMode/handleDefaultsMode
   "R-J2E-020","naming-consistency","src/features/templated-sql/ 目录已就位",审查目录下所有 .ts 文件的导出符号,不存在以 Jinja2 或 Jinjucks 为前缀的导出类名/函数名/类型名
+  "R-J2E-021",numeric-tuple,"模板为 IN ({{ ids|sql_in }}) 且 ids=[1,2,3]",系统渲染预览,输出包含 1, 2, 3 且数字无外层单引号
+  "R-J2E-021",string-tuple,"模板为 IN ({{ names|sql_in }}) 且 names=['1','2','3']",系统渲染预览,"输出包含 '1', '2', '3' 字符串字面量"
+  "R-J2E-022",filter-parity,"同一数字数组分别经 sql_in 与 inclause 渲染",比较元素级引号规则,两者对 number/string 的引号策略一致

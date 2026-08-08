@@ -12,6 +12,8 @@ import { createRequire } from 'node:module';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(__dirname, '../..');
 const PUBLIC = path.join(__dirname, 'public');
+const SHARED = path.join(__dirname, 'shared');
+const GOLDENS = path.join(__dirname, 'goldens');
 const EXAMPLES_DIR = path.join(ROOT, 'examples/jinja2VisualEditor');
 const PORT = Number(process.env.HARNESS_PORT || 4177);
 
@@ -100,6 +102,18 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (pathname === '/api/goldens/manifest') {
+      const manifestPath = path.join(GOLDENS, 'manifest.json');
+      if (!fs.existsSync(manifestPath)) {
+        sendJson(res, 404, {
+          error: 'goldens/manifest.json missing — run pnpm run harness:templated-sql:goldens',
+        });
+        return;
+      }
+      sendJson(res, 200, JSON.parse(fs.readFileSync(manifestPath, 'utf8')));
+      return;
+    }
+
     if (pathname === '/' || pathname === '/index.html') {
       sendFile(res, path.join(PUBLIC, 'index.html'));
       return;
@@ -107,6 +121,16 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname.startsWith('/harness/')) {
       sendFile(res, path.join(PUBLIC, pathname.slice('/harness/'.length)));
+      return;
+    }
+
+    if (pathname.startsWith('/shared/')) {
+      sendFile(res, path.join(SHARED, pathname.slice('/shared/'.length)));
+      return;
+    }
+
+    if (pathname.startsWith('/goldens/')) {
+      sendFile(res, path.join(GOLDENS, pathname.slice('/goldens/'.length)));
       return;
     }
 

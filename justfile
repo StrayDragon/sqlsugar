@@ -123,6 +123,10 @@ clean:
 harness-templated-sql-serve:
     pnpm run harness:templated-sql:serve
 
-# Headless self-verify all examples/jinja2VisualEditor via Playwright
+# Capture expected rendered SQL goldens (examples + multi-field cases)
+harness-templated-sql-goldens:
+    pnpm run harness:templated-sql:goldens
+
+# Headless self-verify all examples/jinja2VisualEditor via Playwright 对拍
 harness-templated-sql:
     pnpm run harness:templated-sql

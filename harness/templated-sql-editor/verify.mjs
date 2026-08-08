@@ -91,7 +91,7 @@ async function main() {
     });
 
     console.log('[verify] opening autorun page…');
-    await page.goto(`${BASE}/?autorun=1`, { waitUntil: 'networkidle' });
+    await page.goto(`${BASE}/?autorun=1`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
 
     // Wait until harness finishes autorun.
     const report = await page.waitForFunction(

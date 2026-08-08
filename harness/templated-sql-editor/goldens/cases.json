@@ -1,0 +1,77 @@
+{
+  "description": "Multi-field 对拍 cases for one advanced example covering array / mapping / boolean / number / string branches",
+  "exampleId": "06-advanced-tests.sql",
+  "cases": [
+    {
+      "id": "default",
+      "label": "prepare defaults (arrays, mapping, numbers)",
+      "overrides": null,
+      "expected": "cases/06-default.expected.sql"
+    },
+    {
+      "id": "array-in-collections",
+      "label": "categories/tags arrays without electronics/premium",
+      "overrides": {
+        "categories": ["books", "toys"],
+        "tags": ["clearance"]
+      },
+      "expected": "cases/06-array-in-collections.expected.sql"
+    },
+    {
+      "id": "filters-falsy",
+      "label": "filters falsy → else branch (1=1)",
+      "overrides": {
+        "filters": false
+      },
+      "expected": "cases/06-filters-falsy.expected.sql"
+    },
+    {
+      "id": "filters-mapping-user-ids",
+      "label": "filters mapping with status + user_ids join",
+      "overrides": {
+        "filters": {
+          "status": "processing",
+          "min_amount": 25,
+          "max_amount": 500,
+          "user_ids": [101, 202, 303]
+        }
+      },
+      "expected": "cases/06-filters-mapping-user-ids.expected.sql"
+    },
+    {
+      "id": "batch-divisible-by-10",
+      "label": "batch_size number → Large Batch (divisibleby 10)",
+      "overrides": {
+        "batch_size": 100
+      },
+      "expected": "cases/06-batch-divisible-by-10.expected.sql"
+    },
+    {
+      "id": "batch-divisible-by-5",
+      "label": "batch_size number → Medium Batch (divisibleby 5 only)",
+      "overrides": {
+        "batch_size": 15
+      },
+      "expected": "cases/06-batch-divisible-by-5.expected.sql"
+    },
+    {
+      "id": "is-active-boolean-false",
+      "label": "is_active boolean false → sameas(false) branch",
+      "overrides": {
+        "is_active": false
+      },
+      "expected": "cases/06-is-active-boolean-false.expected.sql"
+    },
+    {
+      "id": "selected-status-string",
+      "label": "selected_status string in list + age number",
+      "overrides": {
+        "selected_status": "pending",
+        "age": 42,
+        "username": "alice",
+        "email": "alice@example.com"
+      },
+      "expected": "cases/06-selected-status-string.expected.sql"
+    }
+  ]
+}

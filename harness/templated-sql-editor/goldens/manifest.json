@@ -1,0 +1,151 @@
+{
+  "generatedAt": "2026-08-08T09:23:09.714Z",
+  "examples": [
+    {
+      "id": "01-jinja2-example.sql",
+      "expected": "examples/01-jinja2-example.expected.sql"
+    },
+    {
+      "id": "02-filters-and-tests.sql",
+      "expected": "examples/02-filters-and-tests.expected.sql"
+    },
+    {
+      "id": "03-loops-and-conditionals.sql",
+      "expected": "examples/03-loops-and-conditionals.expected.sql"
+    },
+    {
+      "id": "04-macros-basic.sql",
+      "expected": "examples/04-macros-basic.expected.sql"
+    },
+    {
+      "id": "05-complex-filters.sql",
+      "expected": "examples/05-complex-filters.expected.sql"
+    },
+    {
+      "id": "06-advanced-tests.sql",
+      "expected": "examples/06-advanced-tests.expected.sql"
+    },
+    {
+      "id": "07-set-and-variables.sql",
+      "expected": "examples/07-set-and-variables.expected.sql"
+    },
+    {
+      "id": "08-complex-macros.sql",
+      "expected": "examples/08-complex-macros.expected.sql"
+    },
+    {
+      "id": "09-filter-blocks.sql",
+      "expected": "examples/09-filter-blocks.expected.sql"
+    },
+    {
+      "id": "10-comprehensive-example.sql",
+      "expected": "examples/10-comprehensive-example.expected.sql"
+    },
+    {
+      "id": "11-named-params.sql",
+      "expected": "examples/11-named-params.expected.sql"
+    },
+    {
+      "id": "12-asyncpg-params.sql",
+      "expected": "examples/12-asyncpg-params.expected.sql"
+    },
+    {
+      "id": "13-pyformat-params.sql",
+      "expected": "examples/13-pyformat-params.expected.sql"
+    },
+    {
+      "id": "14-numeric-params.sql",
+      "expected": "examples/14-numeric-params.expected.sql"
+    },
+    {
+      "id": "15-mixed-styles.sql",
+      "expected": "examples/15-mixed-styles.expected.sql"
+    }
+  ],
+  "multiField": {
+    "exampleId": "06-advanced-tests.sql",
+    "description": "Multi-field 对拍 cases for one advanced example covering array / mapping / boolean / number / string branches",
+    "cases": [
+      {
+        "id": "default",
+        "label": "prepare defaults (arrays, mapping, numbers)",
+        "overrides": null,
+        "expected": "cases/06-default.expected.sql"
+      },
+      {
+        "id": "array-in-collections",
+        "label": "categories/tags arrays without electronics/premium",
+        "overrides": {
+          "categories": [
+            "books",
+            "toys"
+          ],
+          "tags": [
+            "clearance"
+          ]
+        },
+        "expected": "cases/06-array-in-collections.expected.sql"
+      },
+      {
+        "id": "filters-falsy",
+        "label": "filters falsy → else branch (1=1)",
+        "overrides": {
+          "filters": false
+        },
+        "expected": "cases/06-filters-falsy.expected.sql"
+      },
+      {
+        "id": "filters-mapping-user-ids",
+        "label": "filters mapping with status + user_ids join",
+        "overrides": {
+          "filters": {
+            "status": "processing",
+            "min_amount": 25,
+            "max_amount": 500,
+            "user_ids": [
+              101,
+              202,
+              303
+            ]
+          }
+        },
+        "expected": "cases/06-filters-mapping-user-ids.expected.sql"
+      },
+      {
+        "id": "batch-divisible-by-10",
+        "label": "batch_size number → Large Batch (divisibleby 10)",
+        "overrides": {
+          "batch_size": 100
+        },
+        "expected": "cases/06-batch-divisible-by-10.expected.sql"
+      },
+      {
+        "id": "batch-divisible-by-5",
+        "label": "batch_size number → Medium Batch (divisibleby 5 only)",
+        "overrides": {
+          "batch_size": 15
+        },
+        "expected": "cases/06-batch-divisible-by-5.expected.sql"
+      },
+      {
+        "id": "is-active-boolean-false",
+        "label": "is_active boolean false → sameas(false) branch",
+        "overrides": {
+          "is_active": false
+        },
+        "expected": "cases/06-is-active-boolean-false.expected.sql"
+      },
+      {
+        "id": "selected-status-string",
+        "label": "selected_status string in list + age number",
+        "overrides": {
+          "selected_status": "pending",
+          "age": 42,
+          "username": "alice",
+          "email": "alice@example.com"
+        },
+        "expected": "cases/06-selected-status-string.expected.sql"
+      }
+    ]
+  }
+}

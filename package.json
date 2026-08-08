@@ -306,7 +306,8 @@
     "build": "pnpm run compile",
     "harness:templated-sql": "node harness/templated-sql-editor/verify.mjs",
     "harness:templated-sql:serve": "node esbuild.js --webview-only && node harness/templated-sql-editor/build-prepare.mjs && node harness/templated-sql-editor/server.mjs",
-    "harness:templated-sql:prepare": "node harness/templated-sql-editor/build-prepare.mjs"
+    "harness:templated-sql:prepare": "node harness/templated-sql-editor/build-prepare.mjs",
+    "harness:templated-sql:goldens": "node harness/templated-sql-editor/generate-goldens.mjs"
   },
   "dependencies": {
     "@lit/context": "^1.1.6",

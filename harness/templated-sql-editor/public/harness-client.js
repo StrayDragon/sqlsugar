@@ -1,8 +1,10 @@
 /**
  * Browser-side harness client.
  * Loads examples via /api/prepare/*, posts the same `init` message the VS Code
- * webview uses, then inspects the Lit editor for render errors.
+ * webview uses, then 对拍 against preprocessed goldens (no-error + exact render).
  */
+
+import { normalizeRenderedSql, diffNormalized } from '/shared/normalize.mjs';
 
 const CRITICAL_LOG_CATEGORIES = [
   'NUNJUCKS_ERROR',
@@ -14,6 +16,7 @@ const CRITICAL_LOG_CATEGORIES = [
 
 const state = {
   examples: [],
+  goldens: null,
   results: new Map(),
   activeId: null,
 };
@@ -71,7 +74,6 @@ function inspectEditor(editor) {
     issues.push(`preview contains render error marker: ${rendered.slice(0, 200)}`);
   }
 
-  // Non-empty templates should produce some preview output after init.
   if (editor.template && editor.template.trim().length > 0 && rendered.trim().length === 0) {
     issues.push('preview is empty for non-empty template');
   }
@@ -89,6 +91,38 @@ function inspectEditor(editor) {
   return { rendered, issues };
 }
 
+async function fetchText(url) {
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`fetch ${url} failed: ${res.status}`);
+  }
+  return res.text();
+}
+
+async function loadGoldensManifest() {
+  const res = await fetch('/api/goldens/manifest');
+  if (res.status === 404) {
+    return null;
+  }
+  if (!res.ok) {
+    throw new Error(`goldens manifest failed: ${res.status}`);
+  }
+  return res.json();
+}
+
+function findExampleGolden(exampleId) {
+  return state.goldens?.examples?.find(e => e.id === exampleId) || null;
+}
+
+async function compareToGolden(rendered, expectedRelPath, label) {
+  const expected = await fetchText(`/goldens/${expectedRelPath}`);
+  const diff = diffNormalized(rendered, expected);
+  if (diff) {
+    return [`对拍失败 [${label}] vs ${expectedRelPath}:\n${diff}`];
+  }
+  return [];
+}
+
 async function loadExample(id) {
   window.__HARNESS_LOGS__ = [];
   window.__HARNESS_PAGE_ERRORS__ = [];
@@ -101,6 +135,11 @@ async function loadExample(id) {
   const prepared = await res.json();
 
   const app = await waitForApp();
+  const editor = getEditor(app);
+  // Clear prior case overrides so init defaults are not polluted.
+  editor.variableValues = {};
+  editor.values = {};
+
   window.postMessage(
     {
       command: 'init',
@@ -115,10 +154,7 @@ async function loadExample(id) {
     '*'
   );
 
-  // Allow Lit updates + nunjucks render.
   await wait(150);
-  const editor = getEditor(app);
-  // Force one more render cycle in case init raced.
   if (typeof editor.renderTemplate === 'function') {
     await editor.renderTemplate();
   } else {
@@ -134,25 +170,117 @@ async function loadExample(id) {
   return { prepared, editor };
 }
 
+/**
+ * Merge override field values into the live editor and re-render.
+ * Supports nested objects (e.g. filters) and scalar/array fields.
+ */
+async function applyOverrides(overrides) {
+  const app = await waitForApp();
+  const editor = getEditor(app);
+  if (!overrides || typeof overrides !== 'object') {
+    return editor;
+  }
+
+  const next = { ...editor.variableValues };
+  for (const [key, value] of Object.entries(overrides)) {
+    next[key] = value;
+    // Drop flattened dotted keys that would fight a parent override
+    // (e.g. filters.status vs filters: false).
+    for (const existing of Object.keys(next)) {
+      if (existing !== key && existing.startsWith(`${key}.`)) {
+        delete next[existing];
+      }
+    }
+  }
+  editor.variableValues = next;
+  editor.values = next;
+  if (typeof editor.renderTemplate === 'function') {
+    await editor.renderTemplate();
+  }
+  await wait(80);
+  return editor;
+}
+
 async function verifyExample(id) {
   const { prepared, editor } = await loadExample(id);
   const { rendered, issues } = inspectEditor(editor);
 
   if (prepared.warnings?.length) {
-    // Preparation warnings are informational unless render also fails.
     for (const w of prepared.warnings) {
       log(`  warn[${id}]: ${w}`);
     }
   }
 
+  const golden = findExampleGolden(id);
+  if (!state.goldens) {
+    issues.push('goldens/manifest.json missing — run pnpm run harness:templated-sql:goldens');
+  } else if (!golden) {
+    issues.push(`missing golden for ${id} (regenerate goldens)`);
+  } else {
+    issues.push(...(await compareToGolden(rendered, golden.expected, id)));
+  }
+
   const ok = issues.length === 0;
-  state.results.set(id, { ok, issues, renderedLength: rendered.length });
+  const record = {
+    ok,
+    issues,
+    renderedLength: rendered.length,
+    normalizedLength: normalizeRenderedSql(rendered).length,
+  };
+  state.results.set(id, record);
   const btn = document.querySelector(`#example-list button[data-id="${CSS.escape(id)}"]`);
   if (btn) {
     btn.classList.toggle('pass', ok);
     btn.classList.toggle('fail', !ok);
   }
-  return { id, ok, issues, renderedLength: rendered.length };
+  return { id, ...record, rendered };
+}
+
+async function verifyMultiFieldCases() {
+  const multi = state.goldens?.multiField;
+  if (!multi?.exampleId || !Array.isArray(multi.cases) || multi.cases.length === 0) {
+    return { ok: true, passed: 0, failed: 0, results: {} };
+  }
+
+  const results = {};
+  let passed = 0;
+  let failed = 0;
+
+  log(`\n→ multi-field cases on ${multi.exampleId}`);
+  for (const c of multi.cases) {
+    const caseKey = `${multi.exampleId}::${c.id}`;
+    log(`  · ${c.id} — ${c.label}`);
+    try {
+      await loadExample(multi.exampleId);
+      if (c.overrides) {
+        await applyOverrides(c.overrides);
+      }
+      const app = await waitForApp();
+      const editor = getEditor(app);
+      const { rendered, issues } = inspectEditor(editor);
+      issues.push(...(await compareToGolden(rendered, c.expected, caseKey)));
+      const ok = issues.length === 0;
+      results[caseKey] = { ok, issues, renderedLength: rendered.length, label: c.label };
+      if (ok) {
+        passed += 1;
+        log(`    PASS`);
+      } else {
+        failed += 1;
+        log(`    FAIL`);
+        for (const issue of issues) {
+          log(`      - ${issue}`);
+        }
+      }
+    } catch (error) {
+      failed += 1;
+      const message = error instanceof Error ? error.message : String(error);
+      results[caseKey] = { ok: false, issues: [message], renderedLength: 0, label: c.label };
+      log(`    FAIL`);
+      log(`      - ${message}`);
+    }
+  }
+
+  return { ok: failed === 0, passed, failed, results };
 }
 
 async function runAll() {
@@ -163,8 +291,7 @@ async function runAll() {
   summaryEl().textContent = 'Running…';
   summaryEl().className = '';
 
-  const pageErrors = [];
-  window.__HARNESS_PAGE_ERRORS__ = pageErrors;
+  window.__HARNESS_PAGE_ERRORS__ = [];
 
   let passed = 0;
   let failed = 0;
@@ -175,7 +302,7 @@ async function runAll() {
       const result = await verifyExample(ex.id);
       if (result.ok) {
         passed += 1;
-        log(`  PASS (${result.renderedLength} chars)`);
+        log(`  PASS (对拍 ok, ${result.renderedLength} chars)`);
       } else {
         failed += 1;
         log(`  FAIL`);
@@ -197,7 +324,15 @@ async function runAll() {
     }
   }
 
-  const summary = `${passed} passed, ${failed} failed / ${state.examples.length}`;
+  const multi = await verifyMultiFieldCases();
+  passed += multi.passed;
+  failed += multi.failed;
+  for (const [k, v] of Object.entries(multi.results)) {
+    state.results.set(k, v);
+  }
+
+  const total = state.examples.length + (multi.passed + multi.failed);
+  const summary = `${passed} passed, ${failed} failed / ${total}`;
   summaryEl().textContent = summary;
   summaryEl().className = failed === 0 ? 'ok' : 'fail';
   log(`\n${summary}`);
@@ -207,7 +342,12 @@ async function runAll() {
     ok: failed === 0,
     passed,
     failed,
-    total: state.examples.length,
+    total,
+    multiField: {
+      exampleId: state.goldens?.multiField?.exampleId,
+      passed: multi.passed,
+      failed: multi.failed,
+    },
     results: Object.fromEntries(state.results),
   };
   window.__HARNESS_LAST_REPORT__ = report;
@@ -223,6 +363,8 @@ async function bootstrap() {
     window.__HARNESS_PAGE_ERRORS__ = window.__HARNESS_PAGE_ERRORS__ || [];
     window.__HARNESS_PAGE_ERRORS__.push(String(event.reason || 'unhandledrejection'));
   });
+
+  state.goldens = await loadGoldensManifest();
 
   const res = await fetch('/api/examples');
   const data = await res.json();
@@ -241,7 +383,7 @@ async function bootstrap() {
       log(`Loading ${ex.id}…`);
       try {
         const result = await verifyExample(ex.id);
-        log(result.ok ? 'PASS' : 'FAIL');
+        log(result.ok ? 'PASS (对拍 ok)' : 'FAIL');
         for (const issue of result.issues) log(`  - ${issue}`);
       } catch (error) {
         log(`FAIL: ${error instanceof Error ? error.message : String(error)}`);
@@ -258,13 +400,24 @@ async function bootstrap() {
   window.__SQLSUGAR_HARNESS__ = {
     runAll,
     verifyExample,
+    verifyMultiFieldCases,
     loadExample,
+    applyOverrides,
     getReport: () => window.__HARNESS_LAST_REPORT__ || null,
     listExamples: () => state.examples.slice(),
+    getGoldens: () => state.goldens,
   };
 
   await waitForApp();
-  log(`Ready. ${state.examples.length} examples.`);
+  if (!state.goldens) {
+    log(
+      `Ready. ${state.examples.length} examples. WARNING: goldens missing — run pnpm run harness:templated-sql:goldens`
+    );
+  } else {
+    log(
+      `Ready. ${state.examples.length} examples + ${state.goldens?.multiField?.cases?.length || 0} multi-field cases.`
+    );
+  }
 
   const params = new URLSearchParams(location.search);
   if (params.get('autorun') === '1') {

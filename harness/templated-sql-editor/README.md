@@ -11,15 +11,21 @@ For each example:
 1. Prepare variables the same way the extension does (`TemplateProcessor` + param analyzers).
 2. `postMessage({ command: 'init', template, variables })` into `<sqlsugar-templated-sql-app>`.
 3. Fail if preview contains `-- [渲染错误]`, preview is empty, critical webview logs fire, or page errors occur.
+4. **对拍**: normalize rendered SQL and compare to preprocessed goldens under `goldens/`.
+
+Additionally, **multi-field cases** on `06-advanced-tests.sql` override arrays / mappings /
+booleans / numbers / strings and 对拍 each branch independently.
 
 ## Commands
 
 ```bash
+# regenerate expected answers (after example or default-value changes)
+pnpm run harness:templated-sql:goldens
+# or: just harness-templated-sql-goldens
+
 # one-shot headless self-verify (CI-friendly)
 just harness-templated-sql
-
-# or
-pnpm run harness:templated-sql
+# or: pnpm run harness:templated-sql
 
 # interactive: build deps, then serve
 pnpm run harness:templated-sql:serve
@@ -31,6 +37,9 @@ In the page UI: click an example, or **Run All Examples**. Append `?autorun=1` t
 ## Layout
 
 - `public/` — HTML/CSS/client (same origin as `/dist/...`)
+- `shared/normalize.mjs` — shared normalize + diff for 对拍
 - `prepare.ts` — Node-side example preparation (mirrors extension command-handler)
-- `server.mjs` — static + `/api/examples` + `/api/prepare/:id`
+- `server.mjs` — static + `/api/examples` + `/api/prepare/:id` + `/api/goldens/manifest`
+- `goldens/` — `manifest.json`, `examples/*.expected.sql`, `cases.json` + `cases/*.expected.sql`
+- `generate-goldens.mjs` — Playwright capture of correct renders
 - `verify.mjs` — Playwright chromium autorun gate

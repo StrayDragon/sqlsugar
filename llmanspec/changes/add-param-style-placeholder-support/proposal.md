@@ -2,7 +2,8 @@
 skip_specs_landing: true
 branch: sdd/add-param-style-placeholder-support
 base_sha: 76f8c45f6585753c8c494cd93a8ce4cba51580b3
-checkpointed: false
+checkpointed: true
+checkpoint_sha: ada4acd467b68a01bc94ccc6f149742ab09a60f4
 ---
 
 # 参数风格占位符与多分析器管道

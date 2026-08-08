@@ -329,3 +329,31 @@ describe('bugfix: SQL 关键字变量名高亮（user 被 hljs 包成 hljs-keywo
     expect(res.html).toContain('data-variable="user.id"');
   });
 });
+
+describe('bugfix: sql_in 数字/字符串元组字面量 (R-J2E-021/022)', () => {
+  it('数字数组经 sql_in 不含引号', () => {
+    const out = env.renderString('IN ({{ ids | sql_in }})', buildNestedContext({ ids: [1, 2, 3] }));
+    expect(out).toBe('IN (1, 2, 3)');
+  });
+
+  it('字符串数组经 sql_in 含引号', () => {
+    const out = env.renderString(
+      'IN ({{ names | sql_in }})',
+      buildNestedContext({ names: ['1', '2', '3'] })
+    );
+    expect(out).toBe("IN ('1', '2', '3')");
+  });
+
+  it('sql_in 与 inclause 元素引号策略一致', () => {
+    const ids = [10, 20];
+    const names = ['a', "O'Brien"];
+    expect(env.renderString('{{ ids | sql_in }}', buildNestedContext({ ids }))).toBe('10, 20');
+    expect(env.renderString('{{ ids | inclause }}', buildNestedContext({ ids }))).toBe('(10, 20)');
+    expect(env.renderString('{{ names | sql_in }}', buildNestedContext({ names }))).toBe(
+      "'a', 'O''Brien'"
+    );
+    expect(env.renderString('{{ names | inclause }}', buildNestedContext({ names }))).toBe(
+      "('a', 'O''Brien')"
+    );
+  });
+});

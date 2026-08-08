@@ -1723,6 +1723,11 @@ export class TemplatedSqlEditor extends LitElement {
           return value.replace('T', 'T').replace(/\.\d{3}Z$/, '');
         }
         return String(value);
+      case 'array':
+        if (Array.isArray(value)) {
+          return JSON.stringify(value);
+        }
+        return String(value);
       case 'json':
         if (typeof value === 'object') {
           return JSON.stringify(value, null, 2);
@@ -1823,7 +1828,7 @@ export class TemplatedSqlEditor extends LitElement {
   private validateVariableType(type: string): TemplateVariableType | null {
     const validTypes: TemplateVariableType[] = [
       'string', 'number', 'integer', 'boolean', 'date', 'time',
-      'datetime', 'json', 'uuid', 'null'
+      'datetime', 'json', 'uuid', 'null', 'array', 'object'
     ];
     return validTypes.includes(type as TemplateVariableType)
       ? type as TemplateVariableType
@@ -1838,6 +1843,7 @@ export class TemplatedSqlEditor extends LitElement {
       if (type === 'null') return null;
       if (type === 'boolean') return false;
       if (type === 'number' || type === 'integer') return 0;
+      if (type === 'array') return [];
       return '';
     }
 
@@ -1855,6 +1861,13 @@ export class TemplatedSqlEditor extends LitElement {
       case 'date':
       case 'datetime':
         return value;
+      case 'array':
+        try {
+          const parsed = JSON.parse(value);
+          return Array.isArray(parsed) ? parsed : value;
+        } catch {
+          return value;
+        }
       case 'json':
         try {
           return JSON.parse(value);
@@ -1949,6 +1962,17 @@ export class TemplatedSqlEditor extends LitElement {
             <option value="">空字符串</option>
           </select>
         `;
+      case 'array':
+        return html`
+          <textarea
+            class="variable-value-input"
+            .value=${this.popupValue}
+            @input=${this.handlePopupValueChange}
+            placeholder='JSON 数组，如 [1,2,3] 或 ["a","b"]'
+            rows="3"
+            style="font-family: monospace; resize: vertical;"
+          ></textarea>
+        `;
       case 'json':
         return html`
           <textarea
@@ -1994,6 +2018,7 @@ export class TemplatedSqlEditor extends LitElement {
       { value: 'date', label: 'Date (日期)' },
       { value: 'time', label: 'Time (时间)' },
       { value: 'datetime', label: 'DateTime (日期时间)' },
+      { value: 'array', label: 'Array (数组/元组)' },
       { value: 'json', label: 'JSON (JSON数据)' },
       { value: 'uuid', label: 'UUID (唯一标识符)' },
       { value: 'null', label: 'NULL (空值)' }
@@ -2205,6 +2230,8 @@ export class TemplatedSqlEditor extends LitElement {
         return null;
       case 'uuid':
         return '00000000-0000-0000-0000-000000000000';
+      case 'array':
+        return variableName.toLowerCase().includes('id') ? [1, 2, 3] : ['value1', 'value2'];
       default:
 
         return `clean_${variableName}`;
@@ -2217,6 +2244,14 @@ export class TemplatedSqlEditor extends LitElement {
   private inferVariableType(variableName: string): string {
     const name = variableName.toLowerCase();
 
+    if (
+      name.includes('_list') ||
+      name.endsWith('_ids') ||
+      name.endsWith('ids') ||
+      name.endsWith('_tuple')
+    ) {
+      return 'array';
+    }
     if (name.includes('id') || name.includes('num') || name.includes('count')) {
       return 'number';
     }

@@ -484,6 +484,15 @@ function inferVariableType(variableName: string, context: VariableContext, filte
   const name = variableName.toLowerCase();
   const semanticContext = context.semanticContext.toLowerCase();
 
+  // 集合命名优先于 id 子串，避免 id_list / user_ids 被误判为 integer。
+  if (
+    name.includes('_list') ||
+    name.endsWith('_ids') ||
+    name.endsWith('ids') ||
+    name.endsWith('_tuple')
+  ) {
+    return 'array';
+  }
 
   if (name.includes('id') && !name.includes('guid')) return 'integer';
   // NOTE: 不再按 email/mail 或 url/link 子串推断为特殊类型。原先会把这类变量
@@ -506,7 +515,7 @@ function inferVariableType(variableName: string, context: VariableContext, filte
     return 'string';
   }
   if (semanticContext.includes('where') && semanticContext.includes('in')) {
-    return name.includes('id') ? 'integer' : 'string';
+    return 'array';
   }
 
   return 'string';

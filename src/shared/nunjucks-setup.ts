@@ -36,6 +36,20 @@ function sqlLiteral(value: unknown): string {
   return `'${JSON.stringify(value).replace(/'/g, "''")}'`;
 }
 
+/**
+ * Format a list for SQL IN bodies without outer parentheses.
+ * Used by `sql_in` so templates can write `IN ({{ xs|sql_in }})`.
+ * - empty array → empty string (caller still owns the parentheses)
+ * - non-array → single sqlLiteral
+ * - array → comma-joined sqlLiteral per element (number bare, string quoted)
+ */
+function formatSqlInList(values: unknown): string {
+  if (values === null || values === undefined) return 'NULL';
+  if (!Array.isArray(values)) return sqlLiteral(values);
+  if (values.length === 0) return '';
+  return values.map(item => sqlLiteral(item)).join(', ');
+}
+
 function formatSQLDate(date: Date, format: string): string {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -103,15 +117,9 @@ function registerSQLFilters(env: nunjucks.Environment): void {
     return date.toISOString().replace('T', ' ').replace('Z', '');
   });
 
-  env.addFilter('sql_in', (values: unknown[]) => {
-    if (Array.isArray(values)) {
-      return values
-        .map(v => (v === null || v === undefined ? 'null' : `'${String(v).replace(/'/g, "''")}'`))
-        .join(', ');
-    }
-    if (values === null || values === undefined) return 'null';
-    return `'${String(values).replace(/'/g, "''")}'`;
-  });
+  // `sql_in`：IN 列表体（不含外层括号），元素级引号与 `inclause`/`sqlLiteral` 一致。
+  // 空数组 → 空串；null/undefined → NULL；非数组 → 单个字面量。
+  env.addFilter('sql_in', (values: unknown) => formatSqlInList(values));
 }
 
 function registerTypeFilters(env: nunjucks.Environment): void {

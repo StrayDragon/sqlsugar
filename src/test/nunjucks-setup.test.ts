@@ -112,14 +112,42 @@ describe('nunjucks-setup', () => {
       expect(env.renderString('{{ val | sql_identifier }}', { val: 'table_name' })).toBe('"table_name"');
     });
 
-    it('sql_in formats array for IN clause', () => {
+    it('sql_in formats string array for IN clause', () => {
       const result = env.renderString('{{ vals | sql_in }}', { vals: ['a', 'b', 'c'] });
       expect(result).toBe("'a', 'b', 'c'");
     });
 
+    it('sql_in formats number array without quotes', () => {
+      const result = env.renderString('{{ vals | sql_in }}', { vals: [1, 2, 3] });
+      expect(result).toBe('1, 2, 3');
+    });
+
+    it('sql_in formats mixed array by element type', () => {
+      const result = env.renderString('{{ vals | sql_in }}', { vals: [1, 'a', null] });
+      expect(result).toBe("1, 'a', NULL");
+    });
+
+    it('sql_in escapes quotes in strings', () => {
+      const result = env.renderString('{{ vals | sql_in }}', { vals: ["O'Brien", 'x'] });
+      expect(result).toBe("'O''Brien', 'x'");
+    });
+
+    it('sql_in empty array yields empty body', () => {
+      expect(env.renderString('{{ vals | sql_in }}', { vals: [] })).toBe('');
+    });
+
+    it('sql_in matches inclause element quoting for numbers and strings', () => {
+      const nums = [1, 2, 3];
+      const strs = ['a', 'b'];
+      expect(env.renderString('{{ vals | sql_in }}', { vals: nums })).toBe('1, 2, 3');
+      expect(env.renderString('{{ vals | inclause }}', { vals: nums })).toBe('(1, 2, 3)');
+      expect(env.renderString('{{ vals | sql_in }}', { vals: strs })).toBe("'a', 'b'");
+      expect(env.renderString('{{ vals | inclause }}', { vals: strs })).toBe("('a', 'b')");
+    });
+
     it('sql_in handles null in array', () => {
       const result = env.renderString('{{ vals | sql_in }}', { vals: ['a', null, 'c'] });
-      expect(result).toBe("'a', null, 'c'");
+      expect(result).toBe("'a', NULL, 'c'");
     });
   });
 

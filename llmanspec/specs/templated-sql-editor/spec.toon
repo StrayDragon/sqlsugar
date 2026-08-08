@@ -44,6 +44,6 @@ scenarios[23]{req_id,id,given,when,then}:
   "R-J2E-018","class-rename",代码库存在 Jinja2NunjucksHandler/Jinja2NunjucksProcessor 等类名,审查引擎层类名,"command-handler.ts 导出 TemplatedSqlHandler、processor.ts 导出 TemplateProcessor、analyzers/ 导出 TemplateExpressionAnalyzer"
   "R-J2E-019","single-entry",命令 sqlsugar.copyTemplatedSql 的处理流程,"审查 command-handler 处理流程",不再存在 quick/wizard/defaults 模式分支及其处理方法 handleQuickMode/handleWizardMode/handleDefaultsMode
   "R-J2E-020","naming-consistency","src/features/templated-sql/ 目录已就位",审查目录下所有 .ts 文件的导出符号,不存在以 Jinja2 或 Jinjucks 为前缀的导出类名/函数名/类型名
-  "R-J2E-021",numeric-tuple,"模板为 IN ({{ ids|sql_in }}) 且 ids=[1,2,3]",系统渲染预览,输出包含 1, 2, 3 且数字无外层单引号
-  "R-J2E-021",string-tuple,"模板为 IN ({{ names|sql_in }}) 且 names=['1','2','3']",系统渲染预览,"输出包含 '1', '2', '3' 字符串字面量"
-  "R-J2E-022",filter-parity,"同一数字数组分别经 sql_in 与 inclause 渲染",比较元素级引号规则,两者对 number/string 的引号策略一致
+  "R-J2E-021",numeric-tuple,"模板使用 sql_in 且变量为数字数组 1 2 3",系统渲染预览,输出为无引号数字列表而非字符串字面量
+  "R-J2E-021",string-tuple,"模板使用 sql_in 且变量为字符串数组",系统渲染预览,输出为带单引号并正确转义的字符串列表
+  "R-J2E-022",filter-parity,同一数组分别经 sql_in 与 inclause 渲染,比较元素级引号规则,两者对 number 与 string 的引号策略一致

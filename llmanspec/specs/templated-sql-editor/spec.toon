@@ -2,7 +2,7 @@ kind: llman.sdd.spec
 name: "templated-sql-editor"
 purpose: 提供基于 WebView 的 Jinja2 SQL 模板可视化编辑器，支持变量类型推断、实时 SQL 预览、智能默认值生成，帮助用户快速生成参数化的 SQL 查询。
 valid_scope[4]: src/features/templated-sql/,src/shared/,src/test/,package.json
-requirements[26]{req_id,title,statement}:
+requirements[29]{req_id,title,statement}:
   "R-J2E-001",AST 变量提取,系统 MUST 通过 Nunjucks AST 解析提取模板变量并回退到正则匹配
   "R-J2E-002",类型推断,系统 MUST 基于变量名称模式推断类型(string/number/boolean/date)
   "R-J2E-003",可视化编辑器,系统 MUST 提供 Lit 组件实现的可视化编辑器支持点击变量弹出编辑框
@@ -29,7 +29,10 @@ requirements[26]{req_id,title,statement}:
   "R-J2E-033",写回源选区模板,系统 MUST 支持将编辑器中的当前模板写回触发命令时的源选区并保持宿主语言引号样式
   "R-J2E-034",渲染结果替换选区,系统 MUST 支持在用户显式确认后用渲染后的 SQL 替换源选区
   "R-J2E-035",复制动作可区分,系统 MUST 区分复制渲染结果与复制模板原文并给出明确成功反馈
-scenarios[29]{req_id,id,given,when,then}:
+  "R-J2E-036",Auto 分析器检测,"当 paramStyle.defaultMode 为 auto 时，系统 MUST 根据模板内容检测并启用匹配的参数分析器"
+  "R-J2E-037",开箱分析器默认,系统 MUST 默认启用至少 jinja2 与 named 分析器以覆盖常见 SQLAlchemy 风格
+  "R-J2E-038",Auto 持久化策略,"系统 MUST 在 auto 模式下按内容重检测分析器且不得用历史手动勾选锁死 auto 结果；manual 模式才持久化勾选列表"
+scenarios[32]{req_id,id,given,when,then}:
   "R-J2E-001",baseline,"模板含 {{ user_id }} 和 {% if is_active %}",用户打开可视化编辑器,变量列表显示 user_id 和 is_active
   "R-J2E-002",baseline,变量名为 user_id 和 is_active,编辑器推断变量类型,user_id 推断为 number 且 is_active 推断为 boolean
   "R-J2E-003",baseline,编辑器已打开含多个变量的模板,用户点击模板中高亮的变量,弹出编辑框且可修改变量值
@@ -59,3 +62,6 @@ scenarios[29]{req_id,id,given,when,then}:
   "R-J2E-033",write-back,"用户在编辑器中修改模板后点击写回模板","系统替换源选区","源文件字面量更新为新模板且引号样式保持"
   "R-J2E-034",replace-rendered,"用户点击替换为渲染 SQL 并确认","系统替换源选区","选区内容变为渲染后的 SQL 字面量"
   "R-J2E-035",copy-distinct,"用户分别点击复制模板与复制渲染 SQL","系统复制对应内容","成功提示区分模板与渲染结果"
+  "R-J2E-036",auto-detect,"模板同时含 named 与 asyncpg 占位符且 mode 为 auto","打开可视化编辑器","named 与 asyncpg 分析器均被启用"
+  "R-J2E-037",default-analyzers,用户使用默认配置首次打开编辑器,检查默认启用的分析器,至少包含 jinja2 与 named
+  "R-J2E-038",auto-persist,"用户曾在 manual 只勾选 jinja2 后改回 auto","再次打开含 :param 的模板","auto 重检测启用 named 而非锁死仅 jinja2"

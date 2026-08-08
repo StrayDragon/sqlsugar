@@ -2,7 +2,7 @@ kind: llman.sdd.spec
 name: "inline-sql-editing"
 purpose: 在 VS Code 中选中嵌入代码的 SQL 字符串，打开独立临时 .sql 文件进行编辑，保存后自动回写到原始代码位置。支持多语言引号处理和缩进同步。
 valid_scope[3]: "src/features/inline-sql/",src/test/,package.json
-requirements[14]{req_id,title,statement}:
+requirements[15]{req_id,title,statement}:
   "R-ISE-001",Python 字符串处理,系统 MUST 支持 Python 单引号/双引号/三引号 SQL 字符串提取和回写并保持 f/r/u 前缀
   "R-ISE-002",JS/TS 字符串处理,系统 MUST 支持 JavaScript/TypeScript 模板字面量和普通字符串的 SQL 提取
   "R-ISE-003",ORM 占位符转义,"系统 MUST 将 SQLAlchemy :param 占位符在临时文件中转义并在回写时还原"
@@ -17,7 +17,8 @@ requirements[14]{req_id,title,statement}:
   "R-ISE-012",空选区自动扩选,"当选区为空且光标位于受支持的宿主语言字符串字面量内时，系统 MUST 在进入编辑流程前自动扩选到该字面量的 SQL 内容"
   "R-ISE-013",选区引号与前缀容错,系统 MUST 在选区意外包含或遗漏引号或语言前缀时纠正边界以保证后续回写引号样式正确
   "R-ISE-014",扩选语言覆盖,系统 MUST 至少对 Python 与 JavaScript/TypeScript 的常见字符串字面量形态提供扩选与归一
-scenarios[14]{req_id,id,given,when,then}:
+  "R-ISE-015",Go 字符串字面量,系统 MUST 支持 Go raw string 与 interpreted string 的 SQL 字面量扩选与回写引号规则
+scenarios[15]{req_id,id,given,when,then}:
   "R-ISE-001",baseline,用户在 Python 文件中有三引号 SQL,用户选中并触发编辑命令,临时文件打开且引号和前缀正确处理
   "R-ISE-002",baseline,用户在 TypeScript 文件中有模板字面量 SQL,用户选中并触发编辑命令,临时文件打开且反引号正确处理
   "R-ISE-003",baseline,"SQL 中包含 :user_id 占位符",用户在临时文件编辑后保存,占位符在原文件中正确还原
@@ -32,3 +33,4 @@ scenarios[14]{req_id,id,given,when,then}:
   "R-ISE-012",cursor-expand,"Python 文件中光标位于三引号 SQL 字面量内部且选区为空",用户触发 editInlineSQL,系统扩选到该字面量内容并进入编辑流程
   "R-ISE-013",quote-normalize,用户选区多包含一层引号或遗漏引号,用户触发编辑命令,系统纠正选区边界且回写引号样式与源字面量一致
   "R-ISE-014",js-template-expand,"TypeScript 文件中光标位于模板字符串 SQL 内且选区为空",用户触发 editInlineSQL,系统扩选到模板字符串内容
+  "R-ISE-015",go-raw-expand,"Go 文件中光标位于 raw string SQL 内且选区为空",用户触发 editInlineSQL,系统扩选到该 raw string 内容

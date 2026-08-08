@@ -12,6 +12,8 @@ import { NamedParamAnalyzer } from './analyzers/named-param-analyzer';
 import { NumericParamAnalyzer } from './analyzers/numeric-param-analyzer';
 import { PyformatParamAnalyzer } from './analyzers/pyformat-param-analyzer';
 import { AsyncpgParamAnalyzer } from './analyzers/asyncpg-param-analyzer';
+import { LanguageHandler } from '../inline-sql/language-handler';
+import { readSqlSelectionConfig, resolveSqlSelection } from '../inline-sql/sql-selection';
 
 /**
  * 占位符检测结果
@@ -30,9 +32,11 @@ interface PlaceholderDetection {
 export class TemplatedSqlHandler {
   private static instance: TemplatedSqlHandler;
   private processor: TemplateProcessor;
+  private languageHandler: LanguageHandler;
 
   private constructor() {
     this.processor = TemplateProcessor.getInstance();
+    this.languageHandler = new LanguageHandler();
   }
 
   public static getInstance(): TemplatedSqlHandler {
@@ -63,14 +67,31 @@ export class TemplatedSqlHandler {
    */
   private async processTemplate(): Promise<boolean> {
     const editor = vscode.window.activeTextEditor;
-    if (!editor?.selection || editor.selection.isEmpty) {
-      vscode.window.showWarningMessage('Please select a Jinja2 template SQL to copy.', {
-        modal: false,
-      });
+    if (!editor) {
+      vscode.window.showWarningMessage('No active editor found.', { modal: false });
       return false;
     }
 
-    const selectedText = editor.document.getText(editor.selection);
+    const resolved = resolveSqlSelection(
+      editor.document,
+      editor.selection,
+      this.languageHandler,
+      readSqlSelectionConfig()
+    );
+
+    if (!resolved) {
+      vscode.window.showWarningMessage(
+        'Place the cursor inside a template SQL string literal, or select the template to open.',
+        { modal: false }
+      );
+      return false;
+    }
+
+    if (resolved.expanded || resolved.normalized) {
+      editor.selection = resolved.selection;
+    }
+
+    const selectedText = this.languageHandler.stripQuotes(resolved.text);
     const processor = this.processor;
 
 

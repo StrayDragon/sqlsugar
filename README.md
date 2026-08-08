@@ -22,12 +22,14 @@
 
 - 同步编辑内联SQL (`SQLSugar: Edit Inline SQL`) : 编辑区选中文本右键菜单、命令面板或默认快捷键 `Ctrl+Alt+S`（macOS: `Cmd+Alt+S`）触发
   - 在编辑器中选中 SQL 字符串，右键或命令面板执行“Edit Inline SQL”，在侧边打开临时 .sql 文件进行专注编辑。
+  - **光标在字符串内即可**：选区为空时会自动扩选到当前 Python / JS / TS 字符串字面量（可关 `sqlsugar.selection.autoExpand`）。
   - 支持与任何 SQL 语言服务器插件协同工作（如 sqls、SQLTools 等）
   - ORM 风格占位符支持：临时把 `:name` 转换为可编辑的字符串字面量，保存时还原为 `:name`，避免误把时间如 `12:34` 或 Postgres `::type` 当作占位符。
   - 临时文件默认写在系统临时目录（工作区外，避免污染 Git）；可用设置 `sqlsugar.tempFileLocation` 切回工作区 `.vscode/sqlsugar/temp/`。
   - 临时文件自动清理：`cleanupOnClose=true` 时关闭编辑器删除；为 false 时在保存同步后删除（需 `tempFileCleanup` 开启）。
 
 - 编辑 Templated / Jinja2 SQL (`SQLSugar: Open Templated SQL Editor`) : 右键菜单、命令面板或默认快捷键 `Ctrl+Alt+J`（macOS: `Cmd+Alt+J`）打开可视化编辑器
+  - 同样支持光标位于模板字符串内时无选区触发（自动扩选）
   - 识别并解析Jinja2模板, 并自动获取推断字段默认值, 用户可以在可视化编辑器中自由配置字段值和类型, 模板实时渲染, 方便复制并使用渲染后的SQL
   - **多参数风格支持**: 除 Jinja2 变量外，还支持多种 SQL 参数占位符风格：
     - `:param` (Named/SQLAlchemy)

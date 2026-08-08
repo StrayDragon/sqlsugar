@@ -245,6 +245,16 @@
             "Use .vscode/sqlsugar/temp/ inside the workspace"
           ],
           "description": "Where to store temporary Inline SQL files. Default osTemp keeps temp files out of your repo."
+        },
+        "sqlsugar.selection.autoExpand": {
+          "type": "boolean",
+          "default": true,
+          "description": "When the selection is empty, expand to the host-language string literal under the cursor before editing."
+        },
+        "sqlsugar.selection.includeSurroundingQuotes": {
+          "type": "boolean",
+          "default": false,
+          "description": "[Advanced] Prefer including surrounding quotes in the visible selection feedback. Rewrite always uses the full literal range."
         }
       }
     },

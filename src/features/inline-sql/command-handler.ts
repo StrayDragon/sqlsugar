@@ -3,6 +3,7 @@ import { Logger } from '../../core/logger';
 import { DIContainer } from '../../core/di-container';
 import { LanguageHandler } from './language-handler';
 import { TempFileManager } from './temp-file-manager';
+import { readSqlSelectionConfig, resolveSqlSelection } from './sql-selection';
 
 /**
  * 内联SQL编辑命令处理器
@@ -27,7 +28,6 @@ export class InlineSQLCommandHandler implements vscode.Disposable {
     try {
       Logger.debug('Executing editInlineSQL command');
 
-
       const editor = vscode.window.activeTextEditor;
       if (!editor) {
         vscode.window.showInformationMessage('No active editor found');
@@ -39,24 +39,35 @@ export class InlineSQLCommandHandler implements vscode.Disposable {
         return;
       }
 
+      const resolved = resolveSqlSelection(
+        editor.document,
+        editor.selection,
+        this.languageHandler,
+        readSqlSelectionConfig()
+      );
 
-      const selection = editor.selection;
-      if (!selection || selection.isEmpty) {
-        vscode.window.showInformationMessage('Please select SQL text to edit');
+      if (!resolved) {
+        vscode.window.showInformationMessage(
+          'Place the cursor inside a SQL string literal, or select SQL text to edit'
+        );
         return;
       }
 
-      const selectedText = editor.document.getText(selection);
+      if (resolved.expanded || resolved.normalized) {
+        editor.selection = resolved.selection;
+      }
+
+      const selectedText = resolved.text;
       if (!selectedText || selectedText.trim().length === 0) {
         vscode.window.showInformationMessage('Selected text is empty');
         return;
       }
 
-
-      if (!this.languageHandler.looksLikeSQL(selectedText)) {
+      const sqlForHeuristic = this.languageHandler.stripQuotes(selectedText);
+      if (!this.languageHandler.looksLikeSQL(sqlForHeuristic)) {
         const confirm = await vscode.window.showWarningMessage(
           'Selected text may not be SQL. Continue?',
-          { modal: true },
+          { modal: false },
           'Continue',
           'Cancel'
         );
@@ -65,10 +76,9 @@ export class InlineSQLCommandHandler implements vscode.Disposable {
         }
       }
 
-
       const result = await this.tempFileManager.createTempSQLFile(
         editor,
-        selection,
+        resolved.selection,
         selectedText
       );
 
@@ -81,7 +91,6 @@ export class InlineSQLCommandHandler implements vscode.Disposable {
         throw new Error('Failed to create temporary file - no URI returned');
       }
 
-
       const doc = await vscode.workspace.openTextDocument(tempUri);
       await vscode.window.showTextDocument(doc, vscode.ViewColumn.Beside);
 
@@ -93,4 +102,3 @@ export class InlineSQLCommandHandler implements vscode.Disposable {
     }
   }
 }
-

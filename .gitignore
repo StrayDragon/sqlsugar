@@ -227,3 +227,6 @@ __marimo__/
 debug
 bin
 examples/.vscode/sqlsugar/temp
+
+# llman SDD local index cache
+llmanspec/.context/

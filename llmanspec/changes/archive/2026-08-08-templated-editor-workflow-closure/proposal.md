@@ -3,7 +3,8 @@ depends_on:
 - fix-array-tuple-sql-literal-rendering
 branch: sdd/templated-editor-workflow-closure
 base_sha: 76f8c45f6585753c8c494cd93a8ce4cba51580b3
-checkpointed: false
+checkpointed: true
+checkpoint_sha: 76f8c45f6585753c8c494cd93a8ce4cba51580b3
 ---
 
 # Templated 编辑器工作流闭环：统一入口、写回与复制

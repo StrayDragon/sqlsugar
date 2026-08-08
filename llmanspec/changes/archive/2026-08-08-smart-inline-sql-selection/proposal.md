@@ -2,7 +2,8 @@
 depends_on: []
 branch: sdd/smart-inline-sql-selection
 base_sha: 76f8c45f6585753c8c494cd93a8ce4cba51580b3
-checkpointed: false
+checkpointed: true
+checkpoint_sha: 76f8c45f6585753c8c494cd93a8ce4cba51580b3
 ---
 
 # 智能选区：光标扩选字符串与引号容错

@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SQLSugar Templated SQL Editor Harness</title>
+  <link href="/dist/resources/vs2015.min.css" rel="stylesheet" />
+  <link href="/harness/harness.css" rel="stylesheet" />
+</head>
+<body class="vscode-light">
+  <div id="harness-shell">
+    <header class="harness-header">
+      <div>
+        <h1>Templated SQL Editor Harness</h1>
+        <p>Same-origin load of <code>dist/templated-sql-editor</code> against <code>examples/jinja2VisualEditor</code></p>
+      </div>
+      <div class="harness-actions">
+        <button id="btn-run-all" type="button">Run All Examples</button>
+        <span id="harness-summary" aria-live="polite"></span>
+      </div>
+    </header>
+    <div class="harness-layout">
+      <aside class="harness-sidebar">
+        <h2>Examples</h2>
+        <ul id="example-list"></ul>
+      </aside>
+      <main class="harness-main">
+        <sqlsugar-templated-sql-app></sqlsugar-templated-sql-app>
+      </main>
+      <section class="harness-log">
+        <h2>Verification Log</h2>
+        <pre id="log"></pre>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    // Mock VS Code webview bridge (same message surface the editor expects).
+    window.__HARNESS_LOGS__ = [];
+    window.vscode = {
+      postMessage(message) {
+        window.__HARNESS_LOGS__.push(message);
+        window.dispatchEvent(new CustomEvent('harness-vscode-message', { detail: message }));
+      },
+      getState() { return null; },
+      setState() {},
+    };
+  </script>
+  <script src="/dist/resources/highlight.min.js"></script>
+  <script type="module" src="/dist/templated-sql-editor/templated-sql-editor.js"></script>
+  <script type="module" src="/harness/harness-client.js"></script>
+</body>
+</html>

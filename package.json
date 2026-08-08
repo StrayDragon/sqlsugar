@@ -303,7 +303,10 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "clean": "rm -rf dist/ out/ *.vsix",
-    "build": "pnpm run compile"
+    "build": "pnpm run compile",
+    "harness:templated-sql": "node harness/templated-sql-editor/verify.mjs",
+    "harness:templated-sql:serve": "node esbuild.js --webview-only && node harness/templated-sql-editor/build-prepare.mjs && node harness/templated-sql-editor/server.mjs",
+    "harness:templated-sql:prepare": "node harness/templated-sql-editor/build-prepare.mjs"
   },
   "dependencies": {
     "@lit/context": "^1.1.6",
@@ -333,6 +336,7 @@
     "esbuild": "^0.25.8",
     "eslint": "^9.32.0",
     "jsdom": "^27.0.0",
+    "playwright": "^1.62.1",
     "typescript": "^5.9.2",
     "vitest": "^3.2.4"
   },

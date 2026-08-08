@@ -323,11 +323,25 @@ export class TemplateProcessor {
         if (isNunjucksNode(node.else_)) this.extractVariablesFromNode(node.else_, variables, processedNames);
         break;
 
-      case 'For':
-
-        if (isNunjucksNode(node.arr)) this.extractVariablesFromNode(node.arr, variables, processedNames);
+      case 'For': {
+        // 集合变量需要数组默认值（{% for x in items %}）
+        const arrName = isNunjucksNode(node.arr) ? this.resolveVariableName(node.arr) : null;
+        if (arrName && !processedNames.has(arrName)) {
+          variables.push({
+            name: arrName,
+            type: this.inferVariableType(arrName),
+            defaultValue: this.getDefaultValue(arrName, ['__for_collection__']) as TemplateVariableValue,
+            required: this.isRequiredVariable(arrName),
+            filters: ['__for_collection__'],
+            extractionMethod: 'nunjucks',
+          });
+          processedNames.add(arrName);
+        } else if (isNunjucksNode(node.arr)) {
+          this.extractVariablesFromNode(node.arr, variables, processedNames);
+        }
         if (isNunjucksNode(node.body)) this.extractVariablesFromNode(node.body, variables, processedNames);
         break;
+      }
 
       case 'Output':
 
@@ -376,6 +390,32 @@ export class TemplateProcessor {
         if (isNunjucksNode(node.left)) this.extractVariablesFromNode(node.left, variables, processedNames);
         if (isNunjucksNode(node.right)) this.extractVariablesFromNode(node.right, variables, processedNames);
         break;
+
+      case 'In': {
+        // `'x' in collection` / `item in list` — 右侧集合需要可迭代默认值
+        if (isNunjucksNode(node.left)) {
+          this.extractVariablesFromNode(node.left, variables, processedNames);
+        }
+        if (isNunjucksNode(node.right)) {
+          const rightName = this.resolveVariableName(node.right);
+          if (rightName && !processedNames.has(rightName)) {
+            const collectionHint =
+              rightName.toLowerCase() === 'filters' ? ['__mapping__'] : ['__in_collection__'];
+            variables.push({
+              name: rightName,
+              type: this.inferVariableType(rightName),
+              defaultValue: this.getDefaultValue(rightName, collectionHint) as TemplateVariableValue,
+              required: this.isRequiredVariable(rightName),
+              filters: collectionHint,
+              extractionMethod: 'nunjucks',
+            });
+            processedNames.add(rightName);
+          } else {
+            this.extractVariablesFromNode(node.right, variables, processedNames);
+          }
+        }
+        break;
+      }
 
       default:
 
@@ -742,6 +782,37 @@ export class TemplateProcessor {
     // 对点号名（如 user.id）取最后一段作为标识符。
     if (filters?.some(f => f === 'identifier' || f === 'sql_identifier')) {
       return varName.split('.').pop() ?? varName;
+    }
+
+    // join / IN 列表过滤器需要可迭代默认值，否则预览会抛 value.map is not a function。
+    if (filters?.some(f => f === 'join' || f === 'sql_in' || f === 'inclause')) {
+      const name = varName.toLowerCase();
+      if (name.includes('id')) return [1, 2, 3];
+      if (name.includes('status') || name.includes('role') || name.includes('tag') || name.includes('categor')) {
+        return ['active', 'pending'];
+      }
+      if (name.includes('column')) return ['id', 'name', 'created_at'];
+      return ['value1', 'value2'];
+    }
+
+    // for-loop / `in` 集合需要可迭代默认值
+    if (filters?.some(f => f === '__for_collection__' || f === '__in_collection__')) {
+      const name = varName.toLowerCase();
+      if (name.includes('id')) return [1, 2, 3];
+      if (name.includes('categor')) return ['electronics', 'premium'];
+      if (name.includes('tag')) return ['premium', 'sale'];
+      if (name.includes('role')) return ['admin', 'user'];
+      return ['alpha', 'beta'];
+    }
+
+    // `key in filters` + filters.field 用法：映射对象
+    if (filters?.some(f => f === '__mapping__') || varName.toLowerCase() === 'filters') {
+      return {
+        status: 'active',
+        min_amount: 10,
+        max_amount: 1000,
+        user_ids: [1, 2, 3],
+      };
     }
 
     const type = this.inferVariableType(varName);

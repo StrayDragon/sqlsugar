@@ -7,14 +7,16 @@ SELECT * FROM users
 WHERE username = '{{ username }}'
 {% endfilter %}
 
--- 使用多个过滤器链
-{% filter trim | upper %}
+-- 使用多个过滤器链（Nunjucks filter 块单过滤器；链用嵌套块表达）
+{% filter upper %}
+{% filter trim %}
     SELECT
         user_id,
         username,
         email
     FROM users
     WHERE status = 'active'
+{% endfilter %}
 {% endfilter %}
 
 -- 在 SQL 注释中使用 filter

@@ -1,0 +1,147 @@
+:root {
+  --bg: #f6f8fa;
+  --panel: #ffffff;
+  --border: #d0d7de;
+  --text: #24292f;
+  --muted: #57606a;
+  --ok: #1a7f37;
+  --fail: #cf222e;
+  --accent: #0969da;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+#harness-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.harness-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.harness-header h1 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.harness-header p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.harness-actions {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+#btn-run-all {
+  background: var(--accent);
+  color: #fff;
+  border: 0;
+  border-radius: 6px;
+  padding: 0.5rem 0.9rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#btn-run-all:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.harness-layout {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 240px 1fr 320px;
+}
+
+.harness-sidebar,
+.harness-log {
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow: auto;
+  padding: 0.75rem;
+}
+
+.harness-log {
+  border-right: 0;
+  border-left: 1px solid var(--border);
+}
+
+.harness-sidebar h2,
+.harness-log h2 {
+  margin: 0 0 0.5rem;
+  font-size: 0.9rem;
+}
+
+#example-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#example-list li button {
+  width: 100%;
+  text-align: left;
+  border: 1px solid transparent;
+  background: transparent;
+  padding: 0.45rem 0.5rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+#example-list li button:hover,
+#example-list li button.active {
+  background: #ddf4ff;
+  border-color: #54aeff66;
+}
+
+#example-list li button.pass {
+  color: var(--ok);
+}
+
+#example-list li button.fail {
+  color: var(--fail);
+}
+
+.harness-main {
+  min-width: 0;
+  min-height: 0;
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+
+sqlsugar-templated-sql-app {
+  display: block;
+  height: 100%;
+}
+
+#log {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+
+#harness-summary.ok { color: var(--ok); font-weight: 700; }
+#harness-summary.fail { color: var(--fail); font-weight: 700; }

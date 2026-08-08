@@ -114,3 +114,15 @@ clean:
     rm -rf dist/
     rm -rf out/
     rm -f *.vsix
+
+# =============================================================================
+# Templated SQL Editor Harness
+# =============================================================================
+
+# Build webview + prepare bundle, serve same-origin harness page
+harness-templated-sql-serve:
+    pnpm run harness:templated-sql:serve
+
+# Headless self-verify all examples/jinja2VisualEditor via Playwright
+harness-templated-sql:
+    pnpm run harness:templated-sql

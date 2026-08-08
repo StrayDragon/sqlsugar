@@ -61,9 +61,9 @@ WHERE 1=1
     AND email = '{{ email }}'
     {% endif %}
     {% if is_active is defined %}
-        {% if is_active is sameas true %}
+        {% if is_active is sameas(true) %}
         AND is_active = 1
-        {% elif is_active is sameas false %}
+        {% elif is_active is sameas(false) %}
         AND is_active = 0
         {% endif %}
     {% endif %};

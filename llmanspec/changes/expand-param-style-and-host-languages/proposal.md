@@ -3,7 +3,8 @@ depends_on:
 - add-param-style-placeholder-support
 branch: sdd/expand-param-style-and-host-languages
 base_sha: 76f8c45f6585753c8c494cd93a8ce4cba51580b3
-checkpointed: false
+checkpointed: true
+checkpoint_sha: 5e61d44f04112d531c43f0e45f93c426fedec030
 ---
 
 # 参数风格自动默认与宿主语言字符串扩展

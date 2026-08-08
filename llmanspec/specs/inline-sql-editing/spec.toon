@@ -2,7 +2,11 @@ kind: llman.sdd.spec
 name: "inline-sql-editing"
 purpose: 在 VS Code 中选中嵌入代码的 SQL 字符串，打开独立临时 .sql 文件进行编辑，保存后自动回写到原始代码位置。支持多语言引号处理和缩进同步。
 valid_scope[3]: "src/features/inline-sql/",src/test/,package.json
+<<<<<<< HEAD
 requirements[9]{req_id,title,statement}:
+=======
+requirements[10]{req_id,title,statement}:
+>>>>>>> e7ff354b (docs(sdd): commit inline-sql temp-path contract updates)
   "R-ISE-001",Python 字符串处理,系统 MUST 支持 Python 单引号/双引号/三引号 SQL 字符串提取和回写并保持 f/r/u 前缀
   "R-ISE-002",JS/TS 字符串处理,系统 MUST 支持 JavaScript/TypeScript 模板字面量和普通字符串的 SQL 提取
   "R-ISE-003",ORM 占位符转义,"系统 MUST 将 SQLAlchemy :param 占位符在临时文件中转义并在回写时还原"
@@ -11,8 +15,14 @@ requirements[9]{req_id,title,statement}:
   "R-ISE-006",SQL 内容检测,系统 SHALL 通过关键词启发式检测内容是否为 SQL 并允许用户确认
   "R-ISE-007",测试覆盖,系统 MUST 达到 80% 以上的单元测试覆盖率
   "R-ISE-008",JS/TS 引号升级,系统 MUST 在 JS/TS 中当内容包含换行时自动升级为模板字面量
+<<<<<<< HEAD
   "R-ISE-009",默认可发现快捷键,系统 MUST 为 sqlsugar.editInlineSQL 贡献默认可覆盖的键盘快捷键
 scenarios[9]{req_id,id,given,when,then}:
+=======
+  "R-ISE-010",临时文件默认位于工作区外,系统 MUST 默认将 Inline SQL 临时文件写在工作区之外的扩展 storage 或系统临时目录
+  "R-ISE-011",清理设置语义可读,系统 MUST 以清晰描述区分关闭时删除与保存时删除等临时文件清理行为
+scenarios[10]{req_id,id,given,when,then}:
+>>>>>>> e7ff354b (docs(sdd): commit inline-sql temp-path contract updates)
   "R-ISE-001",baseline,用户在 Python 文件中有三引号 SQL,用户选中并触发编辑命令,临时文件打开且引号和前缀正确处理
   "R-ISE-002",baseline,用户在 TypeScript 文件中有模板字面量 SQL,用户选中并触发编辑命令,临时文件打开且反引号正确处理
   "R-ISE-003",baseline,"SQL 中包含 :user_id 占位符",用户在临时文件编辑后保存,占位符在原文件中正确还原
@@ -21,4 +31,9 @@ scenarios[9]{req_id,id,given,when,then}:
   "R-ISE-006",baseline,用户选中的文本不含 SQL 关键词,用户触发编辑命令,系统弹出确认对话框询问是否继续
   "R-ISE-007",S001,所有核心功能已实现,"运行 pnpm test:coverage",覆盖率报告显示 80%+ 整体覆盖
   "R-ISE-008",S001,JS 文件中选中单行 SQL 字符串,编辑后 SQL 变为多行,回写时自动使用模板字面量包裹
+<<<<<<< HEAD
   "R-ISE-009",keybinding,扩展已安装且用户未覆盖快捷键,用户查看 Keyboard Shortcuts 中的 sqlsugar.editInlineSQL,存在默认键位绑定
+=======
+  "R-ISE-010",default-path,用户使用默认配置触发 Edit Inline SQL,检查临时文件路径,路径不在当前工作区仓库目录内
+  "R-ISE-011",settings-copy,用户打开设置并搜索 sqlsugar cleanup,阅读配置说明,能区分关闭时删与保存时删的行为
+>>>>>>> e7ff354b (docs(sdd): commit inline-sql temp-path contract updates)

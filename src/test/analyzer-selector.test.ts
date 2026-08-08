@@ -79,19 +79,17 @@ describe('AnalyzerSelector', () => {
 
   it('should toggle analyzer selection', async () => {
     element.mode = 'manual';
+    element.selectedAnalyzers = ['jinja2'];
     await element.updateComplete;
 
     const trigger = element.shadowRoot!.querySelector('.selector-trigger') as HTMLElement;
     trigger.click();
     await element.updateComplete;
 
-
     const checkboxes = element.shadowRoot!.querySelectorAll('input[type="checkbox"]');
     const namedCheckbox = checkboxes[1] as HTMLInputElement;
 
-
     expect(element.selectedAnalyzers).toEqual(['jinja2']);
-
 
     namedCheckbox.click();
     await element.updateComplete;
@@ -138,7 +136,7 @@ describe('AnalyzerSelector', () => {
     expect(handler).toHaveBeenCalled();
     expect(handler.mock.calls[0][0].detail).toEqual({
       mode: 'manual',
-      selectedAnalyzers: ['jinja2'],
+      selectedAnalyzers: ['jinja2', 'named'],
     });
   });
 
@@ -190,14 +188,14 @@ describe('AnalyzerSelector', () => {
   describe('persistence', () => {
     const STORAGE_KEY = 'sqlsugar.templatedSqlEditor.analyzerState';
 
-    /** Drive the element into manual mode and toggle `named` on. */
+    /** Drive the element into manual mode with jinja2 + named selected. */
     async function selectManualNamed(el: AnalyzerSelector) {
-      const trigger = el.shadowRoot!.querySelector('.selector-trigger') as HTMLElement;
-      trigger.click();
+      el.mode = 'manual';
+      el.selectedAnalyzers = ['jinja2'];
       await el.updateComplete;
 
-      const manualButton = el.shadowRoot!.querySelectorAll('.mode-button')[1] as HTMLElement;
-      manualButton.click();
+      const trigger = el.shadowRoot!.querySelector('.selector-trigger') as HTMLElement;
+      trigger.click();
       await el.updateComplete;
 
       const namedCheckbox = el.shadowRoot!.querySelectorAll(
@@ -243,7 +241,7 @@ describe('AnalyzerSelector', () => {
       await fresh.updateComplete;
 
       expect(fresh.mode).toBe('auto');
-      expect(fresh.selectedAnalyzers).toEqual(['jinja2']);
+      expect(fresh.selectedAnalyzers).toEqual(['jinja2', 'named']);
       fresh.remove();
     });
 
@@ -260,8 +258,40 @@ describe('AnalyzerSelector', () => {
 
       // All names unknown -> no valid selection -> keep defaults.
       expect(fresh.mode).toBe('auto');
-      expect(fresh.selectedAnalyzers).toEqual(['jinja2']);
+      expect(fresh.selectedAnalyzers).toEqual(['jinja2', 'named']);
       fresh.remove();
+    });
+
+    it('should not restore stale checkbox set when mode is auto', async () => {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({ mode: 'auto', selectedAnalyzers: ['jinja2'] })
+      );
+      element.remove();
+
+      const fresh = document.createElement('analyzer-selector') as AnalyzerSelector;
+      fresh.template = 'SELECT * FROM t WHERE id = :user_id AND n = $1';
+      document.body.appendChild(fresh);
+      await fresh.updateComplete;
+
+      expect(fresh.mode).toBe('auto');
+      expect(fresh.selectedAnalyzers).toEqual(
+        expect.arrayContaining(['named', 'asyncpg'])
+      );
+      expect(fresh.selectedAnalyzers).not.toEqual(['jinja2']);
+      fresh.remove();
+    });
+
+    it('should persist only mode (empty selection) while in auto', async () => {
+      element.template = 'SELECT :id';
+      element.applyAutoDetection();
+      await element.updateComplete;
+
+      const raw = localStorage.getItem(STORAGE_KEY);
+      expect(raw).toBeTruthy();
+      const parsed = JSON.parse(raw!);
+      expect(parsed.mode).toBe('auto');
+      expect(parsed.selectedAnalyzers).toEqual([]);
     });
 
     it('should not crash when localStorage throws on read', async () => {

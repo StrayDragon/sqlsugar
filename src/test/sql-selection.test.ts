@@ -56,4 +56,20 @@ describe('findEnclosingStringLiteral', () => {
       expect(text.slice(range!.start, range!.end)).toBe('"SELECT 1"');
     });
   });
+
+  describe('go', () => {
+    it('expands inside raw backtick strings', () => {
+      const text = 'q := `SELECT * FROM users`\n';
+      const offset = text.indexOf('FROM');
+      const range = findEnclosingStringLiteral(text, offset, 'go');
+      expect(text.slice(range!.start, range!.end)).toBe('`SELECT * FROM users`');
+    });
+
+    it('expands inside interpreted strings', () => {
+      const text = 'q := "SELECT 1"\n';
+      const offset = text.indexOf('SELECT');
+      const range = findEnclosingStringLiteral(text, offset, 'go');
+      expect(text.slice(range!.start, range!.end)).toBe('"SELECT 1"');
+    });
+  });
 });

@@ -72,7 +72,8 @@ export class EditorToolbar extends LitElement {
   @property({ type: String }) dialect = '';
   @property({ type: Array }) analyzerOptions: AnalyzerOption[] = [];
   @property({ type: String }) analyzerMode: 'auto' | 'manual' = 'auto';
-  @property({ type: Array }) selectedAnalyzers: string[] = ['jinja2'];
+  @property({ type: Array }) selectedAnalyzers: string[] = ['jinja2', 'named'];
+  @property({ type: String }) template = '';
 
   private emit(event: string) {
     this.dispatchEvent(new CustomEvent(event, { bubbles: true, composed: true }));
@@ -85,6 +86,7 @@ export class EditorToolbar extends LitElement {
           .options=${this.analyzerOptions}
           .mode=${this.analyzerMode}
           .selectedAnalyzers=${this.selectedAnalyzers}
+          .template=${this.template}
           .disabled=${this.processing}
         ></analyzer-selector>
       </div>

@@ -13,6 +13,7 @@ import { AsyncpgParamAnalyzer } from './analyzers/asyncpg-param-analyzer';
 import { LanguageHandler } from '../inline-sql/language-handler';
 import { readSqlSelectionConfig, resolveSqlSelection } from '../inline-sql/sql-selection';
 import { buildNamedParamVariables } from './workflow-actions';
+import { detectEnabledAnalyzers } from './analyzers/detect';
 
 /**
  * 占位符检测结果
@@ -147,7 +148,13 @@ export class TemplatedSqlHandler {
     analyzerPipeline.register(new PyformatParamAnalyzer());
     analyzerPipeline.register(new AsyncpgParamAnalyzer());
 
-    const analysisResult = analyzerPipeline.execute(selectedText);
+    const paramStyleCfg = vscode.workspace.getConfiguration('sqlsugar.paramStyle');
+    const defaultMode = paramStyleCfg.get<'auto' | 'manual'>('defaultMode', 'auto');
+    const configuredAnalyzers = paramStyleCfg.get<string[]>('enabledAnalyzers', ['jinja2', 'named']);
+    const enabledAnalyzers =
+      defaultMode === 'auto' ? detectEnabledAnalyzers(selectedText) : configuredAnalyzers;
+
+    const analysisResult = analyzerPipeline.execute(selectedText, { enabledAnalyzers });
     const hasParamPlaceholders = analysisResult.parameters.some(p => p.type !== 'jinja2');
 
     if (variables.length === 0 && !placeholderDetection.hasSQLAlchemy && !hasParamPlaceholders) {

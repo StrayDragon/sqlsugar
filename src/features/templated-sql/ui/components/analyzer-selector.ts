@@ -8,6 +8,7 @@
 import { LitElement, html, css } from 'lit';
 import { customElement, property, state } from 'lit/decorators.js';
 import type { ParamStyleType } from '../../analyzers/types.js';
+import { detectEnabledAnalyzers } from '../../analyzers/detect.js';
 
 /**
  * Analyzer option for the selector
@@ -46,12 +47,13 @@ export interface AnalyzerSelectorEvents {
 
 /**
  * localStorage key for persisting analyzer selection across editor sessions.
- * Satisfies R-J2E-031: 用户的选择在下次打开编辑器时恢复。
+ * Auto mode only persists `mode`; manual mode persists mode + selectedAnalyzers.
  */
 const ANALYZER_STATE_STORAGE_KEY = 'sqlsugar.templatedSqlEditor.analyzerState';
 
 interface PersistedAnalyzerState {
   mode: 'auto' | 'manual';
+  /** Only meaningful when mode === 'manual'. */
   selectedAnalyzers: string[];
 }
 
@@ -204,7 +206,11 @@ export class AnalyzerSelector extends LitElement {
   accessor mode: 'auto' | 'manual' = 'auto';
 
   @property({ type: Array })
-  accessor selectedAnalyzers: string[] = ['jinja2'];
+  accessor selectedAnalyzers: string[] = ['jinja2', 'named'];
+
+  /** Current template text — used to re-detect analyzers when mode is auto. */
+  @property({ type: String })
+  accessor template = '';
 
   @property({ type: Boolean })
   accessor disabled = false;
@@ -253,7 +259,8 @@ export class AnalyzerSelector extends LitElement {
     try {
       const state: PersistedAnalyzerState = {
         mode: this.mode,
-        selectedAnalyzers: this.selectedAnalyzers,
+        // Auto must not lock a stale checkbox set into storage.
+        selectedAnalyzers: this.mode === 'manual' ? this.selectedAnalyzers : [],
       };
       localStorage.setItem(ANALYZER_STATE_STORAGE_KEY, JSON.stringify(state));
     } catch {
@@ -261,20 +268,58 @@ export class AnalyzerSelector extends LitElement {
     }
   }
 
+  /**
+   * Recompute selected analyzers from template content (auto mode only).
+   */
+  applyAutoDetection(template: string = this.template): void {
+    if (this.mode !== 'auto') return;
+    const detected = detectEnabledAnalyzers(template);
+    const known = new Set(this.options.map(o => o.name));
+    const next = detected.filter(n => known.has(n));
+    const selected = next.length > 0 ? next : ['jinja2', 'named'];
+    const unchanged =
+      selected.length === this.selectedAnalyzers.length &&
+      selected.every((name, i) => name === this.selectedAnalyzers[i]);
+    if (!unchanged) {
+      this.selectedAnalyzers = selected;
+    }
+    this.persistState();
+    this.dispatchEvent(
+      new CustomEvent('analyzer-selection-change', {
+        detail: {
+          mode: this.mode,
+          selectedAnalyzers: this.selectedAnalyzers,
+        },
+        bubbles: true,
+        composed: true,
+      })
+    );
+  }
+
   override connectedCallback() {
     super.connectedCallback();
     document.addEventListener('click', this.handleClickOutside);
 
-    // Restore persisted selection (R-J2E-031). Only apply when storage holds
-    // analyzers we actually know about, so stale/unknown names are ignored.
     const persisted = this.loadPersistedState();
-    if (persisted) {
-      const known = new Set(this.options.map((o) => o.name));
-      const valid = persisted.selectedAnalyzers.filter((n) => known.has(n));
+    if (persisted?.mode === 'manual') {
+      const known = new Set(this.options.map(o => o.name));
+      const valid = persisted.selectedAnalyzers.filter(n => known.has(n));
       if (valid.length > 0) {
-        this.mode = persisted.mode;
+        this.mode = 'manual';
         this.selectedAnalyzers = valid;
       }
+    } else {
+      this.mode = 'auto';
+      // Detection runs when template is provided (updated / applyAutoDetection).
+      if (this.template) {
+        queueMicrotask(() => this.applyAutoDetection(this.template));
+      }
+    }
+  }
+
+  override updated(changed: Map<string, unknown>) {
+    if (this.mode === 'auto' && changed.has('template') && this.template) {
+      queueMicrotask(() => this.applyAutoDetection(this.template));
     }
   }
 
@@ -290,6 +335,10 @@ export class AnalyzerSelector extends LitElement {
 
   private setMode(mode: 'auto' | 'manual') {
     this.mode = mode;
+    if (mode === 'auto') {
+      this.applyAutoDetection(this.template);
+      return;
+    }
     this.emitChange();
   }
 

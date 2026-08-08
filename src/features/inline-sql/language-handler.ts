@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 /**
  * 支持的编程语言类型
  */
-export type LanguageType = 'python' | 'javascript' | 'typescript' | 'markdown' | 'generic';
+export type LanguageType = 'python' | 'javascript' | 'typescript' | 'go' | 'markdown' | 'generic';
 
 /**
  * 引号类型
@@ -89,6 +89,18 @@ export class LanguageHandler {
           from: 'double',
           to: 'template',
           condition: _content => _content.includes('\n'),
+        },
+      ],
+    },
+    {
+      id: 'go',
+      fileExtensions: ['.go'],
+      languageIds: ['go'],
+      quoteUpgradeRules: [
+        {
+          from: 'double',
+          to: 'backtick',
+          condition: _content => _content.includes('\n') || _content.includes('"'),
         },
       ],
     },
@@ -208,11 +220,26 @@ export class LanguageHandler {
       case 'javascript':
       case 'typescript':
         return this.selectJavaScriptQuote(originalQuote, content);
+      case 'go':
+        return this.selectGoQuote(originalQuote, content);
       case 'markdown':
         return this.selectMarkdownQuote(originalQuote);
       default:
         return this.selectGenericQuote(originalQuote);
     }
+  }
+
+  /**
+   * Go: prefer raw backtick strings for multiline / quote-heavy content.
+   */
+  private selectGoQuote(originalQuote: QuoteType, content: string): QuoteType {
+    if (originalQuote === 'backtick') {
+      return 'backtick';
+    }
+    if (content.includes('\n') || content.includes('"')) {
+      return 'backtick';
+    }
+    return originalQuote === 'single' ? 'double' : originalQuote;
   }
 
   /**

@@ -111,5 +111,30 @@ describe('LanguageHandler', () => {
       const mockDoc = { languageId: 'rust', fileName: 'test.rs' } as never;
       expect(handler.detectLanguage(mockDoc)).toBe('generic');
     });
+
+    it('should detect Go from languageId', () => {
+      const mockDoc = { languageId: 'go', fileName: 'query.go' } as never;
+      expect(handler.detectLanguage(mockDoc)).toBe('go');
+    });
+  });
+
+  describe('wrapLikeIntelligent (go)', () => {
+    it('keeps raw backtick strings', () => {
+      const original = '`SELECT 1`';
+      const wrapped = handler.wrapLikeIntelligent(original, 'SELECT 2', 'go');
+      expect(wrapped).toBe('`SELECT 2`');
+    });
+
+    it('upgrades interpreted string to raw when multiline', () => {
+      const original = '"SELECT 1"';
+      const wrapped = handler.wrapLikeIntelligent(original, 'SELECT 1\nFROM t', 'go');
+      expect(wrapped).toBe('`SELECT 1\nFROM t`');
+    });
+
+    it('keeps double quotes for single-line without embedded quotes', () => {
+      const original = '"SELECT 1"';
+      const wrapped = handler.wrapLikeIntelligent(original, 'SELECT 2', 'go');
+      expect(wrapped).toBe('"SELECT 2"');
+    });
   });
 });

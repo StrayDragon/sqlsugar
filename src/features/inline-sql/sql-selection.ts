@@ -173,9 +173,12 @@ export function findEnclosingStringLiteral(
   if (language === 'javascript' || language === 'typescript') {
     return findJsLiteral(text, offset);
   }
+  if (language === 'go') {
+    return findGoLiteral(text, offset);
+  }
 
-  // Generic: try JS-style then Python-style.
-  return findJsLiteral(text, offset) ?? findPythonLiteral(text, offset);
+  // Generic: try JS-style then Python-style then Go.
+  return findJsLiteral(text, offset) ?? findPythonLiteral(text, offset) ?? findGoLiteral(text, offset);
 }
 
 function findPythonLiteral(text: string, offset: number): TextRange | null {
@@ -239,6 +242,42 @@ function collectJsLiterals(text: string): TextRange[] {
         quote === '`'
           ? findClosingTemplate(text, contentStart)
           : findClosingEscaped(text, contentStart, quote);
+      if (end !== -1) {
+        ranges.push({ start, end: end + 1 });
+        i = end + 1;
+        continue;
+      }
+    }
+    i += 1;
+  }
+  return ranges;
+}
+
+function findGoLiteral(text: string, offset: number): TextRange | null {
+  const ranges = collectGoLiterals(text);
+  return ranges.find(r => offset >= r.start && offset <= r.end) ?? null;
+}
+
+/**
+ * Go raw (`...`) and interpreted ("...") string literals.
+ * Raw strings do not process escapes; closing backtick ends the literal.
+ */
+function collectGoLiterals(text: string): TextRange[] {
+  const ranges: TextRange[] = [];
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === '`') {
+      const start = i;
+      const end = text.indexOf('`', i + 1);
+      if (end !== -1) {
+        ranges.push({ start, end: end + 1 });
+        i = end + 1;
+        continue;
+      }
+    }
+    if (text[i] === '"') {
+      const start = i;
+      const end = findClosingEscaped(text, i + 1, '"');
       if (end !== -1) {
         ranges.push({ start, end: end + 1 });
         i = end + 1;

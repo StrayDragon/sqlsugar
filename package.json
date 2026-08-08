@@ -220,9 +220,10 @@
             ]
           },
           "default": [
-            "jinja2"
+            "jinja2",
+            "named"
           ],
-          "description": "Default enabled parameter analyzers. 'jinja2' is always recommended."
+          "markdownDescription": "Default enabled parameter analyzers (used when `defaultMode` is `manual`).\n\n- **jinja2**: `{{ var }}` / `{% %}` (Jinja2/Nunjucks)\n- **named**: `:param` (SQLAlchemy)\n- **numeric**: `:1` (Oracle-style)\n- **pyformat**: `%(name)s` (psycopg2)\n- **asyncpg**: `$1` (PostgreSQL asyncpg)"
         },
         "sqlsugar.paramStyle.defaultMode": {
           "type": "string",
@@ -231,7 +232,7 @@
             "manual"
           ],
           "default": "auto",
-          "description": "Default analyzer selection mode. 'auto' detects analyzers from SQL content."
+          "description": "Analyzer selection mode. 'auto' detects matching analyzers from SQL content on each open; 'manual' uses enabledAnalyzers."
         },
         "sqlsugar.tempFileLocation": {
           "type": "string",

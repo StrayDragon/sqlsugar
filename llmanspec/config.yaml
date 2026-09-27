@@ -2,3 +2,7 @@
 schema: spec-driven
 locale: zh-Hans
 
+# 固化 change finalize 的合入方式（默认 squash 会压扁按能力分批的提交历史）
+sdd:
+  merge_method: ff
+

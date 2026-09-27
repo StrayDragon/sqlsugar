@@ -55,13 +55,13 @@ test-ui:
 
 # Validate llmanspec specs and changes
 spec-validate:
-    llman sdd validate --all --no-interactive
+    llman-sdd validate --all --strict
 
 # Check spec staleness
 spec-check:
     #!/usr/bin/env bash
     set -e
-    STALE=$(llman sdd validate --specs --no-interactive 2>&1 | grep -c "STALE" || true)
+    STALE=$(llman-sdd review | awk -F, '/^[[:space:]]*stale,/ && $4 ~ /^(STALE|WARN)/ {c++} END{print c+0}')
     echo "Stale specs: $STALE"
     if [ "$STALE" -gt 0 ]; then
       echo "⚠️  Some specs may need updating"

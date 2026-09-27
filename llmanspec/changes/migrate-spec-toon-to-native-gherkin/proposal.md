@@ -1,5 +1,8 @@
 ---
 depends_on: []
+branch: sdd/migrate-spec-toon-to-native-gherkin
+base_branch: main
+base_sha: f894d5afea68fc5547c83b193f072c512093af6a
 ---
 
 # 遗留 spec.toon 迁移为 0.5.0 原生 Gherkin

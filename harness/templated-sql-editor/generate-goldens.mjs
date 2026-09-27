@@ -84,11 +84,15 @@ async function main() {
 
   const casesMeta = JSON.parse(fs.readFileSync(path.join(GOLDENS, 'cases.json'), 'utf8'));
 
+  // The whole generation run shares one instant: the server's clock is pinned
+  // to it via env, and the manifest records it for verify.mjs to pin back.
+  const generatedAt = new Date().toISOString();
+
   console.log('[goldens] starting server…');
   const server = spawn('node', ['harness/templated-sql-editor/server.mjs'], {
     cwd: ROOT,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, HARNESS_PORT: String(PORT) },
+    env: { ...process.env, HARNESS_PORT: String(PORT), HARNESS_DATE_PIN: generatedAt },
   });
   server.stdout.on('data', d => process.stdout.write(d));
   server.stderr.on('data', d => process.stderr.write(d));
@@ -105,6 +109,9 @@ async function main() {
     await waitForServer();
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    // Belt-and-suspenders: freeze the browser clock to the same instant in
+    // case any editor-side default derives from the browser's Date.
+    await page.clock.setFixedTime(new Date(generatedAt));
     page.on('pageerror', err => console.error('[pageerror]', err.message));
 
     await page.goto(`${BASE}/`, { waitUntil: 'domcontentloaded', timeout: 60_000 });
@@ -120,7 +127,7 @@ async function main() {
         : [];
 
     const manifest = {
-      generatedAt: new Date().toISOString(),
+      generatedAt: generatedAt.toISOString(),
       examples: [],
       multiFieldSuites: [],
     };

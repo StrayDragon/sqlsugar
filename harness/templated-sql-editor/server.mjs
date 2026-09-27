@@ -17,6 +17,39 @@ const GOLDENS = path.join(__dirname, 'goldens');
 const EXAMPLES_DIR = path.join(ROOT, 'examples/jinja2VisualEditor');
 const PORT = Number(process.env.HARNESS_PORT || 4177);
 
+// Pin the process clock before the prepare bundle loads: date-typed variable
+// defaults derive from "today" (DEFAULT_VALUES.TODAY_DATE and end-date
+// offsets), so renders must reproduce the day the goldens were captured.
+// Generation passes HARNESS_DATE_PIN; verification falls back to the goldens
+// manifest date.
+const datePin =
+  process.env.HARNESS_DATE_PIN ||
+  (() => {
+    const manifestPath = path.join(GOLDENS, 'manifest.json');
+    if (!fs.existsSync(manifestPath)) return null;
+    try {
+      const generatedAt = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).generatedAt;
+      return typeof generatedAt === 'string' && generatedAt.length > 0 ? generatedAt : null;
+    } catch {
+      return null;
+    }
+  })();
+
+if (datePin) {
+  const fixed = new Date(datePin);
+  const RealDate = Date;
+  globalThis.Date = class extends RealDate {
+    constructor(...args) {
+      if (args.length === 0) super(fixed.getTime());
+      else super(...args);
+    }
+    static now() {
+      return fixed.getTime();
+    }
+  };
+  console.log(`[templated-sql-harness] clock pinned to ${fixed.toISOString()}`);
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',

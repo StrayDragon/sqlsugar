@@ -3,6 +3,7 @@
  * Headless self-verify: open harness page with ?autorun=1 and assert all examples pass.
  */
 import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
@@ -81,6 +82,16 @@ async function main() {
     await waitForServer();
     const browser = await chromium.launch({ headless: true });
     const page = await browser.newPage();
+    // Freeze the page clock at the goldens' generation date: date-typed
+    // variable defaults derive from "today", so renders must reproduce the
+    // day the goldens were captured, not the day this run executes.
+    const manifestPath = path.join(__dirname, 'goldens', 'manifest.json');
+    if (fs.existsSync(manifestPath)) {
+      const generatedAt = JSON.parse(fs.readFileSync(manifestPath, 'utf8')).generatedAt;
+      if (typeof generatedAt === 'string' && generatedAt.length > 0) {
+        await page.clock.setFixedTime(new Date(generatedAt));
+      }
+    }
     page.on('console', msg => {
       if (msg.type() === 'error') {
         console.error('[browser console.error]', msg.text());

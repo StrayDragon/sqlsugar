@@ -6,3 +6,6 @@ locale: zh-Hans
 sdd:
   merge_method: ff
 
+specs:
+  check_command: pnpm run test
+

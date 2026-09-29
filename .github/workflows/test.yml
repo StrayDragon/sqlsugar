@@ -76,12 +76,21 @@ jobs:
         with:
           node-version: 20.x
 
+      # config.yaml 的 specs.check_command 为 `pnpm run test`，故需 pnpm + 依赖
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       # @llman-sdd/cli 的 bin 是 TS 源码，shebang 依赖 bun 运行时
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
 
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
       - name: Install llman-sdd CLI
-        run: npm install -g @llman-sdd/cli@0.6.0
+        run: npm install -g @llman-sdd/cli@0.7.0
 
       - name: Validate specs and changes
         run: llman-sdd validate --all --strict
